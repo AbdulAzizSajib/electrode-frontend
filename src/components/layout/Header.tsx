@@ -35,9 +35,9 @@ export default function Header() {
   }
 
   return (
-    <header className="sticky top-0 z-40 bg-white shadow-sm ">
+    <header className="sticky top-0 z-40 bg-brand shadow-sm ">
       {/* Announcement bar */}
-      <div className="hidden bg-brand text-white md:block ">
+      <div className="hidden bg-brand text-white md:block border-b border-white/30">
         <div className="mx-auto flex max-w-346 items-center justify-between py-2.25 text-[15px] ">
           <p>Free delivery &amp; 40% discount for next 3 orders! Place your 1st order in.</p>
           <div className="flex items-center gap-4">
@@ -54,33 +54,34 @@ export default function Header() {
       </div>
 
       {/* Main header */}
-      <div className="mx-auto flex max-w-346 items-center gap-4 py-4.75">
+      <div className="border-b border-white/30">
+      <div className="mx-auto flex max-w-346 items-center  gap-4 py-4.75 text-white">
         <button className="md:hidden" onClick={() => setMobileOpen(true)} aria-label="Open menu">
           <Menu size={26} />
         </button>
 
-        <Link href="/" className="shrink-0 text-4xl font-semibold text-gray-900">
+        <Link href="/" className="shrink-0 text-4xl font-semibold  ">
           Electrode
         </Link>
 
-        <form onSubmit={handleSearch} className="mx-auto hidden max-w-xl flex-1 items-center md:flex">
+        <form onSubmit={handleSearch} className="ml-auto max-w-2xl hidden  flex-1 items-center md:flex">
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             type="search"
-            placeholder="Search"
-            className="w-full rounded-l border border-gray-300 px-4 py-2.5 text-sm outline-none focus:border-brand"
+            placeholder="Search products..."
+            className="w-full rounded-l border border-gray-300 px-4 py-2.5 text-sm outline-none focus:border-brand bg-white placeholder:text-gray-400 text-gray-700"
           />
           <button
             type="submit"
-            className="flex h-[42px] w-12 items-center justify-center rounded-r bg-accent text-white"
+            className="flex h-10.5 w-12 items-center justify-center rounded-r bg-accent text-black"
             aria-label="Search"
           >
             <Search size={18} />
           </button>
         </form>
 
-        <div className="ml-auto flex items-center gap-5 text-sm">
+        <div className="ml-auto flex items-center gap-5 text-sm ">
           <Link href="/account/login" className="hidden items-center gap-2 md:flex">
             <User size={22} />
             <span>
@@ -113,6 +114,7 @@ export default function Header() {
             </span>
           </button>
         </div>
+      </div>
       </div>
 
       {/* Nav */}
