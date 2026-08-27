@@ -1,40 +1,45 @@
 "use client";
 
-import { categories, vendors } from "@/data/products";
+import type { CategoryNode } from "@/types/category";
 
-interface Props {
-  selectedCategory: string | null;
-  selectedVendor: string | null;
-  inStockOnly: boolean;
-  onCategoryChange: (value: string | null) => void;
-  onVendorChange: (value: string | null) => void;
-  onInStockChange: (value: boolean) => void;
+export interface FilterOption {
+  id: string;
+  name: string;
+  slug: string;
 }
 
+interface Props {
+  categories: CategoryNode[];
+  brands: FilterOption[];
+  selectedCategory: string | null;
+  selectedBrand: string | null;
+  onCategoryChange: (slug: string | null) => void;
+  onBrandChange: (slug: string | null) => void;
+}
+
+/**
+ * Filter options come from the live catalog, not a hardcoded list, so they can
+ * never offer a filter that matches nothing. Selection is by slug — the same
+ * identifier the category menu links with.
+ */
 export default function ProductFilters({
+  categories,
+  brands,
   selectedCategory,
-  selectedVendor,
-  inStockOnly,
+  selectedBrand,
   onCategoryChange,
-  onVendorChange,
-  onInStockChange,
+  onBrandChange,
 }: Props) {
+  // The menu is two levels; the filter list is flat, so children are offered
+  // alongside their parents with a visual indent.
+  const categoryOptions = categories.flatMap((parent) => [
+    { ...parent, depth: 0 },
+    ...parent.children.map((child) => ({ ...child, depth: 1 })),
+  ]);
+
   return (
     <aside className="w-full shrink-0 lg:w-56">
       <h3 className="mb-4 font-semibold text-gray-900">Filter</h3>
-
-      <div className="mb-6">
-        <p className="mb-3 text-sm font-semibold text-gray-700">Availability</p>
-        <label className="flex items-center gap-2 text-sm text-gray-600">
-          <input
-            type="checkbox"
-            checked={inStockOnly}
-            onChange={(e) => onInStockChange(e.target.checked)}
-            className="accent-brand"
-          />
-          In Stock
-        </label>
-      </div>
 
       <div className="mb-6">
         <p className="mb-3 text-sm font-semibold text-gray-700">Category</p>
@@ -47,42 +52,52 @@ export default function ProductFilters({
               All
             </button>
           </li>
-          {categories.map((c) => (
-            <li key={c}>
+          {categoryOptions.map((c) => (
+            <li key={c.id} className={c.depth > 0 ? "pl-3" : undefined}>
               <button
-                onClick={() => onCategoryChange(c)}
-                className={selectedCategory === c ? "font-semibold text-brand" : "hover:text-brand"}
+                onClick={() => onCategoryChange(c.slug)}
+                className={
+                  selectedCategory === c.slug
+                    ? "font-semibold text-brand"
+                    : "hover:text-brand"
+                }
               >
-                {c}
+                {c.name}
               </button>
             </li>
           ))}
         </ul>
       </div>
 
-      <div>
-        <p className="mb-3 text-sm font-semibold text-gray-700">Brand</p>
-        <ul className="space-y-2 text-sm text-gray-600">
-          <li>
-            <button
-              onClick={() => onVendorChange(null)}
-              className={!selectedVendor ? "font-semibold text-brand" : "hover:text-brand"}
-            >
-              All
-            </button>
-          </li>
-          {vendors.map((v) => (
-            <li key={v}>
+      {brands.length > 0 && (
+        <div>
+          <p className="mb-3 text-sm font-semibold text-gray-700">Brand</p>
+          <ul className="space-y-2 text-sm text-gray-600">
+            <li>
               <button
-                onClick={() => onVendorChange(v)}
-                className={selectedVendor === v ? "font-semibold text-brand" : "hover:text-brand"}
+                onClick={() => onBrandChange(null)}
+                className={!selectedBrand ? "font-semibold text-brand" : "hover:text-brand"}
               >
-                {v}
+                All
               </button>
             </li>
-          ))}
-        </ul>
-      </div>
+            {brands.map((b) => (
+              <li key={b.id}>
+                <button
+                  onClick={() => onBrandChange(b.slug)}
+                  className={
+                    selectedBrand === b.slug
+                      ? "font-semibold text-brand"
+                      : "hover:text-brand"
+                  }
+                >
+                  {b.name}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </aside>
   );
 }

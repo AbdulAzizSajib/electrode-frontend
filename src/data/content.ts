@@ -152,20 +152,8 @@ export const navLinks: NavLink[] = [
   { label: "Blogs", href: "/blogs" },
 ];
 
-// "Shop By Categories" mega menu
-export const categoriesMenu = [
-  { label: "Smart Watch" },
-  {
-    label: "Headphones",
-    children: ["Over-Ear", "In-Ear / Earbuds", "Wireless", "Noise Cancelling"],
-  },
-  { label: "Apple iPad" },
-  { label: "Smartphone", children: ["Android", "iPhone", "Accessories"] },
-  { label: "Smart Speaker" },
-  { label: "Electronics" },
-  { label: "Accessories" },
-  { label: "Game Console" },
-];
+// The "Shop By Categories" mega menu is no longer defined here — it comes from
+// the live catalog via `getCategoryTree()` (see src/services/category.ts).
 
 export const footerColumns = [
   {

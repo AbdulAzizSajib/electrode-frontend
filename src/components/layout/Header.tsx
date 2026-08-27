@@ -4,11 +4,26 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { ChevronDown, ChevronRight, Heart, LayoutGrid, Menu, Search, ShoppingBag, User, X } from "lucide-react";
-import { categoriesMenu, navLinks } from "@/data/content";
-import { useCart } from "@/contexts/cart-context";
+import { navLinks } from "@/data/content";
+import { EMPTY_CART, useGetCartQuery } from "@/store/cartApi";
+import { useAppDispatch } from "@/store/hooks";
+import { openCart } from "@/store/uiSlice";
+import type { AuthUser } from "@/types/auth";
+import type { CategoryNode } from "@/types/category";
 
-export default function Header() {
-  const { itemCount, openCart } = useCart();
+export default function Header({
+  user,
+  categories,
+}: {
+  user: AuthUser | null;
+  categories: CategoryNode[];
+}) {
+  const dispatch = useAppDispatch();
+  // The cart query lives here because the header is on every page — it keeps
+  // the cart cached so the drawer opens instantly, and the count updates
+  // straight from the cache after any mutation invalidates it.
+  const { data: cart = EMPTY_CART } = useGetCartQuery();
+  const itemCount = cart.itemCount;
   const router = useRouter();
   const [query, setQuery] = useState("");
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -82,12 +97,17 @@ export default function Header() {
         </form>
 
         <div className="ml-auto flex items-center gap-5 text-sm ">
-          <Link href="/account/login" className="hidden items-center gap-2 md:flex">
+          <Link
+            href={user ? "/account" : "/account/login"}
+            className="hidden items-center gap-2 md:flex"
+          >
             <User size={22} />
             <span>
-              Sign In
+              {user ? "Hello" : "Sign In"}
               <br />
-              <span className="font-semibold">Account</span>
+              <span className="font-semibold">
+                {user ? user.name.split(" ")[0] : "Account"}
+              </span>
             </span>
           </Link>
           <Link href="/wishlist" className="hidden items-center gap-2 lg:flex">
@@ -98,7 +118,7 @@ export default function Header() {
               <span className="font-semibold">0 Reorder</span>
             </span>
           </Link>
-          <button onClick={openCart} className="flex items-center gap-2">
+          <button onClick={() => dispatch(openCart())} className="flex items-center gap-2">
             <span className="relative">
               <ShoppingBag size={22} />
               {itemCount > 0 && (
@@ -120,9 +140,11 @@ export default function Header() {
       {/* Nav */}
       <nav className="hidden bg-brand text-white md:block">
         <div className="relative mx-auto flex max-w-346 items-center gap-8 py-4 text-[16px] font-medium">
-          {/* Shop By Categories mega menu */}
+          {/* Shop By Categories mega menu. Omitted entirely when the catalog
+              is empty or unreachable — better no menu than dead links. */}
+          {categories.length > 0 && (
           <div className="relative border-r border-white/30 pr-6" ref={categoriesRef}>
-          
+
             <button
               className="flex items-center gap-2"
               onClick={() =>
@@ -142,42 +164,42 @@ export default function Header() {
             {openMenu === "categories" && (
               <div className="absolute left-0 top-8 z-50 flex pt-2 text-gray-700">
                 <div className="w-64 rounded-b-lg bg-white py-2 shadow-xl">
-                  {categoriesMenu.map((cat) => (
-                    <div key={cat.label}>
+                  {categories.map((cat) => (
+                    <div key={cat.id}>
                       <button
                         type="button"
                         onClick={() =>
-                          cat.children
-                            ? setOpenCategory((c) => (c === cat.label ? null : cat.label))
-                            : router.push(`/products?category=${encodeURIComponent(cat.label)}`)
+                          cat.children.length > 0
+                            ? setOpenCategory((c) => (c === cat.id ? null : cat.id))
+                            : router.push(`/products?category=${encodeURIComponent(cat.slug)}`)
                         }
                         className={`flex w-full items-center justify-between border-b border-gray-100 px-5 py-2.5 text-left text-sm last:border-b-0 hover:bg-gray-50 hover:text-brand ${
-                          openCategory === cat.label ? "bg-gray-50 text-brand" : ""
+                          openCategory === cat.id ? "bg-gray-50 text-brand" : ""
                         }`}
                       >
-                        {cat.label}
-                        {cat.children && <ChevronRight size={14} />}
+                        {cat.name}
+                        {cat.children.length > 0 && <ChevronRight size={14} />}
                       </button>
                     </div>
                   ))}
                 </div>
                 {openCategory &&
                   (() => {
-                    const active = categoriesMenu.find((c) => c.label === openCategory);
-                    if (!active?.children) return null;
+                    const active = categories.find((c) => c.id === openCategory);
+                    if (!active?.children.length) return null;
                     return (
                       <div className="w-56 rounded-b-lg bg-white py-2 shadow-xl">
                         {active.children.map((child) => (
                           <Link
-                            key={child}
-                            href={`/products?category=${encodeURIComponent(active.label)}`}
+                            key={child.id}
+                            href={`/products?category=${encodeURIComponent(child.slug)}`}
                             onClick={() => {
                               setOpenMenu(null);
                               setOpenCategory(null);
                             }}
                             className="block px-5 py-2.5 text-sm hover:bg-gray-50 hover:text-brand"
                           >
-                            {child}
+                            {child.name}
                           </Link>
                         ))}
                       </div>
@@ -186,11 +208,12 @@ export default function Header() {
               </div>
             )}
           </div>
+          )}
 
           {navLinks.map((link) =>
             link.children ? (
               <div
-                key={link.href}
+                key={link.label}
                 className="relative"
                 onMouseEnter={() => setOpenMenu(link.label)}
                 onMouseLeave={() => setOpenMenu((m) => (m === link.label ? null : m))}
@@ -214,7 +237,7 @@ export default function Header() {
                 )}
               </div>
             ) : (
-              <Link key={link.href} href={link.href} className="hover:text-accent">
+              <Link key={link.label} href={link.href} className="hover:text-accent">
                 {link.label}
               </Link>
             )
@@ -249,20 +272,38 @@ export default function Header() {
               </button>
             </form>
 
-            <p className="mb-2 text-xs font-semibold uppercase text-gray-400">Shop By Categories</p>
-            <ul className="mb-5 flex flex-col gap-2 border-b border-gray-100 pb-5 text-sm text-gray-600">
-              {categoriesMenu.map((cat) => (
-                <li key={cat.label}>
-                  <Link href={`/products?category=${encodeURIComponent(cat.label)}`} onClick={() => setMobileOpen(false)}>
-                    {cat.label}
-                  </Link>
-                </li>
-              ))}
-            </ul>
+            {categories.length > 0 && (
+              <>
+                <p className="mb-2 text-xs font-semibold uppercase text-gray-400">Shop By Categories</p>
+                <ul className="mb-5 flex flex-col gap-2 border-b border-gray-100 pb-5 text-sm text-gray-600">
+                  {categories.map((cat) => (
+                    <li key={cat.id}>
+                      <Link href={`/products?category=${encodeURIComponent(cat.slug)}`} onClick={() => setMobileOpen(false)}>
+                        {cat.name}
+                      </Link>
+                      {cat.children.length > 0 && (
+                        <ul className="mt-1 flex flex-col gap-1 pl-4 text-gray-500">
+                          {cat.children.map((child) => (
+                            <li key={child.id}>
+                              <Link
+                                href={`/products?category=${encodeURIComponent(child.slug)}`}
+                                onClick={() => setMobileOpen(false)}
+                              >
+                                {child.name}
+                              </Link>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )}
 
             <ul className="flex flex-col gap-1 text-sm font-medium">
               {navLinks.map((link) => (
-                <li key={link.href}>
+                <li key={link.label}>
                   {link.children ? (
                     <div>
                       <button
@@ -297,8 +338,12 @@ export default function Header() {
                 </li>
               ))}
               <li className="border-t border-gray-100 pt-2">
-                <Link href="/account/login" onClick={() => setMobileOpen(false)} className="block py-2">
-                  Sign In / Account
+                <Link
+                  href={user ? "/account" : "/account/login"}
+                  onClick={() => setMobileOpen(false)}
+                  className="block py-2"
+                >
+                  {user ? "My Account" : "Sign In / Account"}
                 </Link>
               </li>
               <li>

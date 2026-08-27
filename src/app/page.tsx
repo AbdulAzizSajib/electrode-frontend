@@ -1,4 +1,4 @@
-import { products } from "@/data/products";
+import { getProducts } from "@/services/product";
 import { categoryTabs } from "@/data/content";
 import Hero from "@/components/home/Hero";
 import BrandBar from "@/components/home/BrandBar";
@@ -10,9 +10,16 @@ import CategoryGrid from "@/components/home/CategoryGrid";
 import Testimonials from "@/components/home/Testimonials";
 import BlogSection from "@/components/home/BlogSection";
 
-export default function Home() {
+export default async function Home() {
+  // One fetch feeds every section — the catalog is small and the sections are
+  // different slices of it, so re-querying per section would be wasteful.
+  const { products } = await getProducts({ limit: 24 });
+
   const byCategory = products.slice(0, 6);
-  const featured = products.filter((p) => p.featured).slice(0, 6).concat(products).slice(0, 6);
+  const featuredFirst = [...products].sort(
+    (a, b) => Number(b.isFeatured) - Number(a.isFeatured),
+  );
+  const featured = featuredFirst.slice(0, 6);
   const latest = [...products].reverse().slice(0, 6);
   const dealProducts = products.filter((p) => p.compareAtPrice).slice(0, 6);
 
