@@ -1,5 +1,5 @@
 import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
-import { cartApi } from "@/store/cartApi";
+import { cartApi, EMPTY_CART } from "@/store/cartApi";
 import type { ApiOrder, PlaceOrderPayload } from "@/types/order";
 import type { ApiResponse } from "@/types/auth";
 
@@ -11,14 +11,19 @@ import type { ApiResponse } from "@/types/auth";
  * cannot be reached from an api rooted at `/api/cart`.
  *
  * The side effect, though, is on the *cart*: the backend empties it inside the
- * same transaction that creates the order. So on success this invalidates
- * `cartApi`'s `Cart` tag directly, and the cart is refetched from the server
- * rather than assumed.
+ * same transaction that creates the order. On success that outcome is already
+ * known — the transaction cannot commit an order and leave the cart populated —
+ * so the cache is set to empty directly rather than invalidated. Invalidating
+ * would cost a second full round trip (browser → proxy → API → database) after
+ * the order already succeeded, and the shopper waits through it before seeing
+ * the confirmation. The one thing a refetch would add is the server's
+ * cookie-clearing side effect for a spent coupon, which the next genuine cart
+ * read reconciles anyway.
  *
  * A definite rejection (400/409 — the server decided before committing) leaves
  * the cart alone, which is what lets the shopper fix a quantity and retry. A
  * 504 is different in kind: the request was delivered and may have committed,
- * so the cached cart can no longer be trusted and has to be re-read.
+ * so the outcome genuinely is unknown and the cart has to be re-read.
  */
 export const orderApi = createApi({
   reducerPath: "orderApi",
@@ -35,7 +40,10 @@ export const orderApi = createApi({
       async onQueryStarted(_arg, { dispatch, queryFulfilled }) {
         try {
           await queryFulfilled;
-          dispatch(cartApi.util.invalidateTags(["Cart"]));
+          // The order committed, so the cart is empty — no need to ask.
+          dispatch(
+            cartApi.util.updateQueryData("getCart", undefined, () => EMPTY_CART),
+          );
         } catch (error) {
           // Outcome unknown: the order may have committed and emptied the cart,
           // so refetch rather than keep rendering a cart that no longer exists.

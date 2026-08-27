@@ -70,14 +70,25 @@ export function SubmitButton({
   pending,
   children,
   pendingText,
+  onClick,
+  type = "submit",
 }: {
   pending: boolean;
   children: ReactNode;
   pendingText: string;
+  /** Submits by click rather than form submission — see `type`. */
+  onClick?: () => void;
+  /**
+   * `"button"` when the surrounding markup is a `<div>` rather than a `<form>`,
+   * which is how this form renders when nested inside another one (HTML drops a
+   * nested `<form>` tag, leaving a submit button wired to the *outer* form).
+   */
+  type?: "submit" | "button";
 }) {
   return (
     <button
-      type="submit"
+      type={type}
+      onClick={onClick}
       disabled={pending}
       className="flex w-full items-center justify-center gap-2 rounded bg-brand py-3 text-sm font-semibold text-white transition-colors hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-60"
     >

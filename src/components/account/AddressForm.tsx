@@ -23,6 +23,12 @@ interface Props {
   onCancel?: () => void;
   /** Marks a newly created address as the shopper's default. */
   defaultToDefault?: boolean;
+  /**
+   * Set `false` when this renders inside another `<form>` (checkout). HTML
+   * forbids nested forms — the parser drops the inner `<form>` tag, which
+   * would leave Save address submitting the *outer* form instead of this one.
+   */
+  asForm?: boolean;
 }
 
 export default function AddressForm({
@@ -30,6 +36,7 @@ export default function AddressForm({
   onSaved,
   onCancel,
   defaultToDefault = false,
+  asForm = true,
 }: Props) {
   const [createAddress, { isLoading: isCreating }] = useCreateAddressMutation();
   const [updateAddress, { isLoading: isUpdating }] = useUpdateAddressMutation();
@@ -80,8 +87,9 @@ export default function AddressForm({
     return Object.keys(errors).length === 0;
   }
 
-  async function handleSubmit(event: React.FormEvent) {
-    event.preventDefault();
+  async function handleSubmit(event?: React.FormEvent) {
+    // Absent when invoked from the nested-mode button's onClick.
+    event?.preventDefault();
     setFormError("");
     if (!validate()) return;
 
@@ -118,8 +126,13 @@ export default function AddressForm({
     }
   }
 
+  const Wrapper = asForm ? "form" : "div";
+  const wrapperProps = asForm
+    ? { onSubmit: handleSubmit, noValidate: true }
+    : {};
+
   return (
-    <form onSubmit={handleSubmit} noValidate className="space-y-4">
+    <Wrapper {...wrapperProps} className="space-y-4">
       {formError && <FormAlert tone="error">{formError}</FormAlert>}
 
       <Field
@@ -208,7 +221,12 @@ export default function AddressForm({
       </label>
 
       <div className="flex gap-3">
-        <SubmitButton pending={pending} pendingText="Saving...">
+        <SubmitButton
+          pending={pending}
+          pendingText="Saving..."
+          type={asForm ? "submit" : "button"}
+          onClick={asForm ? undefined : () => handleSubmit()}
+        >
           {isEditing ? "Save changes" : "Save address"}
         </SubmitButton>
         {onCancel && (
@@ -222,6 +240,6 @@ export default function AddressForm({
           </button>
         )}
       </div>
-    </form>
+    </Wrapper>
   );
 }

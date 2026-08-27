@@ -114,6 +114,9 @@ export default function CheckoutForm({
     event.preventDefault();
     setError("");
     setIndeterminate(false);
+    // The address form renders inside this one, so Enter in one of its inputs
+    // reaches here. Placing an order mid-edit is never what was meant.
+    if (isAddingAddress) return;
     if (!addressId || !shippingMethodId) return;
 
     try {
@@ -178,6 +181,10 @@ export default function CheckoutForm({
             {isAddingAddress ? (
               <div className="rounded-xl border border-gray-200 p-5">
                 <AddressForm
+                  // This sits inside the checkout's own <form>; a nested
+                  // <form> tag would be dropped by the parser, leaving Save
+                  // address submitting the checkout instead.
+                  asForm={false}
                   defaultToDefault={addresses.length === 0}
                   onSaved={(saved) => {
                     setIsAddingAddress(false);
