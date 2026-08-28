@@ -41,9 +41,9 @@ export default function ProductCard({ product }: { product: Product }) {
           <Image
             src={product.image}
             alt={product.name}
-            fill
-            className="object-cover transition-transform duration-300 group-hover:scale-105"
-            sizes="(max-width: 768px) 50vw, 20vw"
+            width={500}
+            height={500}
+            className="object-contain w-full h-full transition-transform duration-300 group-hover:scale-105"
           />
         </Link>
       </div>

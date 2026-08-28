@@ -7,19 +7,21 @@ export const heroSlides = [
     id: 1,
     eyebrow: "The ideal electronics",
     title: "Hammer Bash Max Over-Ear Headphones",
-    price: "$149.99",
-    image: "/watch.png",
+    price: "1800.00 Taka",
+    image: "/headphone.png",
     href: "/products/hammer-bash-max-over-ear-headphones",
     theme: "light" as const,
+    scale: "scale-150" as const,
   },
   {
     id: 2,
     eyebrow: "Up to 50% discount",
     title: "Titan Traveller With 4.52 CM Display Watch",
-    price: "$99.99",
-    image: "/watch.png",
+      price: "2500.00 Taka",
+     image: "/watch.png",
     href: "/products/titan-traveller-display-watch",
     theme: "light" as const,
+    scale: "scale-150" as const,
   },
 ];
 
@@ -28,14 +30,15 @@ export const sideBanners = [
     id: 1,
     eyebrow: "Best discount",
     title: "Meta Oculus Quest Virtual Reality",
-    image: placeholderImage("side-oculus", { w: 500, h: 300, label: "Meta Oculus Quest" }),
+   image: "/headgear.png",
     href: "/products/meta-oculus-quest-vr",
   },
   {
     id: 2,
     eyebrow: "Up to 30% discount",
-    title: "Bluetooth Calling Smart Watch",
-    image: placeholderImage("side-watch", { w: 500, h: 300, label: "Bluetooth Smart Watch" }),
+    title: "JISULIFE Handheld Fan Life9 Mini Portable jet Fan",
+    price: "2500.00 Taka",
+    image: "/fan.png",
     href: "/products/bluetooth-calling-smart-watch",
   },
 ];
@@ -43,8 +46,8 @@ export const sideBanners = [
 export const promoTile = {
   eyebrow: "Weekend discount",
   title: "Asus Zenfone 10 5G Green",
-  price: "$599.99",
-  image: placeholderImage("promo-zenfone", { w: 600, h: 500, label: "Asus Zenfone 10" }),
+  price: "18,000.00 Taka",
+ image: "/phone.png",
   href: "/products/asus-zenfone-10-5g-green",
 };
 
@@ -92,13 +95,19 @@ export const collectionTiles = [
 ];
 
 export const categoryGrid = [
-  { title: "Game Console", count: 6, image: placeholderImage("cat-console", { w: 200, h: 200, label: "Game Console" }) },
-  { title: "Pro Air Pods", count: 5, image: placeholderImage("cat-airpods", { w: 200, h: 200, label: "Pro Air Pods" }) },
-  { title: "Headphones", count: 10, image: placeholderImage("cat-headphones", { w: 200, h: 200, label: "Headphones" }) },
-  { title: "Apple iPad", count: 7, image: placeholderImage("cat-ipad", { w: 200, h: 200, label: "Apple iPad" }) },
-  { title: "Gear Camera", count: 6, image: placeholderImage("cat-camera", { w: 200, h: 200, label: "Gear Camera" }) },
-  { title: "Smart Watch", count: 8, image: placeholderImage("cat-watch", { w: 200, h: 200, label: "Smart Watch" }) },
-  { title: "Smart Speaker", count: 5, image: placeholderImage("cat-speaker", { w: 200, h: 200, label: "Smart Speaker" }) },
+  { title: "Adapter & Cables", count: 6, image: "/categories/c2.png" },
+  { title: "Pro Air Pods", count: 5, image: "/categories/c5.png" },
+  { title: "Headphones", count: 10,  image: "/categories/c1.png" },
+  { title: "Power Banks", count: 7, image: "/categories/c4.png" },
+  { title: "Speaker", count: 6, image: "/categories/c6.png" },
+  { title: "Smart Watch", count: 8, image: "/categories/c7.png" },
+  { title: "Neckbands ", count: 5, image: "/categories/c3.png" }, 
+  { title: "Mini Fan", count: 6, image: "/categories/c8.png" },
+  { title: "VR Gear", count: 5, image: "/categories/c9.png" },
+  { title: "Bags", count: 10,  image: "/categories/c10.png" },
+  { title: "Computer Accessories", count: 7, image: "/categories/c12.png" },
+  { title: "Mobile Accessories", count: 6, image: "/categories/c11.png" },
+
 ];
 
 export const testimonials = [
@@ -129,27 +138,27 @@ export const navLinks: NavLink[] = [
   { label: "Home", href: "/" },
   {
     label: "Shop",
-    href: "/products",
-    children: [
-      { label: "All Products", href: "/products" },
-      { label: "New Arrivals", href: "/products?sort=new" },
-      { label: "Best Sellers", href: "/products?sort=best" },
-      { label: "Today's Deal", href: "/deals" },
-    ],
+    href: "/shop",
+    // children: [
+    //   { label: "All Products", href: "/products" },
+    //   { label: "New Arrivals", href: "/products?sort=new" },
+    //   { label: "Best Sellers", href: "/products?sort=best" },
+    //   { label: "Today's Deal", href: "/deals" },
+    // ],
   },
-  { label: "Collections", href: "/products" },
+  { label: "Best Selling", href: "/shop?sort=best" },
   {
-    label: "Headphones",
-    href: "/products?category=Headphones",
-    children: [
-      { label: "All Headphones", href: "/products?category=Headphones" },
-      { label: "Over-Ear", href: "/products?category=Headphones" },
-      { label: "In-Ear / Earbuds", href: "/products?category=Headphones" },
-      { label: "Wireless", href: "/products?category=Headphones" },
-    ],
+    label: "New Arrivals",
+    href: "/shop?sort=new",
+    // children: [
+    //   { label: "All Headphones", href: "/products?category=Headphones" },
+    //   { label: "Over-Ear", href: "/products?category=Headphones" },
+    //   { label: "In-Ear / Earbuds", href: "/products?category=Headphones" },
+    //   { label: "Wireless", href: "/products?category=Headphones" },
+    // ],
   },
-  { label: "Contact", href: "/contact" },
   { label: "Blogs", href: "/blogs" },
+  { label: "Contact", href: "/contact" },
 ];
 
 // The "Shop By Categories" mega menu is no longer defined here — it comes from

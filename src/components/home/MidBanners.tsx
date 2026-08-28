@@ -4,7 +4,7 @@ import { midBanners } from "@/data/content";
 
 export default function MidBanners() {
   return (
-    <section className="container-px mx-auto max-w-346 py-8">
+    <section className="container-px mx-auto max-w-346 py-8 border border-black">
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         {midBanners.map((b) => (
           <Link

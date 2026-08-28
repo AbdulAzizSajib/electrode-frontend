@@ -1,9 +1,9 @@
 "use client";
-
+import { Icon } from "@iconify/react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { ChevronDown, ChevronRight, Heart, LayoutGrid, Menu, Search, ShoppingBag, User, X } from "lucide-react";
+import { ChevronDown, ChevronRight, Heart, LayoutGrid, Menu, Search, ShoppingBag, Truck, User, X } from "lucide-react";
 import { navLinks } from "@/data/content";
 import { EMPTY_CART, useGetCartQuery } from "@/store/cartApi";
 import { useAppDispatch } from "@/store/hooks";
@@ -56,14 +56,19 @@ export default function Header({
         <div className="mx-auto flex max-w-346 items-center justify-between py-2.25 text-[15px] ">
           <p>Free delivery &amp; 40% discount for next 3 orders! Place your 1st order in.</p>
           <div className="flex items-center gap-4">
-            <Link href="/track-order" className="hover:underline">
+           
+            <Link href="/whatsapp" className="hover:underline flex items-center gap-2 font-light">
+            <Icon icon="akar-icons:whatsapp-fill" />
+              01782521705
+            </Link>
+             <Link href="/track-order" className="hover:underline flex items-center gap-2 font-light">
+            <Icon icon="garden:email-stroke-16" />
+              sajib@gmail.com
+            </Link>
+             <Link href="/track-order" className="hover:underline flex items-center gap-2 font-light">
+            <Icon icon="fa-solid:truck" />
               Track Order
             </Link>
-            <Link href="/gift-cards" className="hover:underline">
-              Gift Cards
-            </Link>
-            <span>USD $</span>
-            <span>English</span>
           </div>
         </div>
       </div>
@@ -97,19 +102,7 @@ export default function Header({
         </form>
 
         <div className="ml-auto flex items-center gap-5 text-sm ">
-          <Link
-            href={user ? "/account" : "/account/login"}
-            className="hidden items-center gap-2 md:flex"
-          >
-            <User size={22} />
-            <span>
-              {user ? "Hello" : "Sign In"}
-              <br />
-              <span className="font-semibold">
-                {user ? user.name.split(" ")[0] : "Account"}
-              </span>
-            </span>
-          </Link>
+        
           <Link href="/wishlist" className="hidden items-center gap-2 lg:flex">
             <Heart size={22} />
             <span>
@@ -133,6 +126,19 @@ export default function Header({
               <span className="font-semibold">My Cart</span>
             </span>
           </button>
+            <Link
+            href={user ? "/account" : "/account/login"}
+            className="hidden items-center  gap-2 md:flex"
+          >
+            <User size={22} />
+            <span>
+              {user ? "Hello" : "Account"}
+              <br />
+              <span className="font-light">
+                {user ? user.name.split(" ")[0] : "Register or Login"}
+              </span>
+            </span>
+          </Link>
         </div>
       </div>
       </div>
@@ -162,8 +168,8 @@ export default function Header({
               <ChevronDown size={14} className={openMenu === "categories" ? "rotate-180 transition-transform ml-10.5 " : "transition-transform ml-10.5"} />
             </button>
             {openMenu === "categories" && (
-              <div className="absolute left-0 top-8 z-50 flex pt-2 text-gray-700">
-                <div className="w-64 rounded-b-lg bg-white py-2 shadow-xl">
+              <div className="absolute left-0 top-8  z-50 flex pt-2 text-gray-700">
+                <div className="w-64  bg-white py-0 shadow-xl ">
                   {categories.map((cat) => (
                     <div key={cat.id}>
                       <button
@@ -173,7 +179,7 @@ export default function Header({
                             ? setOpenCategory((c) => (c === cat.id ? null : cat.id))
                             : router.push(`/products?category=${encodeURIComponent(cat.slug)}`)
                         }
-                        className={`flex w-full items-center justify-between border-b border-gray-100 px-5 py-2.5 text-left text-sm last:border-b-0 hover:bg-gray-50 hover:text-brand ${
+                        className={`flex w-full items-center justify-between border border-gray-100 px-5 py-2.5 text-left text-base  hover:bg-gray-100 hover:text-brand ${
                           openCategory === cat.id ? "bg-gray-50 text-brand" : ""
                         }`}
                       >
@@ -188,7 +194,7 @@ export default function Header({
                     const active = categories.find((c) => c.id === openCategory);
                     if (!active?.children.length) return null;
                     return (
-                      <div className="w-56 rounded-b-lg bg-white py-2 shadow-xl">
+                      <div className="w-56 bg-white py-2.5 rounded-r-lg shadow-xl">
                         {active.children.map((child) => (
                           <Link
                             key={child.id}
@@ -243,6 +249,7 @@ export default function Header({
             )
           )}
           <Link href="/deals" className="ml-auto flex items-center gap-2 hover:text-accent">
+            <Icon icon="fluent:flash-on-24-filled" />
             Today&apos;s Deal
           </Link>
         </div>
