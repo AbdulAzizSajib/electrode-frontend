@@ -4,7 +4,7 @@ import { blogPosts } from "@/data/content";
 
 export default function BlogSection() {
   return (
-    <section className="container-px mx-auto max-w-346 py-12">
+    <section className="container-px mx-auto max-w-346 py-12 ">
       <h2 className="mb-8 text-2xl font-bold text-gray-900">Our Latest Blog</h2>
       <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
         {blogPosts.map((post) => (

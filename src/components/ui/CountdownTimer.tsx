@@ -31,7 +31,7 @@ export default function CountdownTimer({ daysFromNow = 7 }: { daysFromNow?: numb
     <div className="flex gap-2">
       {units.map(([label, value]) => (
         <div key={label} className="flex flex-col items-center">
-          <span className="flex h-11 w-11 items-center justify-center rounded border border-gray-300 text-sm font-semibold">
+          <span className="flex h-8 w-8 items-center justify-center rounded border border-gray-300 text-sm font-semibold">
             {String(value).padStart(2, "0")}
           </span>
           <span className="mt-1 text-[10px] text-gray-500">{label}</span>

@@ -53,17 +53,17 @@ export default function Header({
     <header className="sticky top-0 z-40 bg-brand shadow-sm ">
       {/* Announcement bar */}
       <div className="hidden bg-brand text-white md:block border-b border-white/30">
-        <div className="mx-auto flex max-w-346 items-center justify-between py-2.25 text-[15px] ">
+        <div className="container-px mx-auto flex max-w-346 items-center justify-between py-2.25 text-[15px] ">
           <p>Free delivery &amp; 40% discount for next 3 orders! Place your 1st order in.</p>
           <div className="flex items-center gap-4">
            
             <Link href="/whatsapp" className="hover:underline flex items-center gap-2 font-light">
             <Icon icon="akar-icons:whatsapp-fill" />
-              01782521705
+              +8801782521705
             </Link>
              <Link href="/track-order" className="hover:underline flex items-center gap-2 font-light">
             <Icon icon="garden:email-stroke-16" />
-              sajib@gmail.com
+              contact@sheisite.com
             </Link>
              <Link href="/track-order" className="hover:underline flex items-center gap-2 font-light">
             <Icon icon="fa-solid:truck" />
@@ -75,13 +75,13 @@ export default function Header({
 
       {/* Main header */}
       <div className="border-b border-white/30">
-      <div className="mx-auto flex max-w-346 items-center  gap-4 py-4.75 text-white">
+      <div className="container-px mx-auto flex max-w-346 items-center  gap-4 py-4.75 text-white">
         <button className="md:hidden" onClick={() => setMobileOpen(true)} aria-label="Open menu">
           <Menu size={26} />
         </button>
 
         <Link href="/" className="shrink-0 text-4xl font-semibold  ">
-          Electrode
+          Gadgets<span className="text-accent ml-2">Mart</span>
         </Link>
 
         <form onSubmit={handleSearch} className="ml-auto max-w-2xl hidden  flex-1 items-center md:flex">
@@ -105,7 +105,7 @@ export default function Header({
         
           <Link href="/wishlist" className="hidden items-center gap-2 lg:flex">
             <Heart size={22} />
-            <span>
+            <span className="flex flex-col items-center">
               Wishlist
               <br />
               <span className="font-semibold">0 Reorder</span>
@@ -145,7 +145,7 @@ export default function Header({
 
       {/* Nav */}
       <nav className="hidden bg-brand text-white md:block">
-        <div className="relative mx-auto flex max-w-346 items-center gap-8 py-4 text-[16px] font-medium">
+        <div className="container-px relative mx-auto flex max-w-346 items-center gap-8 py-4 text-[16px] font-medium">
           {/* Shop By Categories mega menu. Omitted entirely when the catalog
               is empty or unreachable — better no menu than dead links. */}
           {categories.length > 0 && (

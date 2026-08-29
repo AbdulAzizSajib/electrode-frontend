@@ -28,12 +28,12 @@ export default async function Home() {
       <Hero />
       <BrandBar />
       <CategoryGrid title="Featured Categories" />
-      <ProductSection title="Product By Categories" products={byCategory} tabs={categoryTabs} />
+      <ProductSection title="Best Selling Products" products={byCategory} tabs={categoryTabs} />
       <MidBanners />
       <ProductSection title="Featured Products" products={featured} />
       <PerksBar />
       <DealOfWeek products={dealProducts} />
-      <ProductSection title="Latest Products" products={latest} />
+      <ProductSection title="New Arrivals" products={latest} />
       <Testimonials />
       <BlogSection />
     </>

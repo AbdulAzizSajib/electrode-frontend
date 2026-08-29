@@ -8,20 +8,19 @@ export const heroSlides = [
     eyebrow: "The ideal electronics",
     title: "Hammer Bash Max Over-Ear Headphones",
     price: "1800.00 Taka",
-    image: "/headphone.png",
+    image: "/h1.png",
     href: "/products/hammer-bash-max-over-ear-headphones",
     theme: "light" as const,
-    scale: "scale-150" as const,
+    
   },
   {
     id: 2,
     eyebrow: "Up to 50% discount",
     title: "Titan Traveller With 4.52 CM Display Watch",
       price: "2500.00 Taka",
-     image: "/watch.png",
+    image: "/h2.png",
     href: "/products/titan-traveller-display-watch",
     theme: "light" as const,
-    scale: "scale-150" as const,
   },
 ];
 
@@ -30,7 +29,7 @@ export const sideBanners = [
     id: 1,
     eyebrow: "Best discount",
     title: "Meta Oculus Quest Virtual Reality",
-   image: "/headgear.png",
+   image: "/h4.png",
     href: "/products/meta-oculus-quest-vr",
   },
   {
@@ -38,7 +37,7 @@ export const sideBanners = [
     eyebrow: "Up to 30% discount",
     title: "JISULIFE Handheld Fan Life9 Mini Portable jet Fan",
     price: "2500.00 Taka",
-    image: "/fan.png",
+    image: "/h5.png",
     href: "/products/bluetooth-calling-smart-watch",
   },
 ];
@@ -47,7 +46,7 @@ export const promoTile = {
   eyebrow: "Weekend discount",
   title: "Asus Zenfone 10 5G Green",
   price: "18,000.00 Taka",
- image: "/phone.png",
+ image: "/h6.png",
   href: "/products/asus-zenfone-10-5g-green",
 };
 

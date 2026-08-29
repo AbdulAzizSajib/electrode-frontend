@@ -5,7 +5,7 @@ import type { Product } from "@/types/product";
 
 export default function DealOfWeek({ products }: { products: Product[] }) {
   return (
-    <section className="container-px mx-auto max-w-346 py-8">
+    <section className="container-px sm:container-px mx-auto max-w-346 py-8">
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-6">
         <div className="flex flex-col justify-center rounded-xl bg-[#eef1fb] p-6 lg:col-span-1">
           <p className="mb-1 inline-block w-fit rounded bg-brand px-3 py-1 text-xs font-bold text-white">
@@ -26,7 +26,7 @@ export default function DealOfWeek({ products }: { products: Product[] }) {
             Shop Now
           </Link>
         </div>
-        <div className="grid grid-cols-2 gap-x-5 gap-y-8 sm:grid-cols-3 lg:col-span-5">
+        <div className="grid grid-cols-2 gap-x-5 gap-y-8 sm:grid-cols-5 lg:col-span-5">
           {products.map((product) => (
             <ProductCard key={product.id} product={product} />
           ))}

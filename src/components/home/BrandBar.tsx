@@ -5,7 +5,7 @@ const brands = ["/brands/b1.webp", "/brands/b2.webp", "/brands/b3.webp", "/brand
 
 export default function BrandBar() {
   return (
-    <section className="mx-auto max-w-346 pb-2">
+    <section className=" container-px mx-auto max-w-346 py-8">
       <Marquee>
         <div className="flex flex-wrap items-center justify-between gap-6 border-gray-100 py-6">
           {brands.map((brand) => (
