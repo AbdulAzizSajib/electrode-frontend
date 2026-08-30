@@ -2,24 +2,50 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import clsx from "clsx";
-import { Eye, Heart, Loader2, Minus, Plus, Repeat } from "lucide-react";
-import type { Product } from "@/types/product";
+import { Eye, Loader2, Minus, Plus, Repeat } from "lucide-react";
+import type { PaginationMeta, Product } from "@/types/product";
+import type { RatingBreakdown, Review } from "@/types/review";
 import { discountPercent, formatPrice } from "@/lib/format";
+import { saveDirectOrderIntent } from "@/lib/guest-checkout";
 import { useAddItemMutation } from "@/store/cartApi";
 import { useAppDispatch } from "@/store/hooks";
 import { openCart } from "@/store/uiSlice";
 import ProductGallery from "@/components/product/ProductGallery";
 import CountdownTimer from "@/components/ui/CountdownTimer";
 import ProductCard from "@/components/product/ProductCard";
+import ProductReviews from "@/components/product/ProductReviews";
+import WishlistButton from "@/components/product/WishlistButton";
+import StarRating from "@/components/ui/StarRating";
+
+/** The tab strip is a literal list, not data — adding a panel means widening this. */
+type ProductTab = "description" | "shipping" | "reviews";
+
+const TABS: { id: ProductTab; label: string }[] = [
+  { id: "description", label: "Description" },
+  { id: "shipping", label: "Shipping & Returns" },
+  { id: "reviews", label: "Reviews" },
+];
 
 export default function ProductDetail({
   product,
   related,
+  initialReviews,
+  initialBreakdown,
+  initialReviewMeta,
+  reviewsUnavailable,
+  isSignedIn,
 }: {
   product: Product;
   related: Product[];
+  initialReviews: Review[];
+  initialBreakdown: RatingBreakdown | null;
+  initialReviewMeta: PaginationMeta;
+  reviewsUnavailable: boolean;
+  isSignedIn: boolean;
 }) {
+  const router = useRouter();
   const dispatch = useAppDispatch();
   const [addItem, { isLoading }] = useAddItemMutation();
 
@@ -31,8 +57,14 @@ export default function ProductDetail({
     () => product.variants.find((v) => v.inStock)?.id ?? product.variants[0]?.id ?? null,
   );
   const [quantity, setQuantity] = useState(1);
-  const [tab, setTab] = useState<"description" | "shipping">("description");
+  const [tab, setTab] = useState<ProductTab>("description");
   const [error, setError] = useState("");
+
+  /** Jumps from the rating row under the title down to the reviews panel. */
+  function showReviews() {
+    setTab("reviews");
+    document.getElementById("product-tabs")?.scrollIntoView({ behavior: "smooth" });
+  }
 
   const selectedVariant =
     product.variants.find((v) => v.id === selectedVariantId) ?? null;
@@ -78,6 +110,33 @@ export default function ProductDetail({
     }
   }
 
+  /**
+   * Buys this one product on its own. Deliberately does NOT add to the cart
+   * first: the backend takes checkout lines directly, so a shopper arriving
+   * from a campaign link goes product → checkout in one step, and whatever they
+   * already had in their cart is left exactly as it was.
+   *
+   * The display fields ride along only so checkout can render the item — the
+   * server resolves name, SKU and price itself, so nothing here is trusted.
+   */
+  function handleBuyItNow() {
+    setError("");
+    saveDirectOrderIntent({
+      item: {
+        productId: product.id,
+        variantId: selectedVariantId ?? undefined,
+        quantity,
+      },
+      display: {
+        name: product.name,
+        image: images[0] ?? "",
+        unitPrice: activePrice,
+        variantName: selectedVariant?.name,
+      },
+    });
+    router.push("/checkout");
+  }
+
   return (
     <div className="container-px mx-auto max-w-346 py-8">
       <p className="mb-6 text-sm text-gray-500">
@@ -92,6 +151,24 @@ export default function ProductDetail({
 
         <div>
           <h1 className="text-2xl font-bold text-gray-900 sm:text-3xl">{product.name}</h1>
+
+          {/* Omitted entirely for an unrated product — see toProduct: `rating`
+              is undefined until the product actually has published reviews. */}
+          {product.rating !== undefined && (
+            <div className="mt-2 flex items-center gap-2">
+              <StarRating rating={product.rating} size={16} />
+              <span className="text-sm text-gray-500">
+                {product.rating.toFixed(1)} out of 5
+              </span>
+              <button
+                type="button"
+                onClick={showReviews}
+                className="text-sm text-brand underline-offset-2 hover:underline"
+              >
+                {product.reviewCount} review{product.reviewCount === 1 ? "" : "s"}
+              </button>
+            </div>
+          )}
 
           <div className="mt-3 flex items-center gap-3">
             {activeCompareAt && activeCompareAt > activePrice && (
@@ -200,28 +277,29 @@ export default function ProductDetail({
               {isLoading && <Loader2 size={16} className="animate-spin" />}
               {isLoading ? "Adding..." : "Add to Cart"}
             </button>
-            <Link
-              href="/checkout"
-              onClick={(e) => {
-                if (!canAdd || isLoading) e.preventDefault();
-                else void handleAddToCart();
-              }}
-              aria-disabled={!canAdd || isLoading}
+            <button
+              type="button"
+              onClick={handleBuyItNow}
+              disabled={!canAdd || isLoading}
               className={clsx(
                 "flex-1 rounded py-3 text-center text-sm font-semibold uppercase text-white",
                 canAdd && !isLoading
                   ? "bg-brand hover:bg-brand-dark"
-                  : "pointer-events-none bg-gray-300",
+                  : "cursor-not-allowed bg-gray-300",
               )}
             >
               Buy It Now
-            </Link>
+            </button>
           </div>
 
           <div className="mt-4 flex gap-6 text-sm text-gray-500">
-            <button className="flex items-center gap-1.5 hover:text-brand">
-              <Heart size={16} /> Wishlist
-            </button>
+            <WishlistButton
+              productId={product.id}
+              size={16}
+              withLabel
+              standalone
+              className="hover:text-brand"
+            />
             <button className="flex items-center gap-1.5 hover:text-brand">
               <Repeat size={16} /> Compare
             </button>
@@ -249,30 +327,42 @@ export default function ProductDetail({
         </div>
       </div>
 
-      <div className="mt-12 border-t border-gray-100 pt-8">
+      <div id="product-tabs" className="mt-12 border-t border-gray-100 pt-8">
         <div className="mb-6 flex gap-8 border-b border-gray-100">
-          {(["description", "shipping"] as const).map((t) => (
+          {TABS.map(({ id, label }) => (
             <button
-              key={t}
-              onClick={() => setTab(t)}
+              key={id}
+              onClick={() => setTab(id)}
               className={clsx(
-                "border-b-2 pb-3 text-sm font-semibold capitalize",
-                tab === t ? "border-brand text-brand" : "border-transparent text-gray-500",
+                "border-b-2 pb-3 text-sm font-semibold",
+                tab === id ? "border-brand text-brand" : "border-transparent text-gray-500",
               )}
             >
-              {t === "description" ? "Description" : "Shipping & Returns"}
+              {label}
+              {id === "reviews" && product.reviewCount > 0 && ` (${product.reviewCount})`}
             </button>
           ))}
         </div>
-        {tab === "description" ? (
+        {tab === "description" && (
           <p className="max-w-3xl text-sm leading-relaxed text-gray-600">
             {product.description ?? "No description available for this product yet."}
           </p>
-        ) : (
+        )}
+        {tab === "shipping" && (
           <p className="max-w-3xl text-sm leading-relaxed text-gray-600">
             Free shipping on orders over $130. Items can be returned or exchanged within 30 days of
             delivery in original condition. Contact support to start a return.
           </p>
+        )}
+        {tab === "reviews" && (
+          <ProductReviews
+            productId={product.id}
+            initialReviews={initialReviews}
+            initialBreakdown={initialBreakdown}
+            initialMeta={initialReviewMeta}
+            initialError={reviewsUnavailable}
+            isSignedIn={isSignedIn}
+          />
         )}
       </div>
 

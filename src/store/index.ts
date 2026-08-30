@@ -3,18 +3,29 @@ import { setupListeners } from "@reduxjs/toolkit/query";
 import { addressApi } from "@/store/addressApi";
 import { cartApi } from "@/store/cartApi";
 import { orderApi } from "@/store/orderApi";
+import { productApi } from "@/store/productApi";
+import { reviewApi } from "@/store/reviewApi";
+import { wishlistApi } from "@/store/wishlistApi";
 import uiReducer from "@/store/uiSlice";
 
 /**
  * A store is created per request rather than as a module singleton — a shared
  * instance on the server would leak one visitor's cart into another's render.
+ *
+ * `isSignedIn` is preloaded rather than dispatched after mount: components gate
+ * authenticated queries on it, and a first render that wrongly said "signed
+ * out" would skip a query it should have run.
  */
-export function makeStore() {
+export function makeStore({ isSignedIn = false }: { isSignedIn?: boolean } = {}) {
   const store = configureStore({
+    preloadedState: { ui: { isCartOpen: false, isSignedIn } },
     reducer: {
       [cartApi.reducerPath]: cartApi.reducer,
       [addressApi.reducerPath]: addressApi.reducer,
       [orderApi.reducerPath]: orderApi.reducer,
+      [productApi.reducerPath]: productApi.reducer,
+      [reviewApi.reducerPath]: reviewApi.reducer,
+      [wishlistApi.reducerPath]: wishlistApi.reducer,
       ui: uiReducer,
     },
     middleware: (getDefaultMiddleware) =>
@@ -22,6 +33,9 @@ export function makeStore() {
         cartApi.middleware,
         addressApi.middleware,
         orderApi.middleware,
+        productApi.middleware,
+        reviewApi.middleware,
+        wishlistApi.middleware,
       ),
   });
 

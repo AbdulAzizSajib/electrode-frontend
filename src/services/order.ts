@@ -1,37 +1,6 @@
 import { ApiError, apiFetch } from "@/lib/api-client";
 import { buildAuthCookieHeader } from "@/lib/session";
-import type { ApiOrder, ApiOrderItem, Order, OrderItem } from "@/types/order";
-
-function toOrderItem(item: ApiOrderItem): OrderItem {
-  return {
-    id: item.id,
-    productId: item.productId,
-    variantId: item.variantId,
-    name: item.productName,
-    sku: item.sku,
-    quantity: item.quantity,
-    unitPrice: Number(item.unitPrice) || 0,
-    totalPrice: Number(item.totalPrice) || 0,
-  };
-}
-
-function toOrder(order: ApiOrder): Order {
-  return {
-    id: order.id,
-    orderNumber: order.orderNumber,
-    status: order.status,
-    subtotal: Number(order.subtotal) || 0,
-    discountAmount: Number(order.discountAmount) || 0,
-    shippingAmount: Number(order.shippingAmount) || 0,
-    taxAmount: Number(order.taxAmount) || 0,
-    totalAmount: Number(order.totalAmount) || 0,
-    couponCode: order.couponCode ?? undefined,
-    notes: order.notes ?? undefined,
-    createdAt: order.createdAt,
-    items: (order.items ?? []).map(toOrderItem),
-    shippingAddress: order.shippingAddress ?? null,
-  };
-}
+import { toOrder, type ApiOrder, type Order } from "@/types/order";
 
 /**
  * A single order belonging to the signed-in customer.
@@ -48,6 +17,30 @@ export async function getOrderById(id: string): Promise<Order | null> {
     if (!cookie) return null;
 
     const { data } = await apiFetch<ApiOrder>(`/orders/${id}`, { cookie });
+    return data ? toOrder(data) : null;
+  } catch (error) {
+    if (error instanceof ApiError) return null;
+    throw error;
+  }
+}
+
+/**
+ * An order retrieved without a session, by the number and phone it was placed
+ * with. Needs no cookie: the pair *is* the credential.
+ *
+ * The backend answers a wrong phone and an unknown order number with the same
+ * 404 so the response cannot be used to probe which order numbers exist — hence
+ * one null here for both, with no attempt to tell the caller which it was.
+ */
+export async function getGuestOrder(
+  orderNumber: string,
+  phone: string,
+): Promise<Order | null> {
+  try {
+    const { data } = await apiFetch<ApiOrder>("/orders/track", {
+      method: "POST",
+      body: { orderNumber, phone },
+    });
     return data ? toOrder(data) : null;
   } catch (error) {
     if (error instanceof ApiError) return null;

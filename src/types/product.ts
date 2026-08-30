@@ -99,6 +99,13 @@ export interface ApiProduct {
   /** Set when an active campaign discounts this product. */
   campaignPrice: string | null;
   activeCampaign: { id: string; name: string } | null;
+  /**
+   * Aggregate over the product's APPROVED reviews. `averageRating` is a decimal
+   * string ("0", "4.50") like every other decimal on this API, while
+   * `reviewCount` beside it is a plain number — they look symmetrical and are not.
+   */
+  averageRating: string;
+  reviewCount: number;
 }
 
 /** Pagination block returned alongside a product list. */
@@ -150,6 +157,13 @@ export interface Product {
   isFeatured: boolean;
   variants: ProductVariant[];
   attributes: ProductAttribute[];
+  /**
+   * Undefined when the product has no published reviews — deliberately not 0,
+   * so an unrated product renders no stars at all rather than an empty
+   * five-star row that reads as "rated badly". Set only when reviewCount > 0.
+   */
+  rating?: number;
+  reviewCount: number;
 }
 
 export interface ProductListResult {

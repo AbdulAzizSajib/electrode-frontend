@@ -53,6 +53,13 @@ function buildCookieHeader(request: Request): string | null {
  * carry `Secure`/`SameSite=None`. Strip the domain so the cookie binds to the
  * storefront's host, and drop `Secure` in development where the storefront is
  * plain http and the browser would otherwise discard it.
+ *
+ * Dropping `Secure` also forces `SameSite` down to `Lax`: browsers reject
+ * `SameSite=None` unless it is paired with `Secure`, so leaving the pair
+ * half-rewritten silently discards the cookie. For the cart's `guestToken`
+ * that meant every request minted a fresh guest cart — writes appeared to
+ * succeed, then the next read showed the old contents. These routes are
+ * same-origin, so `Lax` carries the cookie for them regardless.
  */
 function rewriteSetCookie(value: string): string {
   const isProduction = process.env.NODE_ENV === "production";
@@ -66,6 +73,11 @@ function rewriteSetCookie(value: string): string {
       if (!isProduction && lower === "secure") return false;
       return true;
     })
+    .map((part) =>
+      !isProduction && part.toLowerCase() === "samesite=none"
+        ? "SameSite=Lax"
+        : part,
+    )
     .join("; ");
 }
 

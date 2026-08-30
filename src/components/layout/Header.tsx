@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import { ChevronDown, ChevronRight, Heart, LayoutGrid, Menu, Search, ShoppingBag, Truck, User, X } from "lucide-react";
 import { navLinks } from "@/data/content";
 import { EMPTY_CART, useGetCartQuery } from "@/store/cartApi";
+import { useGetWishlistCountQuery } from "@/store/wishlistApi";
 import { useAppDispatch } from "@/store/hooks";
 import { openCart } from "@/store/uiSlice";
 import type { AuthUser } from "@/types/auth";
@@ -24,6 +25,11 @@ export default function Header({
   // straight from the cache after any mutation invalidates it.
   const { data: cart = EMPTY_CART } = useGetCartQuery();
   const itemCount = cart.itemCount;
+  // Skipped entirely for a signed-out visitor: the endpoint 401s without a
+  // session, and the header is on every page, so this would 401 site-wide.
+  const { data: wishlistCount = 0 } = useGetWishlistCountQuery(undefined, {
+    skip: !user,
+  });
   const router = useRouter();
   const [query, setQuery] = useState("");
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -104,11 +110,20 @@ export default function Header({
         <div className="ml-auto flex items-center gap-5 text-sm ">
         
           <Link href="/wishlist" className="hidden items-center gap-2 lg:flex">
-            <Heart size={22} />
+            <span className="relative">
+              <Heart size={22} />
+              {wishlistCount > 0 && (
+                <span className="absolute -right-2 -top-2 flex h-4 w-4 items-center justify-center rounded-full bg-sale text-[10px] font-bold text-white">
+                  {wishlistCount}
+                </span>
+              )}
+            </span>
             <span className="flex flex-col items-center">
               Wishlist
               <br />
-              <span className="font-semibold">0 Reorder</span>
+              <span className="font-semibold">
+                {wishlistCount} Saved
+              </span>
             </span>
           </Link>
           <button onClick={() => dispatch(openCart())} className="flex items-center gap-2">

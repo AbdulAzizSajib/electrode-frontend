@@ -1,8 +1,9 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import ProductDetail from "@/components/product/ProductDetail";
-import { resolveCategorySlug } from "@/services/category";
-import { getProductBySlug, getProducts } from "@/services/product";
+import { getCurrentUser } from "@/services/auth";
+import { getProductBySlug, getRelatedProducts } from "@/services/product";
+import { getProductReviews } from "@/services/review";
 
 // No `generateStaticParams`: the catalog is API-backed now, and pre-rendering it
 // at build time would serve prices that are stale the moment a merchant edits one.
@@ -26,23 +27,28 @@ export default async function ProductPage({
 
   if (!product) notFound();
 
-  // "You may also like" — same category where possible, excluding this product.
-  // Fetch one extra so filtering the product itself out still leaves a full row.
-  const { products } = await getProducts({
-    limit: 7,
-    category: (await resolveCategorySlug(product.categorySlug)) ?? undefined,
-  });
+  // Both are independent of each other and of the product body, so they run
+  // together rather than serially. The related endpoint scores candidates and
+  // backfills server-side, which is what the old category re-query plus
+  // whole-catalog fallback was approximating by hand.
+  const [related, reviews, user] = await Promise.all([
+    getRelatedProducts(handle, 6),
+    getProductReviews(product.id),
+    // The session lives in httpOnly cookies, so whether to offer the review
+    // form has to be decided here and handed down — a client component cannot
+    // read it.
+    getCurrentUser(),
+  ]);
 
-  let related = products.filter((p) => p.id !== product.id);
-
-  // A category with only this product in it would leave the row empty; fall
-  // back to the wider catalog so the section still has something to show.
-  if (related.length === 0) {
-    const { products: fallback } = await getProducts({ limit: 7 });
-    related = fallback.filter((p) => p.id !== product.id);
-  }
-
-  related = related.slice(0, 6);
-
-  return <ProductDetail product={product} related={related} />;
+  return (
+    <ProductDetail
+      product={product}
+      related={related}
+      initialReviews={reviews.reviews}
+      initialBreakdown={reviews.breakdown}
+      initialReviewMeta={reviews.meta}
+      reviewsUnavailable={reviews.failed}
+      isSignedIn={Boolean(user)}
+    />
+  );
 }

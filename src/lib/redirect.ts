@@ -6,7 +6,7 @@
  * normalize to `//`) would let a crafted login link bounce the user off-site
  * after signing in.
  */
-export const DEFAULT_REDIRECT = "/account";
+export const DEFAULT_REDIRECT = "/";
 
 export function safeRedirect(
   value: string | undefined | null,

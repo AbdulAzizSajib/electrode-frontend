@@ -14,12 +14,19 @@ import { decodeAccessToken } from "@/lib/jwt";
  * here — and it keeps this Edge-runtime-safe with no crypto dependency.
  */
 
-/** Requires a signed-in customer. */
+/**
+ * Requires a signed-in customer.
+ *
+ * `/checkout` and `/track-order` are deliberately absent: the API accepts an
+ * order from a guest carrying their own contact and delivery details, and lets
+ * one retrieve that order with its number plus the phone it was placed with.
+ * Both pages serve guests and signed-in shoppers on the same path, so gating
+ * them here would bounce a guest to login before the page could ever render —
+ * the registration wall this whole change exists to remove.
+ */
 const PROTECTED_ROUTES = [
   "/account",
-  "/checkout",
   "/wishlist",
-  "/track-order",
 ];
 
 /** Pointless once signed in — bounce these to the account area. */

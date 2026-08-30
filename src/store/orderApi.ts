@@ -1,6 +1,6 @@
 import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
 import { cartApi, EMPTY_CART } from "@/store/cartApi";
-import type { ApiOrder, PlaceOrderPayload } from "@/types/order";
+import type { ApiOrder, GuestOrderLookup, PlaceOrderPayload } from "@/types/order";
 import type { ApiResponse } from "@/types/auth";
 
 /**
@@ -30,32 +30,57 @@ export const orderApi = createApi({
   baseQuery: fetchBaseQuery({ baseUrl: "/api/orders" }),
   endpoints: (builder) => ({
     placeOrder: builder.mutation<ApiResponse<ApiOrder>, PlaceOrderPayload>({
-      query: ({ idempotencyKey, ...body }) => ({
-        url: "",
-        method: "POST",
-        body,
-        // Lets the server absorb a retry instead of placing a second order.
-        headers: { "Idempotency-Key": idempotencyKey },
-      }),
-      async onQueryStarted(_arg, { dispatch, queryFulfilled }) {
+      query: (payload) => {
+        // `mode` is the client-side discriminant keeping the two payload shapes
+        // apart. The backend infers the flow from the session, so it is dropped
+        // here rather than sent as a field the API does not expect.
+        const { idempotencyKey, ...rest } = payload;
+        const body: Record<string, unknown> = { ...rest };
+        delete body.mode;
+
+        return {
+          url: "",
+          method: "POST",
+          body,
+          // Lets the server absorb a retry instead of placing a second order.
+          headers: { "Idempotency-Key": idempotencyKey },
+        };
+      },
+      async onQueryStarted(arg, { dispatch, queryFulfilled }) {
+        // A direct product order carries its own lines and never touches the
+        // cart — the backend skips clearing it, so emptying the cache here
+        // would wrongly wipe a cart the shopper is still filling.
+        const consumedCart = !(arg.mode === "guest" && arg.items?.length);
+
         try {
           await queryFulfilled;
           // The order committed, so the cart is empty — no need to ask.
-          dispatch(
-            cartApi.util.updateQueryData("getCart", undefined, () => EMPTY_CART),
-          );
+          if (consumedCart) {
+            dispatch(
+              cartApi.util.updateQueryData("getCart", undefined, () => EMPTY_CART),
+            );
+          }
         } catch (error) {
           // Outcome unknown: the order may have committed and emptied the cart,
           // so refetch rather than keep rendering a cart that no longer exists.
           const err = error as { error?: { status?: number } };
-          if (err?.error?.status === 504) {
+          if (err?.error?.status === 504 && consumedCart) {
             dispatch(cartApi.util.invalidateTags(["Cart"]));
           }
           // Any other failure — the cart still holds everything it did before.
         }
       },
     }),
+
+    /**
+     * Guest order tracking. A mutation rather than a query because it is a POST
+     * carrying a phone number (see the proxy route), and because it is driven
+     * by a form submission rather than by rendering.
+     */
+    trackOrder: builder.mutation<ApiResponse<ApiOrder>, GuestOrderLookup>({
+      query: (body) => ({ url: "/track", method: "POST", body }),
+    }),
   }),
 });
 
-export const { usePlaceOrderMutation } = orderApi;
+export const { usePlaceOrderMutation, useTrackOrderMutation } = orderApi;

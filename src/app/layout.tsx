@@ -24,7 +24,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="en" className="h-full antialiased">
       <body className="flex min-h-full flex-col">
-        <StoreProvider>
+        <StoreProvider isSignedIn={Boolean(user)}>
           <Header user={user} categories={categories} />
           <main className="flex-1">{children}</main>
           <Footer />

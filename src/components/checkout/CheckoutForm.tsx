@@ -4,16 +4,24 @@ import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { AlertCircle, Loader2, Plus, Truck } from "lucide-react";
+import { AlertCircle, BadgeCheck, Loader2, Plus, Truck } from "lucide-react";
 import clsx from "clsx";
 import AddressForm from "@/components/account/AddressForm";
+import { Field } from "@/components/account/form-controls";
 import { formatPrice, roundMoney } from "@/lib/format";
+import {
+  clearDirectOrderIntent,
+  readDirectOrderIntent,
+  saveGuestOrderContact,
+  type DirectOrderIntent,
+} from "@/lib/guest-checkout";
+import { isBdPhone, normalizeBdPhone } from "@/lib/validation";
 import { useGetAddressesQuery } from "@/store/addressApi";
 import { EMPTY_CART, useGetCartQuery } from "@/store/cartApi";
 import { usePlaceOrderMutation } from "@/store/orderApi";
 import { formatAddress, type Address } from "@/types/address";
-import type { CartSummary } from "@/types/cart";
-import type { ShippingMethod } from "@/types/order";
+import type { CartLine, CartSummary } from "@/types/cart";
+import type { PlaceOrderPayload, ShippingMethod } from "@/types/order";
 
 /**
  * Surfaces the backend's own message — e.g. an out-of-stock line naming the
@@ -31,11 +39,26 @@ function isIndeterminate(error: unknown): boolean {
   return (error as { status?: number } | undefined)?.status === 504;
 }
 
+/** The guest's contact and delivery details, none of which they have saved. */
+const EMPTY_GUEST_DETAILS = {
+  fullName: "",
+  phone: "",
+  addressLine1: "",
+  addressLine2: "",
+  city: "",
+  postalCode: "",
+};
+
+type GuestDetails = typeof EMPTY_GUEST_DETAILS;
+
 export default function CheckoutForm({
+  isSignedIn,
   shippingMethods,
   initialAddresses,
   initialCart,
 }: {
+  /** Decides which delivery section renders — saved addresses, or inline fields. */
+  isSignedIn: boolean;
   shippingMethods: ShippingMethod[];
   initialAddresses: Address[];
   /** Server-read cart, so an empty cart renders immediately without a spinner. */
@@ -50,8 +73,41 @@ export default function CheckoutForm({
   const cartLoading = isLoading && !initialCart;
   // Server-rendered addresses seed the list; the query keeps it live after an
   // inline add, so the new address appears without a reload.
-  const { data: addresses = initialAddresses } = useGetAddressesQuery();
+  const { data: addresses = initialAddresses } = useGetAddressesQuery(undefined, {
+    // The endpoint is session-scoped and 401s for a guest; asking would be a
+    // guaranteed failed request on every guest checkout.
+    skip: !isSignedIn,
+  });
   const [placeOrder, { isLoading: placing }] = usePlaceOrderMutation();
+
+  const [guest, setGuest] = useState<GuestDetails>(EMPTY_GUEST_DETAILS);
+  const [guestErrors, setGuestErrors] = useState<Partial<Record<keyof GuestDetails, string>>>({});
+
+  /**
+   * A "buy this one product" handoff from a product page. Read once on mount:
+   * `sessionStorage` is unavailable during the server render, so reading it
+   * inline would desync the two.
+   *
+   * Storage is cleared as soon as it is read, while the intent lives on in
+   * component state for this visit. Otherwise a shopper who navigates away
+   * without ordering leaves it behind, and their next trip to checkout silently
+   * buys the old product instead of their cart.
+   */
+  const [directOrder, setDirectOrder] = useState<DirectOrderIntent | null>(null);
+  useEffect(() => {
+    const intent = readDirectOrderIntent();
+    if (!intent) return;
+    // Storage is not readable during the server render, so this genuinely
+    // cannot be lifted out of an effect without breaking hydration.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setDirectOrder(intent);
+    clearDirectOrderIntent();
+  }, []);
+
+  const updateGuest = (name: keyof GuestDetails, value: string) => {
+    setGuest((prev) => ({ ...prev, [name]: value }));
+    setGuestErrors((prev) => ({ ...prev, [name]: "" }));
+  };
 
   const [addressId, setAddressId] = useState<string | null>(
     initialAddresses.find((a) => a.isDefault)?.id ?? initialAddresses[0]?.id ?? null,
@@ -65,6 +121,11 @@ export default function CheckoutForm({
   // Distinct from `error`: the order may actually have been placed, so the
   // shopper is pointed at their orders rather than nudged to try again.
   const [indeterminate, setIndeterminate] = useState(false);
+  // Latches once the order commits. Placing an order empties the cart cache
+  // immediately (see orderApi), but the push to /checkout/success is async — so
+  // without this the shopper is shown "Your cart is empty" for the frames in
+  // between, which reads as the order having been lost.
+  const [placed, setPlaced] = useState(false);
 
   // One key per checkout *attempt*. Pressing Place Order again after a failure
   // deliberately reuses it — that is what lets the server recognise the retry
@@ -72,12 +133,52 @@ export default function CheckoutForm({
   // It is regenerated only when the order itself changes, below.
   const [idempotencyKey, setIdempotencyKey] = useState(() => crypto.randomUUID());
 
+  // A direct order is bought on its own; the cart is neither read nor emptied.
+  // Rendered from the intent's `display` fields, since the product API is keyed
+  // by slug and checkout only has an id.
+  const displayLines: CartLine[] = directOrder
+    ? [
+        {
+          id: "direct",
+          productId: directOrder.item.productId,
+          variantId: directOrder.item.variantId ?? null,
+          quantity: directOrder.item.quantity,
+          name: directOrder.display.name,
+          slug: "",
+          variantName: directOrder.display.variantName,
+          image: directOrder.display.image,
+          unitPrice: directOrder.display.unitPrice,
+          lineTotal: directOrder.display.unitPrice * directOrder.item.quantity,
+          stockQuantity: 0,
+        },
+      ]
+    : cart.lines;
+
+  const displaySubtotal = directOrder
+    ? displayLines[0].lineTotal
+    : cart.subtotal;
+  const displayDiscount = directOrder ? 0 : cart.discountAmount;
+  const displayTotal = directOrder ? displayLines[0].lineTotal : cart.total;
+
   // What makes this a materially different order. Notes are excluded: editing
   // them after an unconfirmed attempt should not turn a retry into a duplicate.
+  // The guest's own details are included for the same reason the address id is:
+  // changing where an order ships makes it a different order, and reusing the
+  // key would hand back the one already placed to the old address.
   const orderFingerprint = [
     addressId,
     shippingMethodId,
-    cart.lines
+    isSignedIn
+      ? ""
+      : [
+          guest.fullName,
+          guest.phone,
+          guest.addressLine1,
+          guest.addressLine2,
+          guest.city,
+          guest.postalCode,
+        ].join("~"),
+    displayLines
       .map((l) => `${l.id}:${l.quantity}`)
       .sort()
       .join(","),
@@ -105,10 +206,32 @@ export default function CheckoutForm({
   // from settings the storefront cannot read, so this is deliberately not
   // presented as the amount payable.
   const estimatedTotal = roundMoney(
-    cart.total + (selectedShipping?.price ?? 0),
+    displayTotal + (selectedShipping?.price ?? 0),
   );
 
-  const canOrder = Boolean(addressId && shippingMethodId) && cart.lines.length > 0;
+  const hasLines = displayLines.length > 0;
+  // A guest needs no saved address, and a shipping method is optional for both
+  // — the backend defaults it — so neither gates the button for them.
+  const canOrder = isSignedIn
+    ? Boolean(addressId && shippingMethodId) && hasLines
+    : hasLines;
+
+  /** Guest-only. Mirrors what the API requires, no stricter. */
+  function validateGuest(): boolean {
+    const errors: Partial<Record<keyof GuestDetails, string>> = {};
+
+    if (!guest.fullName.trim()) errors.fullName = "Your name is required.";
+    if (!guest.phone.trim()) errors.phone = "Phone number is required.";
+    else if (!isBdPhone(guest.phone)) {
+      errors.phone = "Enter a valid Bangladeshi mobile number.";
+    }
+    if (!guest.addressLine1.trim()) errors.addressLine1 = "Address is required.";
+    if (!guest.city.trim()) errors.city = "City is required.";
+    // addressLine2 and postalCode are optional to the backend, so not required here.
+
+    setGuestErrors(errors);
+    return Object.keys(errors).length === 0;
+  }
 
   async function handlePlaceOrder(event: React.FormEvent) {
     event.preventDefault();
@@ -117,15 +240,57 @@ export default function CheckoutForm({
     // The address form renders inside this one, so Enter in one of its inputs
     // reaches here. Placing an order mid-edit is never what was meant.
     if (isAddingAddress) return;
-    if (!addressId || !shippingMethodId) return;
+    if (isSignedIn && (!addressId || !shippingMethodId)) return;
+    if (!isSignedIn && !validateGuest()) return;
+
+    // Normalized so the phone stored against the order matches what the
+    // confirmation will send back to look it up.
+    const normalizedPhone = normalizeBdPhone(guest.phone) ?? guest.phone.trim();
+
+    const payload: PlaceOrderPayload = isSignedIn
+      ? {
+          mode: "account",
+          shippingAddressId: addressId as string,
+          shippingMethodId: shippingMethodId ?? undefined,
+          notes: notes.trim() || undefined,
+          idempotencyKey,
+        }
+      : {
+          mode: "guest",
+          fullName: guest.fullName.trim(),
+          phone: normalizedPhone,
+          shippingAddress: {
+            addressLine1: guest.addressLine1.trim(),
+            addressLine2: guest.addressLine2.trim() || undefined,
+            city: guest.city.trim(),
+            postalCode: guest.postalCode.trim() || undefined,
+          },
+          // Present only for a direct product order; otherwise the cart is used.
+          items: directOrder ? [directOrder.item] : undefined,
+          paymentMethod: "COD",
+          shippingMethodId: shippingMethodId ?? undefined,
+          notes: notes.trim() || undefined,
+          idempotencyKey,
+        };
 
     try {
-      const result = await placeOrder({
-        shippingAddressId: addressId,
-        shippingMethodId,
-        notes: notes.trim() || undefined,
-        idempotencyKey,
-      }).unwrap();
+      const result = await placeOrder(payload).unwrap();
+
+      setPlaced(true);
+      // The handoff is spent either way — leaving it would re-apply the same
+      // direct order to the shopper's next visit to checkout.
+      clearDirectOrderIntent();
+
+      const orderNumber = result?.data?.orderNumber;
+      if (!isSignedIn && orderNumber) {
+        // A guest has no session to look this order up with later, so the pair
+        // that authorises the read is kept for the confirmation page.
+        saveGuestOrderContact({ orderNumber, phone: normalizedPhone });
+        router.push(
+          `/checkout/success?orderNumber=${encodeURIComponent(orderNumber)}`,
+        );
+        return;
+      }
 
       const orderId = result?.data?.id;
       router.push(
@@ -144,7 +309,20 @@ export default function CheckoutForm({
     }
   }
 
-  if (cartLoading) {
+  // The order is in, we're just waiting on the navigation. Hold a confirming
+  // state rather than the checkout — or, worse, the empty-cart message.
+  if (placed) {
+    return (
+      <div className="container-px mx-auto flex max-w-6xl flex-col items-center gap-3 py-20 text-gray-500">
+        <Loader2 size={24} className="animate-spin" />
+        <p className="text-sm">Confirming your order...</p>
+      </div>
+    );
+  }
+
+  // A direct product order carries its own line, so neither the cart's loading
+  // state nor its emptiness has any bearing on whether it can be placed.
+  if (!directOrder && cartLoading) {
     return (
       <div className="container-px mx-auto flex max-w-6xl justify-center py-20 text-gray-400">
         <Loader2 size={24} className="animate-spin" />
@@ -152,7 +330,7 @@ export default function CheckoutForm({
     );
   }
 
-  if (cart.lines.length === 0) {
+  if (!directOrder && cart.lines.length === 0) {
     return (
       <div className="container-px mx-auto max-w-3xl py-20 text-center">
         <h1 className="mb-3 text-2xl font-bold text-gray-900">Your cart is empty</h1>
@@ -178,7 +356,80 @@ export default function CheckoutForm({
               Delivery address
             </h2>
 
-            {isAddingAddress ? (
+            {!isSignedIn ? (
+              /* A guest has nothing saved, so the details are typed in here.
+                 Signing in is offered but never required — an extra step at
+                 this moment is what loses the order. */
+              <div className="space-y-4">
+                <p className="text-sm text-gray-500">
+                  Already have an account?{" "}
+                  <Link
+                    href="/account/login?redirect=/checkout"
+                    className="font-semibold text-brand hover:underline"
+                  >
+                    Sign in
+                  </Link>{" "}
+                  to use your saved addresses.
+                </p>
+
+                <Field
+                  label="Full name"
+                  name="fullName"
+                  value={guest.fullName}
+                  onChange={(e) => updateGuest("fullName", e.target.value)}
+                  error={guestErrors.fullName}
+                  placeholder="e.g. Rahim Uddin"
+                  autoComplete="name"
+                />
+                <Field
+                  label="Phone number"
+                  name="phone"
+                  value={guest.phone}
+                  onChange={(e) => updateGuest("phone", e.target.value)}
+                  error={guestErrors.phone}
+                  placeholder="01XXXXXXXXX"
+                  autoComplete="tel"
+                  inputMode="tel"
+                />
+                <Field
+                  label="Address"
+                  name="addressLine1"
+                  value={guest.addressLine1}
+                  onChange={(e) => updateGuest("addressLine1", e.target.value)}
+                  error={guestErrors.addressLine1}
+                  placeholder="House, road, area"
+                  autoComplete="address-line1"
+                />
+                <Field
+                  label="Apartment, floor (optional)"
+                  name="addressLine2"
+                  value={guest.addressLine2}
+                  onChange={(e) => updateGuest("addressLine2", e.target.value)}
+                  error={guestErrors.addressLine2}
+                  autoComplete="address-line2"
+                />
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <Field
+                    label="City"
+                    name="city"
+                    value={guest.city}
+                    onChange={(e) => updateGuest("city", e.target.value)}
+                    error={guestErrors.city}
+                    placeholder="e.g. Dhaka"
+                    autoComplete="address-level2"
+                  />
+                  <Field
+                    label="Postal code (optional)"
+                    name="postalCode"
+                    value={guest.postalCode}
+                    onChange={(e) => updateGuest("postalCode", e.target.value)}
+                    error={guestErrors.postalCode}
+                    autoComplete="postal-code"
+                    inputMode="numeric"
+                  />
+                </div>
+              </div>
+            ) : isAddingAddress ? (
               <div className="rounded-xl border border-gray-200 p-5">
                 <AddressForm
                   // This sits inside the checkout's own <form>; a nested
@@ -303,6 +554,22 @@ export default function CheckoutForm({
             )}
           </section>
 
+          {!isSignedIn && (
+            <section>
+              <h2 className="mb-4 text-lg font-semibold text-gray-900">Payment</h2>
+              <div className="flex items-start gap-3 rounded-xl border border-gray-200 p-4">
+                <BadgeCheck size={18} className="mt-0.5 shrink-0 text-green-600" />
+                <div className="text-sm">
+                  <p className="font-medium text-gray-900">Cash on delivery</p>
+                  <p className="mt-0.5 text-gray-500">
+                    Pay in cash when your order arrives. No advance payment is
+                    needed.
+                  </p>
+                </div>
+              </div>
+            </section>
+          )}
+
           <section>
             <h2 className="mb-4 text-lg font-semibold text-gray-900">
               Order note <span className="text-sm font-normal text-gray-400">(optional)</span>
@@ -352,7 +619,7 @@ export default function CheckoutForm({
               {placing && <Loader2 size={16} className="animate-spin" />}
               {placing ? "Placing order..." : "Place Order"}
             </button>
-            {!canOrder && (
+            {!canOrder && isSignedIn && (
               <p className="mt-2 text-center text-xs text-gray-500">
                 {!addressId
                   ? "Choose a delivery address to continue."
@@ -364,11 +631,18 @@ export default function CheckoutForm({
 
         <div className="h-fit rounded-xl bg-gray-50 p-6">
           <h2 className="mb-4 text-lg font-semibold text-gray-900">Order Summary</h2>
+          {directOrder && (
+            <p className="mb-4 rounded bg-white px-3 py-2 text-xs text-gray-500">
+              Buying this item directly. Your cart is untouched.
+            </p>
+          )}
           <div className="max-h-72 space-y-4 overflow-y-auto pr-1">
-            {cart.lines.map((line) => (
+            {displayLines.map((line) => (
               <div key={line.id} className="flex gap-3">
                 <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded bg-white">
-                  <Image src={line.image} alt={line.name} fill className="object-cover" />
+                  {line.image && (
+                    <Image src={line.image} alt={line.name} fill className="object-cover" />
+                  )}
                   <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-gray-500 text-[10px] font-bold text-white">
                     {line.quantity}
                   </span>
@@ -389,12 +663,12 @@ export default function CheckoutForm({
           <div className="mt-5 space-y-2 border-t border-gray-200 pt-4 text-sm">
             <div className="flex items-center justify-between text-gray-600">
               <span>Subtotal</span>
-              <span>{formatPrice(cart.subtotal)}</span>
+              <span>{formatPrice(displaySubtotal)}</span>
             </div>
-            {cart.discountAmount > 0 && (
+            {displayDiscount > 0 && (
               <div className="flex items-center justify-between text-green-700">
                 <span>Discount{cart.discountCode ? ` (${cart.discountCode})` : ""}</span>
-                <span>-{formatPrice(cart.discountAmount)}</span>
+                <span>-{formatPrice(displayDiscount)}</span>
               </div>
             )}
             <div className="flex items-center justify-between text-gray-600">

@@ -23,6 +23,15 @@
     Arial, sans-serif;
 }
 
+/*
+ * Concealing a card's actions is opt-in per device: only a device that can
+ * genuinely hover gets the hidden-at-rest presentation. Everywhere else the
+ * actions stay visible, which is both the correct default for touch and what
+ * renders if this stylesheet never loads. `pointer: fine` excludes hybrid
+ * touch-laptops, where `hover: hover` can be true while the user is touching.
+ */
+@custom-variant hover-capable (@media (hover: hover) and (pointer: fine));
+
 body {
   background: var(--background);
   color: var(--foreground);

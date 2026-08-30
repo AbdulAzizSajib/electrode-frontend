@@ -69,6 +69,12 @@ export function toProduct(product: ApiProduct): Product {
   const effectivePrice = campaignPrice ?? basePrice;
   const effectiveCompareAt = campaignPrice ? basePrice : compareAtPrice;
 
+  // A rating only exists once something has been rated. Gating on reviewCount
+  // rather than on the parsed number keeps "unrated" distinct from "rated 0",
+  // which is what stops an unrated product rendering an empty five-star row.
+  const reviewCount = product.reviewCount ?? 0;
+  const rating = reviewCount > 0 ? toPrice(product.averageRating) : undefined;
+
   return {
     id: product.id,
     slug: product.slug,
@@ -97,6 +103,8 @@ export function toProduct(product: ApiProduct): Product {
       name: a.name,
       value: a.value,
     })),
+    rating,
+    reviewCount,
   };
 }
 
@@ -152,5 +160,34 @@ export async function getProductBySlug(slug: string): Promise<Product | null> {
   } catch (error) {
     if (error instanceof ApiError && error.status === 404) return null;
     throw error;
+  }
+}
+
+/**
+ * Relevance-ranked "you may also like" for a product.
+ *
+ * The backend scores candidates (same category, same brand, shared tag, nearby
+ * price) and backfills with featured/newest active products, so this never
+ * needs the category re-query and whole-catalog fallback the page used to do
+ * by hand. The response is the ordinary product shape, so `toProduct` applies
+ * unchanged.
+ *
+ * Returns an empty array on failure: the product page has already rendered the
+ * product itself by this point, so a failure here omits the section rather than
+ * failing the page.
+ */
+export async function getRelatedProducts(
+  slug: string,
+  limit = 6,
+): Promise<Product[]> {
+  try {
+    const { data } = await apiFetch<ApiProduct[]>(
+      `/products/${slug}/related?limit=${limit}`,
+      { revalidate: PRODUCT_REVALIDATE_SECONDS },
+    );
+
+    return Array.isArray(data) ? data.map(toProduct) : [];
+  } catch {
+    return [];
   }
 }

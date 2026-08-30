@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Heart, MapPin, Package, ShoppingBag } from "lucide-react";
+import { Heart, MapPin, Package, ShoppingBag, Star } from "lucide-react";
 import LogoutButton from "@/components/account/LogoutButton";
 import { getCurrentUser } from "@/services/auth";
 
@@ -11,6 +11,7 @@ export const metadata: Metadata = {
 
 const shortcuts = [
   { href: "/account/addresses", label: "Addresses", icon: MapPin },
+  { href: "/account/reviews", label: "My Reviews", icon: Star },
   { href: "/track-order", label: "Track Order", icon: Package },
   { href: "/wishlist", label: "Wishlist", icon: Heart },
   { href: "/cart", label: "Cart", icon: ShoppingBag },
