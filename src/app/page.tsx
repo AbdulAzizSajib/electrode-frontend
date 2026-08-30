@@ -29,7 +29,7 @@ export default async function Home() {
       <BrandBar />
       <CategoryGrid title="Featured Categories" />
       <ProductSection title="Best Selling Products" products={byCategory} tabs={categoryTabs} />
-      <MidBanners />
+      <MidBanners />  
       <ProductSection title="Featured Products" products={featured} />
       <PerksBar />
       <DealOfWeek products={dealProducts} />
