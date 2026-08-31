@@ -40,13 +40,15 @@ export default async function Hero() {
                 <Link
                   key={b.id}
                   href={b.href}
-                  className="group relative flex h-[180px] w-full flex-col items-center justify-center overflow-hidden rounded-sm bg-[#eef1fb]  transition-shadow duration-300 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 lg:h-[265px] lg:w-[275px]"
+                  className="group relative flex aspect-square w-full flex-col items-center justify-center overflow-hidden rounded-sm bg-[#eef1fb]  transition-shadow duration-300 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 lg:aspect-auto lg:h-66.25 lg:w-68.75"
                 >
                   <Image
                     src={b.image}
                     alt={b.title}
                     width={500}
                     height={500}
+                    // Two per row below `lg`, a fixed 275px column above it.
+                    sizes="(min-width: 1024px) 275px, 50vw"
                     className="h-full w-full object-contain transition-transform duration-300 group-hover:scale-105"
                   />
                 </Link>
@@ -57,12 +59,16 @@ export default async function Hero() {
           {promoTile && (
             <Link
               href={promoTile.href}
-              className="group relative flex h-[220px] w-full items-center overflow-hidden rounded-sm bg-[#eaf3ec]  transition-shadow duration-300 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 lg:h-[265px] lg:w-[570px]"
+              // `fill` needs a sized parent, so this keeps a ratio rather than
+              // going auto-height: roughly the 570x265 it settles into on
+              // desktop, which stops it towering over the phone viewport.
+              className="group relative flex aspect-570/265 w-full items-center overflow-hidden rounded-sm bg-[#eaf3ec]  transition-shadow duration-300 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 lg:aspect-auto lg:h-66.25 lg:w-142.5"
             >
               <Image
                 src={promoTile.image}
                 alt={promoTile.title}
                 fill
+                sizes="(min-width: 1024px) 570px, 100vw"
                 className="object-contain transition-transform duration-300"
               />
             </Link>

@@ -38,6 +38,18 @@ body {
   font-family: var(--font-sans);
 }
 
+/*
+ * Room for the fixed mobile bottom nav, reserved here rather than per page so
+ * no route can leave its last row of content trapped underneath it. Matches the
+ * bar's own height plus the device's safe-area inset; released at `md`, where
+ * the bar is hidden and the header's nav takes over.
+ */
+@media (max-width: 767px) {
+  body {
+    padding-bottom: calc(3.75rem + env(safe-area-inset-bottom));
+  }
+}
+
 .container-px {
   padding-left: 1rem;
   padding-right: 1rem;

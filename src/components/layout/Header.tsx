@@ -3,8 +3,10 @@ import { Icon } from "@iconify/react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { ChevronDown, ChevronRight, Heart, LayoutGrid, Menu, Search, ShoppingBag, Truck, User, X } from "lucide-react";
-import { navLinks } from "@/data/content";
+import { ChevronDown, ChevronRight, Heart, LayoutGrid, Menu, ShoppingBag, User } from "lucide-react";
+import MobileMenuDrawer from "@/components/layout/MobileMenuDrawer";
+import SearchBox from "@/components/layout/SearchBox";
+import { contact, navLinks } from "@/data/content";
 import { EMPTY_CART, useGetCartQuery } from "@/store/cartApi";
 import { useGetWishlistCountQuery } from "@/store/wishlistApi";
 import { useAppDispatch } from "@/store/hooks";
@@ -31,11 +33,9 @@ export default function Header({
     skip: !user,
   });
   const router = useRouter();
-  const [query, setQuery] = useState("");
   const [mobileOpen, setMobileOpen] = useState(false);
   const [openMenu, setOpenMenu] = useState<string | null>(null);
   const [openCategory, setOpenCategory] = useState<string | null>(null);
-  const [mobileSubmenu, setMobileSubmenu] = useState<string | null>(null);
   const categoriesRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -50,11 +50,6 @@ export default function Header({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [openMenu]);
 
-  function handleSearch(e: React.FormEvent) {
-    e.preventDefault();
-    router.push(query ? `/products?q=${encodeURIComponent(query)}` : "/products");
-  }
-
   return (
     <header className="sticky top-0 z-40 bg-brand shadow-sm ">
       {/* Announcement bar */}
@@ -63,14 +58,19 @@ export default function Header({
           <p>Free delivery &amp; 40% discount for next 3 orders! Place your 1st order in.</p>
           <div className="flex items-center gap-4">
            
-            <Link href="/whatsapp" className="hover:underline flex items-center gap-2 font-light">
+            <a
+              href={`https://wa.me/${contact.phoneDigits}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hover:underline flex items-center gap-2 font-light"
+            >
             <Icon icon="akar-icons:whatsapp-fill" />
-              +8801782521705
-            </Link>
-             <Link href="/track-order" className="hover:underline flex items-center gap-2 font-light">
+              {contact.phone}
+            </a>
+             <a href={`mailto:${contact.email}`} className="hover:underline flex items-center gap-2 font-light">
             <Icon icon="garden:email-stroke-16" />
-              contact@sheisite.com
-            </Link>
+              {contact.email}
+            </a>
              <Link href="/track-order" className="hover:underline flex items-center gap-2 font-light">
             <Icon icon="fa-solid:truck" />
               Track Order
@@ -82,33 +82,49 @@ export default function Header({
       {/* Main header */}
       <div className="border-b border-white/30">
       <div className="container-px mx-auto flex max-w-346 items-center  gap-4 py-4.75 text-white">
-        <button className="md:hidden" onClick={() => setMobileOpen(true)} aria-label="Open menu">
+        {/* The menu button and the account icon are given equal flex-basis so
+            the logo between them lands on the true centre of the row — sizing
+            them to their own content would offset it by the difference. Both
+            collapse at `md`, where the logo goes back to the left. */}
+        <button
+          className="flex basis-8 justify-start md:hidden"
+          onClick={() => setMobileOpen(true)}
+          aria-label="Open menu"
+        >
           <Menu size={26} />
         </button>
 
-        <Link href="/" className="shrink-0 text-4xl font-semibold  ">
+        {/*
+          `shrink-0` only from `md` up. Keeping it below that would let the
+          wordmark push past a narrow (320px) viewport instead of shrinking
+          between the two icons, so the row is allowed to compress it there.
+        */}
+        <Link
+          href="/"
+          className="whitespace-nowrap text-center text-3xl font-semibold max-md:flex-1 sm:text-4xl md:shrink-0 md:text-left"
+        >
           Gadgets<span className="text-accent ml-2">Mart</span>
         </Link>
 
-        <form onSubmit={handleSearch} className="ml-auto max-w-2xl hidden  flex-1 items-center md:flex">
-          <input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            type="search"
-            placeholder="Search products..."
-            className="w-full rounded-l border border-gray-300 px-4 py-2.5 text-sm outline-none focus:border-brand bg-white placeholder:text-gray-400 text-gray-700"
-          />
-          <button
-            type="submit"
-            className="flex h-10.5 w-12 items-center justify-center rounded-r bg-accent text-black"
-            aria-label="Search"
-          >
-            <Search size={18} />
-          </button>
-        </form>
+        {/* Mobile-only account entry. The bottom nav carries phone, chat, home,
+            shop and cart, so this is the one primary action without a home
+            there — hence keeping it in the header rather than crowding the
+            bar with a sixth item. */}
+        <Link
+          href={user ? "/account" : "/account/login"}
+          className="flex basis-8 justify-end md:hidden"
+          aria-label={user ? "My account" : "Sign in or register"}
+        >
+          <User size={26} />
+        </Link>
 
-        <div className="ml-auto flex items-center gap-5 text-sm ">
-        
+        <SearchBox className="ml-auto hidden max-w-2xl flex-1 md:block" />
+
+        {/* Every child here is desktop-only now that the cart moved to the
+            bottom nav, so the whole group is too — otherwise its `ml-auto`
+            would still push the logo around on mobile. */}
+        <div className="ml-auto hidden items-center gap-5 text-sm md:flex">
+
           <Link href="/wishlist" className="hidden items-center gap-2 lg:flex">
             <span className="relative">
               <Heart size={22} />
@@ -126,7 +142,12 @@ export default function Header({
               </span>
             </span>
           </Link>
-          <button onClick={() => dispatch(openCart())} className="flex items-center gap-2">
+          {/* Hidden below `md`: the mobile bottom nav already carries the cart,
+              and two cart buttons on one screen is just noise. */}
+          <button
+            onClick={() => dispatch(openCart())}
+            className="hidden items-center gap-2 md:flex"
+          >
             <span className="relative">
               <ShoppingBag size={22} />
               {itemCount > 0 && (
@@ -155,6 +176,13 @@ export default function Header({
             </span>
           </Link>
         </div>
+      </div>
+
+      {/* Mobile search. Its own row rather than a tap-to-open icon: search is
+          the primary way to find a product on a small screen, so it should not
+          cost an extra tap. */}
+      <div className="container-px mx-auto max-w-346 pb-3 md:hidden">
+        <SearchBox />
       </div>
       </div>
 
@@ -270,113 +298,12 @@ export default function Header({
         </div>
       </nav>
 
-      {/* Mobile drawer */}
-      {mobileOpen && (
-        <div className="fixed inset-0 z-50 md:hidden">
-          <div className="absolute inset-0 bg-black/40" onClick={() => setMobileOpen(false)} />
-          <div className="absolute left-0 top-0 h-full w-72 overflow-y-auto bg-white p-5">
-            <div className="mb-6 flex items-center justify-between">
-              <span className="text-xl font-bold">Electrode</span>
-              <button onClick={() => setMobileOpen(false)} aria-label="Close menu">
-                <X size={24} />
-              </button>
-            </div>
-            <form onSubmit={handleSearch} className="mb-6 flex">
-              <input
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                type="search"
-                placeholder="Search"
-                className="w-full rounded-l border border-gray-300 px-3 py-2 text-sm outline-none"
-              />
-              <button type="submit" className="rounded-r bg-accent px-3 text-white">
-                <Search size={16} />
-              </button>
-            </form>
-
-            {categories.length > 0 && (
-              <>
-                <p className="mb-2 text-xs font-semibold uppercase text-gray-400">Shop By Categories</p>
-                <ul className="mb-5 flex flex-col gap-2 border-b border-gray-100 pb-5 text-sm text-gray-600">
-                  {categories.map((cat) => (
-                    <li key={cat.id}>
-                      <Link href={`/products?category=${encodeURIComponent(cat.slug)}`} onClick={() => setMobileOpen(false)}>
-                        {cat.name}
-                      </Link>
-                      {cat.children.length > 0 && (
-                        <ul className="mt-1 flex flex-col gap-1 pl-4 text-gray-500">
-                          {cat.children.map((child) => (
-                            <li key={child.id}>
-                              <Link
-                                href={`/products?category=${encodeURIComponent(child.slug)}`}
-                                onClick={() => setMobileOpen(false)}
-                              >
-                                {child.name}
-                              </Link>
-                            </li>
-                          ))}
-                        </ul>
-                      )}
-                    </li>
-                  ))}
-                </ul>
-              </>
-            )}
-
-            <ul className="flex flex-col gap-1 text-sm font-medium">
-              {navLinks.map((link) => (
-                <li key={link.label}>
-                  {link.children ? (
-                    <div>
-                      <button
-                        className="flex w-full items-center justify-between py-2"
-                        onClick={() =>
-                          setMobileSubmenu((m) => (m === link.label ? null : link.label))
-                        }
-                      >
-                        {link.label}
-                        <ChevronDown
-                          size={14}
-                          className={mobileSubmenu === link.label ? "rotate-180 transition-transform" : "transition-transform"}
-                        />
-                      </button>
-                      {mobileSubmenu === link.label && (
-                        <ul className="ml-3 flex flex-col gap-2 border-l border-gray-100 pb-2 pl-3 text-gray-600">
-                          {link.children.map((child) => (
-                            <li key={child.label}>
-                              <Link href={child.href} onClick={() => setMobileOpen(false)}>
-                                {child.label}
-                              </Link>
-                            </li>
-                          ))}
-                        </ul>
-                      )}
-                    </div>
-                  ) : (
-                    <Link href={link.href} className="block py-2" onClick={() => setMobileOpen(false)}>
-                      {link.label}
-                    </Link>
-                  )}
-                </li>
-              ))}
-              <li className="border-t border-gray-100 pt-2">
-                <Link
-                  href={user ? "/account" : "/account/login"}
-                  onClick={() => setMobileOpen(false)}
-                  className="block py-2"
-                >
-                  {user ? "My Account" : "Sign In / Account"}
-                </Link>
-              </li>
-              <li>
-                <Link href="/wishlist" onClick={() => setMobileOpen(false)} className="block py-2">
-                  Wishlist
-                </Link>
-              </li>
-            </ul>
-          </div>
-        </div>
-      )}
+      <MobileMenuDrawer
+        open={mobileOpen}
+        onClose={() => setMobileOpen(false)}
+        user={user}
+        categories={categories}
+      />
     </header>
   );
 }

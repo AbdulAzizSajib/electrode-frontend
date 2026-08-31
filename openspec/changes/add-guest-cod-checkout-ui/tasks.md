@@ -48,7 +48,8 @@
 - [x] 6.1 Add an "Order Now" action to `src/components/product/ProductDetail.tsx` beside Add to Cart, disabled under exactly the same conditions (unavailable product, unselected required variant).
 - [x] 6.2 Carry the product id, variant id and quantity to `/checkout` via `sessionStorage` — not the URL, and not by adding to the cart.
 - [x] 6.3 In `CheckoutForm`, when such a direct-order payload is present, submit it as `items[]` and render the summary from it rather than from the cart. Clear it once the order is placed.
-- [ ] 6.4 Confirm the shopper's existing cart is untouched by a direct order, both in the request and in what the cart shows afterwards.
+- [x] 6.4 Confirm the shopper's existing cart is untouched by a direct order, both in the request and in what the cart shows afterwards.
+      → Cart seeded with Samsung Galaxy Buds Pro ×2, then "Buy It Now" used on a *different* product. The order covered only the Xiaomi hub, and reading the cart afterwards still returned Galaxy Buds ×2 — neither consumed nor cleared.
 
 ## 7. Verification
 
@@ -64,8 +65,12 @@ Verified against the real storefront (localhost:3000) driving the real backend (
       → Shows "Your order is placed" with the number pre-filled and a phone field; "couldn't find that order" correctly absent. Submitting the correct phone renders the full order.
 - [x] 7.4 Track an order: correct phone shows it; a mismatched phone shows not-found and reveals nothing.
       → Correct phone 200; wrong phone and a fabricated order number both return an identical 404 "Order not found".
-- [ ] 7.5 Direct "Order Now" from a product page with items already in the cart — the order is placed for the chosen product and the cart still holds what it did.
-- [ ] 7.6 Signed-in regression: place an order with a saved address and confirm the flow and confirmation are unchanged from before this change.
+- [x] 7.5 Direct "Order Now" from a product page with items already in the cart — the order is placed for the chosen product and the cart still holds what it did.
+      → Driven in the browser: product page → "Buy It Now" → checkout showed only the Xiaomi hub with "Buying this item directly" (Galaxy Buds correctly absent) → `ORD-20260831-JVMX9O` placed. Recorded `isGuestOrder: true`, COD payment, address persisted.
+      → Also confirms client display values are never trusted: the page showed 79.99 but the server resolved the variant's real 109.99, and the total (109.99 + 80 shipping = 189.99) matches.
+- [x] 7.6 Signed-in regression: place an order with a saved address and confirm the flow and confirmation are unchanged from before this change.
+      → Registered, verified and signed in through the real login form. Checkout showed the saved-address picker with the Default badge and **no** guest fields. Order routed to `?orderId=…` (not `orderNumber`) and rendered the server-side confirmation with "Go to My Account"; the guest-only "Cash on delivery" and "Save your order number" were correctly absent.
+      → Database: `isGuestOrder: false`, `guestIp: null`, `payments: 0`, saved address used, real user account linked. Authenticated behavior unchanged.
 - [x] 7.7 Enter a phone as `+8801712345678` — accepted by the storefront, matching the backend.
       → Covered twice: the order was placed with `+8801766554433`, and tracking the same order with `01766554433` resolved it — storefront normalization matches the backend's.
 - [x] 7.8 Trigger a backend rejection (e.g. exceed the guest order cap) and confirm its message reaches the shopper with their input intact.
@@ -73,12 +78,10 @@ Verified against the real storefront (localhost:3000) driving the real backend (
 - [x] 7.9 Run `pnpm lint` and a production `pnpm build`; both must pass.
       → `eslint src`: 0 errors (2 warnings pre-existing in files this change did not touch). `next build`: succeeds, with `/api/orders/track` registered.
 
-### Paused here — 2026-08-30
+### Bugs found by running it, not by reading it
 
-Remaining: 6.4, 7.5, 7.6. Both servers stopped; `StoreSetting` restored to production values (IP cap 10, phone cap 3, tax 0, no free-shipping threshold).
+Three defects surfaced only in the browser — all fixed:
 
-To resume: start the API (`npx tsx src/app/server.ts` in electrode-server) and the storefront (`npx next dev` in electrode-nextjs), then:
-- **7.5 / 6.4** — put something in the cart, use "Buy It Now" on a *different* product, confirm the order covers only that product and the cart still holds the original item.
-- **7.6** — sign in, place an order with a saved address, confirm `isGuestOrder: false`, `payments: []`, and the confirmation routes by `orderId` as before.
-
-Note for 7.5: the storefront's own `/api/orders` proxy runs from the Next server, so guest orders placed through it share one IP against the per-IP cap. If it returns 429, that is the cap doing its job — raise `maxGuestOrdersPerIpPerHour` temporarily and restore it after.
+1. **`/checkout` and `/track-order` were gated in `src/proxy.ts`.** Both sat in `PROTECTED_ROUTES`, so a guest was redirected to login *before* the page ran; removing the page-level redirect alone achieved nothing. The plan missed this layer entirely. Removed from the list; `/account` and `/wishlist` stay protected.
+2. **Guests saw only a spinner at checkout.** `getServerCart()` forwarded auth cookies but not `guestToken`, so a guest's cart was never seeded server-side and `cartLoading` held the spinner — the exact flash that function's own comment says it exists to prevent. Now forwards `guestToken` too.
+3. **"Buy It Now" added to the cart first.** The existing button did add-to-cart then navigated, violating "a direct order leaves the cart untouched". Rewired to a true direct order.

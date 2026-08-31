@@ -3,6 +3,7 @@ import "./globals.css";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import CartDrawer from "@/components/layout/CartDrawer";
+import MobileBottomNav from "@/components/layout/MobileBottomNav";
 import StoreProvider from "@/store/StoreProvider";
 import { getCurrentUser } from "@/services/auth";
 import { getCategoryTree } from "@/services/category";
@@ -29,6 +30,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
           <main className="flex-1">{children}</main>
           <Footer />
           <CartDrawer />
+          <MobileBottomNav />
         </StoreProvider>
       </body>
     </html>

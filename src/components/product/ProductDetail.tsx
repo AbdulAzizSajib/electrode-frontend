@@ -13,7 +13,6 @@ import { useAddItemMutation } from "@/store/cartApi";
 import { useAppDispatch } from "@/store/hooks";
 import { openCart } from "@/store/uiSlice";
 import ProductGallery from "@/components/product/ProductGallery";
-import CountdownTimer from "@/components/ui/CountdownTimer";
 import ProductCard from "@/components/product/ProductCard";
 import ProductReviews from "@/components/product/ProductReviews";
 import WishlistButton from "@/components/product/WishlistButton";
@@ -188,10 +187,18 @@ export default function ProductDetail({
             <p className="mt-4 text-sm text-gray-600">{product.shortDescription}</p>
           )}
 
-          <div className="mt-5 rounded-lg bg-gray-50 p-4">
-            <p className="mb-2 text-sm font-semibold text-gray-700">Hurry Up! Deal Ends In:</p>
-            <CountdownTimer />
-          </div>
+          {/*
+            A "Hurry Up! Deal Ends In:" countdown used to render here on every
+            product page, including products with no deal at all. It counted
+            down from seven days computed at mount, so it restarted on every
+            page load and expired on no real date.
+
+            Removed rather than repointed: `Product` carries no deadline, since
+            the product endpoints return `campaignPrice` but not the campaign's
+            `endsAt`. Restoring a genuine countdown here means widening that
+            payload, which is its own change. An absent countdown is honest; a
+            fabricated one is not.
+          */}
 
           <p className="mt-4 flex items-center gap-2 text-xs text-gray-500">
             <Eye size={14} /> {viewers} people are viewing this right now

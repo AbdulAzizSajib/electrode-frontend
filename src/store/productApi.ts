@@ -1,7 +1,13 @@
 import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
 import { API_BASE_URL } from "@/lib/api-client";
+import { placeholderImage } from "@/lib/placeholder";
 import { toProduct } from "@/services/product";
-import type { ApiProduct, Product } from "@/types/product";
+import type {
+  ApiProduct,
+  ApiSearchSuggestion,
+  Product,
+  SearchSuggestion,
+} from "@/types/product";
 import type { ApiResponse } from "@/types/auth";
 
 /**
@@ -42,7 +48,30 @@ export const productApi = createApi({
         return toProduct(response.data);
       },
     }),
+
+    /**
+     * Typeahead suggestions for the search box.
+     *
+     * Kept separate from `getProducts` because the endpoint returns a slim
+     * projection, not full products — see `ApiSearchSuggestion`. The full
+     * results page still goes through `/products?q=`, so this is only ever the
+     * dropdown, and a shopper who submits gets the complete, filterable listing.
+     */
+    searchProducts: builder.query<SearchSuggestion[], string>({
+      query: (term) => `/products/search?q=${encodeURIComponent(term)}`,
+      transformResponse: (response: ApiResponse<ApiSearchSuggestion[]>) =>
+        (Array.isArray(response.data) ? response.data : []).map((item) => ({
+          id: item.id,
+          name: item.name,
+          slug: item.slug,
+          // Same decimal-string-to-number parse the product mapper does, so the
+          // dropdown never formats a string as though it were a number.
+          price: Number(item.price) || 0,
+          image: item.image ?? placeholderImage(item.slug, { label: item.name }),
+          brand: item.brandName ?? undefined,
+        })),
+    }),
   }),
 });
 
-export const { useGetProductBySlugQuery } = productApi;
+export const { useGetProductBySlugQuery, useSearchProductsQuery } = productApi;

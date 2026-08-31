@@ -127,35 +127,43 @@ export const blogPosts = [
   { title: "How to Set Up a Smart Home on a Budget", date: "Jul 19, 2026", excerpt: "Welcome to the ultimate shopping event you've been waiting for — our upcoming sale with big discounts.", image: placeholderImage("blog-4", { w: 500, h: 350, label: "Smart Home" }) },
 ];
 
+/**
+ * Store contact details. Kept here rather than inline so the announcement bar
+ * and the mobile bottom nav dial the same number.
+ *
+ * `phoneDigits` is the E.164 form without the `+` — what wa.me expects — while
+ * `phone` is what a shopper reads.
+ */
+export const contact = {
+  phone: "+8801782521705",
+  phoneDigits: "8801782521705",
+  email: "contact@sheisite.com",
+};
+
 export interface NavLink {
   label: string;
   href: string;
   children?: { label: string; href: string }[];
 }
 
+/**
+ * Shop / Best Selling / New Arrivals pointed at `/shop`, which is not a route
+ * in this app — all three 404'd. They now point at `/products`, the real
+ * catalog page, which carries the category, brand and price filters.
+ *
+ * The sort travels in the URL so the server orders the whole catalog; the
+ * listing used to reorder only the fetched page, which made "best selling"
+ * mean "best of these twelve".
+ *
+ * `sort` values must stay in step with `SORT_OPTIONS` in
+ * components/product/ProductListing.tsx. An unrecognised value there falls back
+ * to the default listing rather than erroring, so a stale bookmark still works.
+ */
 export const navLinks: NavLink[] = [
   { label: "Home", href: "/" },
-  {
-    label: "Shop",
-    href: "/shop",
-    // children: [
-    //   { label: "All Products", href: "/products" },
-    //   { label: "New Arrivals", href: "/products?sort=new" },
-    //   { label: "Best Sellers", href: "/products?sort=best" },
-    //   { label: "Today's Deal", href: "/deals" },
-    // ],
-  },
-  { label: "Best Selling", href: "/shop?sort=best" },
-  {
-    label: "New Arrivals",
-    href: "/shop?sort=new",
-    // children: [
-    //   { label: "All Headphones", href: "/products?category=Headphones" },
-    //   { label: "Over-Ear", href: "/products?category=Headphones" },
-    //   { label: "In-Ear / Earbuds", href: "/products?category=Headphones" },
-    //   { label: "Wireless", href: "/products?category=Headphones" },
-    // ],
-  },
+  { label: "Shop", href: "/products" },
+  { label: "Best Selling", href: "/products?sort=best" },
+  { label: "New Arrivals", href: "/products?sort=new" },
   { label: "Blogs", href: "/blogs" },
   { label: "Contact", href: "/contact" },
 ];

@@ -25,19 +25,17 @@ export interface ApiProductImage {
 
 export interface ApiProductVariant {
   id: string;
-  productId: string;
   name: string;
   sku: string;
   price: string;
   compareAtPrice: string | null;
-  costPrice: string | null;
+  // No `costPrice`: it is the supplier cost, and the public endpoints project
+  // it out. Re-declaring it would invite a component to render it.
   stockQuantity: number;
   /** Free-form map, e.g. `{ "version": "Pro" }`. */
   attributes: Record<string, string> | null;
   image: string | null;
   status: boolean;
-  createdAt: string;
-  updatedAt: string;
 }
 
 /** A spec row, e.g. `{ name: "Connectivity", value: "Wi-Fi and Bluetooth" }`. */
@@ -82,7 +80,8 @@ export interface ApiProduct {
   brandId: string | null;
   price: string;
   compareAtPrice: string | null;
-  costPrice: string | null;
+  // No `costPrice`: it is the supplier cost, and the public endpoints project
+  // it out. Re-declaring it would invite a component to render it.
   stockQuantity: number;
   lowStockThreshold: number | null;
   weight: string | null;
@@ -106,6 +105,12 @@ export interface ApiProduct {
    */
   averageRating: string;
   reviewCount: number;
+  /**
+   * Lifetime units sold, counting only orders whose payment succeeded. A plain
+   * number, and 0 rather than null for a product that has never sold — what
+   * `?sortBy=totalSold` orders by.
+   */
+  totalSold: number;
 }
 
 /** Pagination block returned alongside a product list. */
@@ -171,6 +176,50 @@ export interface ProductListResult {
   meta: PaginationMeta;
 }
 
+/**
+ * A row from `GET /products/search?q=` — deliberately NOT an `ApiProduct`.
+ *
+ * The search endpoint returns a slim projection built for typeahead: a flat
+ * `brandName` instead of a nested brand, a single `image` string instead of the
+ * images array, and no stock, category, variants or review aggregate. Treating
+ * it as a product would mean `toProduct` silently filling those gaps with
+ * defaults, so the suggestion list gets its own type and its own mapper.
+ */
+export interface ApiSearchSuggestion {
+  id: string;
+  name: string;
+  slug: string;
+  /** Decimal string, like every other monetary value on this API. */
+  price: string;
+  image: string | null;
+  brandName: string | null;
+}
+
+/** The view model the search dropdown renders. */
+export interface SearchSuggestion {
+  id: string;
+  name: string;
+  slug: string;
+  price: number;
+  image: string;
+  brand?: string;
+}
+
+/**
+ * Fields the public product listing may be ordered by.
+ *
+ * Mirrors `PUBLIC_PRODUCT_SORT_FIELDS` on the backend, which rejects anything
+ * else with a 400 rather than silently falling back to a default order. Typed
+ * as a closed union so a disallowed field is a compile error here instead of a
+ * failed request at runtime.
+ */
+export type ProductSortField =
+  | "createdAt"
+  | "price"
+  | "name"
+  | "averageRating"
+  | "totalSold";
+
 /** Query parameters accepted by `GET /products`. */
 export interface ProductQuery {
   page?: number;
@@ -181,4 +230,8 @@ export interface ProductQuery {
   brand?: string;
   minPrice?: number;
   maxPrice?: number;
+  /** Restricts the listing to products the merchant flagged as featured. */
+  isFeatured?: boolean;
+  sortBy?: ProductSortField;
+  sortOrder?: "asc" | "desc";
 }
