@@ -1,5 +1,5 @@
 import { apiFetch } from "@/lib/api-client";
-import type { ApiCategory, CategoryNode } from "@/types/category";
+import type { ApiCategory, CategoryNode, CategoryGridItem } from "@/types/category";
 
 /**
  * Categories change on the order of days, and the menu renders on every page,
@@ -56,7 +56,35 @@ export async function getCategoryTree(): Promise<CategoryNode[]> {
   }
 }
 
-/** Depth-first walk of the tree, parents before their children. */
+/**
+ * Categories for the homepage grid — name, slug, and the best available image.
+ * Prefers `image`, falls back to `banner` when `image` is null. Categories with
+ * neither are dropped so the grid never renders a broken image.
+ *
+ * Never throws for the same reason as `getCategoryTree`: failure yields an empty
+ * grid rather than crashing the homepage.
+ */
+export async function getCategoryGrid(): Promise<CategoryGridItem[]> {
+  try {
+    const { data } = await apiFetch<ApiCategory[]>("/categories", {
+      revalidate: CATEGORY_REVALIDATE_SECONDS,
+    });
+
+    if (!Array.isArray(data)) return [];
+
+    return data
+      .filter((category) => category.status)
+      .sort(bySortOrder)
+      .map((category) => ({
+        name: category.name,
+        slug: category.slug,
+        image: category.image ?? category.banner ?? null,
+      }))
+      .filter((item) => item.image !== null);
+  } catch {
+    return [];
+  }
+}
 export function flattenCategories(nodes: CategoryNode[]): CategoryNode[] {
   return nodes.flatMap((node) => [node, ...flattenCategories(node.children)]);
 }

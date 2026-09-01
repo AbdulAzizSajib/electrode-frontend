@@ -37,3 +37,10 @@ export interface CategoryNode {
   slug: string;
   children: CategoryNode[];
 }
+
+/** Shape the category grid renders: name, slug, and the best available image. */
+export interface CategoryGridItem {
+  name: string;
+  slug: string;
+  image: string | null;
+}
