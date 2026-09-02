@@ -9,6 +9,7 @@ import {
   useSyncExternalStore,
   type ReactNode,
 } from "react";
+import { usePathname } from "next/navigation";
 import Lenis from "lenis";
 
 const REDUCED_MOTION_QUERY = "(prefers-reduced-motion: reduce)";
@@ -51,6 +52,27 @@ export function useSmoothScroll() {
  */
 export default function SmoothScrollProvider({ children }: { children: ReactNode }) {
   const [lenis, setLenis] = useState<Lenis | null>(null);
+
+  /*
+   * The provider lives in `layout.tsx`, so it stays mounted across App Router
+   * navigations. Lenis owns the window scroll, which means the router's own
+   * `window.scrollTo(0, 0)` on route change is just a native jump that Lenis
+   * discards — so the new page can open mid-scroll, and when Lenis's cached
+   * page height (its internal `limit`) is stale it "stacks" on re-entry.
+   *
+   * Listening to the pathname and snapping Lenis back to the top (plus a
+   * `resize()` to refresh its cached dimensions) restores the browser's
+   * default top-of-page navigation on every route change.
+   */
+  const pathname = usePathname();
+
+  useEffect(() => {
+    if (!lenis) return;
+    // Reset rather than a smooth `scrollTo` so the jump is instant, silent and
+    // cannot be interrupted by (or interrupt) the next route transition.
+    lenis.scrollTo(0, { immediate: true, force: true });
+    lenis.resize();
+  }, [pathname, lenis]);
 
   /*
    * The user's motion preference, read with `useSyncExternalStore` rather than
@@ -97,7 +119,15 @@ export default function SmoothScrollProvider({ children }: { children: ReactNode
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setLenis(instance);
 
+    // Back/forward navigation (bfcache) can restore the DOM but leave Lenis's
+    // cached scroll state stale; a resize recalculates the page dimensions.
+    const onPageshow = (e: PageTransitionEvent) => {
+      if (e.persisted) instance.resize();
+    };
+    window.addEventListener("pageshow", onPageshow);
+
     return () => {
+      window.removeEventListener("pageshow", onPageshow);
       instance.destroy();
       setLenis(null);
     };

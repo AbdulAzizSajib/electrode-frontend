@@ -11,7 +11,7 @@ export default function Footer() {
       <div className="container-px mx-auto max-w-346 border-b border-white/10 py-10">
         <div className="flex flex-col items-start justify-between gap-6 md:flex-row md:items-center">
           <div>
-            <h3 className="text-xl font-semibold">Join Our Newsletter For $10 Off</h3>
+            <h3 className="text-xl font-semibold">Join Our Newsletter For ৳10 Off</h3>
             <p className="mt-1 text-sm text-white/80">
               Subscribe to our latest newsletter to get news about special discounts and upcoming sales.
             </p>

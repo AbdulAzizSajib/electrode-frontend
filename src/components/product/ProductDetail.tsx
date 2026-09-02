@@ -411,7 +411,7 @@ export default function ProductDetail({
         )}
         {tab === "shipping" && (
           <p className="max-w-3xl text-sm leading-relaxed text-gray-600">
-            Free shipping on orders over $130. Items can be returned or exchanged within 30 days of
+            Free shipping on orders over ৳130. Items can be returned or exchanged within 30 days of
             delivery in original condition. Contact support to start a return.
           </p>
         )}

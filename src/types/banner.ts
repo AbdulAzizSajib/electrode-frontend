@@ -7,6 +7,7 @@ export type BannerPlacement =
   | "HERO_SLIDER"
   | "HERO_SIDE"
   | "HERO_PROMO"
+  | "MID"
   | (string & {});
 
 /**

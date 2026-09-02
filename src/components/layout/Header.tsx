@@ -309,7 +309,7 @@ export default function Header({
           )}
           <Link href="/deals" className="ml-auto flex items-center gap-2 hover:text-accent">
             <Icon icon="fluent:flash-on-24-filled" />
-            Today&apos;s Deal
+            Today&apos;s Offers
           </Link>
         </div>
       </nav>
