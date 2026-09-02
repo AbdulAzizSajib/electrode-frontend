@@ -39,6 +39,21 @@ body {
 }
 
 /*
+ * Clearance for the pinned category nav, so an element scrolled to via an
+ * in-page anchor comes to rest below it instead of underneath it.
+ *
+ * Sized to the nav row alone (`py-4` plus its line box), not the whole header:
+ * the announcement bar and the logo/search row scroll away, so reserving their
+ * height would leave a gap above every anchor target. Only applied from `md`,
+ * where the nav row exists at all.
+ */
+@media (min-width: 768px) {
+  html {
+    scroll-padding-top: 3.5rem;
+  }
+}
+
+/*
  * Room for the fixed mobile bottom nav, reserved here rather than per page so
  * no route can leave its last row of content trapped underneath it. Matches the
  * bar's own height plus the device's safe-area inset; released at `md`, where
@@ -69,6 +84,11 @@ body {
   overflow: hidden;
 }
 
+/*
+ * Nested scrollers (cart drawer, mobile menu, search results, modals) keep a
+ * visible scrollbar — inside a panel it is the only thing saying the list runs
+ * past the fold.
+ */
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
@@ -76,4 +96,20 @@ body {
 ::-webkit-scrollbar-thumb {
   background: #cbd5e1;
   border-radius: 9999px;
+}
+
+/*
+ * The page scrollbar itself is hidden — the back-to-top button's progress ring
+ * carries scroll depth instead. Scoped to the root element so the panel
+ * scrollbars above survive; a bare `::-webkit-scrollbar` rule would hide those
+ * too. Scrolling itself is untouched: the page still scrolls by wheel, key,
+ * touch, and Lenis, only the painted bar is gone.
+ */
+html {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* legacy Edge */
+}
+html::-webkit-scrollbar {
+  width: 0;
+  height: 0;
 }

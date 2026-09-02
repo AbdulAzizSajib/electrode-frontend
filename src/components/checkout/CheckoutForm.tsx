@@ -636,7 +636,7 @@ export default function CheckoutForm({
               Buying this item directly. Your cart is untouched.
             </p>
           )}
-          <div className="max-h-72 space-y-4 overflow-y-auto pr-1">
+          <div className="max-h-72 space-y-4 overflow-y-auto pr-1" data-lenis-prevent>
             {displayLines.map((line) => (
               <div key={line.id} className="flex gap-3">
                 <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded bg-white">

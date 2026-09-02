@@ -152,7 +152,10 @@ export default function SearchBox({
       </form>
 
       {showDropdown && (
-        <div className="absolute inset-x-0 top-full z-50 mt-1 max-h-96 overflow-y-auto rounded border border-gray-200 bg-white shadow-xl">
+        <div
+          className="absolute inset-x-0 top-full z-50 mt-1 max-h-96 overflow-y-auto rounded border border-gray-200 bg-white shadow-xl"
+          data-lenis-prevent
+        >
           {results.length > 0 ? (
             <>
               {results.map((item, index) => (

@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { ChevronDown, ChevronRight, X } from "lucide-react";
 import clsx from "clsx";
 import SearchBox from "@/components/layout/SearchBox";
+import { useScrollLock } from "@/components/providers/SmoothScrollProvider";
 import { navLinks } from "@/data/content";
 import type { AuthUser } from "@/types/auth";
 import type { CategoryNode } from "@/types/category";
@@ -41,15 +42,10 @@ export default function MobileMenuDrawer({
   const [openLink, setOpenLink] = useState<string | null>(null);
 
   // The drawer covers the viewport; letting the page behind it scroll under the
-  // shopper's finger is the classic scroll-chaining bug on iOS.
-  useEffect(() => {
-    if (!open) return;
-    const previous = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = previous;
-    };
-  }, [open]);
+  // shopper's finger is the classic scroll-chaining bug on iOS. Routed through
+  // the shared lock rather than setting `body.overflow` directly — that alone
+  // stops nothing once Lenis is driving the scroll loop.
+  useScrollLock(open);
 
   useEffect(() => {
     if (!open) return;
@@ -129,7 +125,9 @@ export default function MobileMenuDrawer({
 
         {/* The only scrolling region — the header, search and tabs stay put, so
             the shopper never loses the tab strip while deep in the tree. */}
-        <div className="flex-1 overflow-y-auto overscroll-contain">
+        {/* `data-lenis-prevent` keeps Lenis from claiming the wheel here, so this
+            list scrolls natively instead of scrolling the page behind it. */}
+        <div className="flex-1 overflow-y-auto overscroll-contain" data-lenis-prevent>
           {activeTab === "menu" ? (
             <ul className="text-sm">
               {navLinks.map((link) => (

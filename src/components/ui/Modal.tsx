@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
+import { useScrollLock } from "@/components/providers/SmoothScrollProvider";
 
 const FOCUSABLE_SELECTOR = [
   "a[href]",
@@ -79,15 +80,14 @@ export default function Modal({
     [onClose],
   );
 
+  // Routed through the shared lock rather than setting `body.overflow` here:
+  // that alone stops nothing once Lenis drives the scroll loop.
+  useScrollLock(isOpen);
+
   useEffect(() => {
     if (!isOpen) return;
 
     previouslyFocused.current = document.activeElement as HTMLElement | null;
-
-    // Restore the exact prior value rather than clearing to "" — a hardcoded
-    // reset would clobber a lock held by something else.
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
 
     document.addEventListener("keydown", handleKeyDown);
 
@@ -96,7 +96,6 @@ export default function Modal({
 
     return () => {
       document.removeEventListener("keydown", handleKeyDown);
-      document.body.style.overflow = previousOverflow;
       previouslyFocused.current?.focus();
     };
   }, [isOpen, handleKeyDown]);
@@ -116,6 +115,7 @@ export default function Modal({
           aria-labelledby={labelledById}
           tabIndex={-1}
           className="relative max-h-[90vh] w-full max-w-4xl overflow-y-auto rounded-lg bg-white shadow-xl outline-none"
+          data-lenis-prevent
         >
           <button
             onClick={onClose}

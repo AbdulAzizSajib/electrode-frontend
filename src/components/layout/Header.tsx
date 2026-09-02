@@ -51,7 +51,8 @@ export default function Header({
   }, [openMenu]);
 
   return (
-    <header className="sticky top-0 z-40 bg-brand shadow-sm ">
+    <>
+      <header className="bg-brand shadow-sm ">
       {/* Announcement bar */}
       <div className="hidden bg-brand text-white md:block border-b border-white/30">
         <div className="container-px mx-auto flex max-w-346 items-center justify-between py-2.25 text-[15px] ">
@@ -185,9 +186,24 @@ export default function Header({
         <SearchBox />
       </div>
       </div>
+      </header>
 
-      {/* Nav */}
-      <nav className="hidden bg-brand text-white md:block">
+      {/*
+        Nav — the only header row that stays pinned. The announcement bar and the
+        main row above it scroll away, so browsing keeps the category menu within
+        reach without the full header eating the viewport.
+
+        Deliberately a SIBLING of <header>, not a child of it. A sticky element can
+        only travel inside its own parent's box, and <header> is exactly as tall as
+        its rows — nested there, the nav would have zero distance to stick through
+        and would scroll away like everything else. As a direct child of the body's
+        flex column it sticks against the page instead.
+
+        No `overflow` is set here on purpose: the mega-menu dropdowns are
+        `absolute` children that have to escape this row's box, and clipping them
+        is exactly what an overflow value would do.
+      */}
+      <nav className="sticky top-0 z-40 hidden bg-brand text-white shadow-sm md:block">
         <div className="container-px relative mx-auto flex max-w-346 items-center gap-8 py-4 text-[16px] font-medium">
           {/* Shop By Categories mega menu. Omitted entirely when the catalog
               is empty or unreachable — better no menu than dead links. */}
@@ -304,6 +320,6 @@ export default function Header({
         user={user}
         categories={categories}
       />
-    </header>
+    </>
   );
 }

@@ -5,9 +5,10 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import clsx from "clsx";
 import { Eye, Loader2, Minus, Plus, Repeat } from "lucide-react";
-import type { PaginationMeta, Product } from "@/types/product";
+import type { PaginationMeta, Product, ProductImage } from "@/types/product";
 import type { RatingBreakdown, Review } from "@/types/review";
 import { discountPercent, formatPrice } from "@/lib/format";
+import { variantIdForImage, visibleImages } from "@/lib/variant-gallery";
 import { saveDirectOrderIntent } from "@/lib/guest-checkout";
 import { useAddItemMutation } from "@/store/cartApi";
 import { useAppDispatch } from "@/store/hooks";
@@ -48,14 +49,58 @@ export default function ProductDetail({
   const dispatch = useAppDispatch();
   const [addItem, { isLoading }] = useAddItemMutation();
 
-  const images = product.images.length > 0 ? product.images : [product.image];
+  const images: ProductImage[] =
+    product.images.length > 0
+      ? product.images
+      : [{ url: product.image, variantId: null }];
 
-  // Pre-select the first in-stock variant so a shopper who does not care about
-  // the choice is not blocked, while the selection stays explicit and visible.
-  const [selectedVariantId, setSelectedVariantId] = useState<string | null>(
-    () => product.variants.find((v) => v.inStock)?.id ?? product.variants[0]?.id ?? null,
-  );
+  // Only the shopper's explicit choice is stored; the effective variant is
+  // derived, so an id left over from a previously-rendered product cannot
+  // survive as a selection this product does not have.
+  const [chosenVariantId, setChosenVariantId] = useState<string | null>(null);
+  const defaultVariantId =
+    product.variants.find((v) => v.inStock)?.id ?? product.variants[0]?.id ?? null;
+  const selectedVariantId =
+    chosenVariantId && product.variants.some((v) => v.id === chosenVariantId)
+      ? chosenVariantId
+      : defaultVariantId;
+
+  // Which images this selection shows, derived rather than stored — there is no
+  // second piece of state to fall out of step when the variant changes.
+  const galleryImages = visibleImages(images, selectedVariantId);
+
+  // The displayed image, as a url. `undefined` means "the first visible one",
+  // which is what makes selecting an option reset the view to that option's
+  // first photo without an effect.
+  const [activeImageUrl, setActiveImageUrl] = useState<string | undefined>(undefined);
   const [quantity, setQuantity] = useState(1);
+
+  /**
+   * Selecting an option through the option control: move to that option's first
+   * image by clearing the explicit image choice.
+   */
+  function selectVariant(variantId: string) {
+    setChosenVariantId(variantId);
+    setActiveImageUrl(undefined);
+    setQuantity(1);
+  }
+
+  /**
+   * Selecting a thumbnail. One transition, setting the image AND the variant
+   * together.
+   *
+   * Doing it in two steps looks equivalent and is not: changing the variant
+   * re-filters the gallery, and the "show the first image of the new selection"
+   * rule then displaces the very photo just clicked. Setting the url here means
+   * the reset rule only ever applies to changes coming from the option control.
+   */
+  function selectImage(image: ProductImage) {
+    setActiveImageUrl(image.url);
+    const variantId = variantIdForImage(image);
+    // A shared image depicts no particular option, so it leaves the choice be.
+    if (variantId) setChosenVariantId(variantId);
+  }
+
   const [tab, setTab] = useState<ProductTab>("description");
   const [error, setError] = useState("");
 
@@ -67,6 +112,11 @@ export default function ProductDetail({
 
   const selectedVariant =
     product.variants.find((v) => v.id === selectedVariantId) ?? null;
+
+  // The image actually on screen — the gallery resolves an unknown url to the
+  // first visible image, so this mirrors that rule rather than guessing.
+  const activeImage =
+    galleryImages.find((img) => img.url === activeImageUrl) ?? galleryImages[0];
 
   // What the shopper actually pays: the chosen variant's price when there is
   // one, the product's base price otherwise.
@@ -128,7 +178,9 @@ export default function ProductDetail({
       },
       display: {
         name: product.name,
-        image: images[0] ?? "",
+        // The photo the shopper is looking at, not a fixed first image — which
+        // would show the wrong colour after switching options.
+        image: activeImage?.url ?? "",
         unitPrice: activePrice,
         variantName: selectedVariant?.name,
       },
@@ -146,7 +198,12 @@ export default function ProductDetail({
       </p>
 
       <div className="grid grid-cols-1 gap-10 lg:grid-cols-2">
-        <ProductGallery images={images} title={product.name} />
+        <ProductGallery
+          images={galleryImages}
+          activeUrl={activeImage?.url}
+          onSelect={selectImage}
+          title={product.name}
+        />
 
         <div>
           <h1 className="text-2xl font-bold text-gray-900 sm:text-3xl">{product.name}</h1>
@@ -227,10 +284,7 @@ export default function ProductDetail({
                 {product.variants.map((variant) => (
                   <button
                     key={variant.id}
-                    onClick={() => {
-                      setSelectedVariantId(variant.id);
-                      setQuantity(1);
-                    }}
+                    onClick={() => selectVariant(variant.id)}
                     disabled={!variant.inStock}
                     className={clsx(
                       "rounded border px-4 py-2 text-sm transition-colors",

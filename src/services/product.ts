@@ -5,6 +5,7 @@ import type {
   ApiProductVariant,
   PaginationMeta,
   Product,
+  ProductImage,
   ProductListResult,
   ProductQuery,
   ProductVariant,
@@ -30,16 +31,27 @@ function toPrice(value: string | null | undefined): number | undefined {
   return Number.isFinite(parsed) ? parsed : undefined;
 }
 
-/** Primary image first, then the lowest-sorted one, then a placeholder. */
-function pickImages(product: ApiProduct): { image: string; images: string[] } {
+/**
+ * Primary image first, then the lowest-sorted one, then a placeholder.
+ *
+ * Keeps each image's `variantId` rather than flattening to urls — that is what
+ * lets the gallery filter to the selected variant. The sort is unchanged, so a
+ * product whose images carry no variant yields the same order as before.
+ */
+function pickImages(product: ApiProduct): { image: string; images: ProductImage[] } {
   const sorted = [...(product.images ?? [])].sort(
     (a, b) => Number(b.isPrimary) - Number(a.isPrimary) || a.sortOrder - b.sortOrder,
   );
-  const urls = sorted.map((img) => img.url);
 
   return {
-    image: urls[0] ?? placeholderImage(product.slug, { label: product.name }),
-    images: urls,
+    image: sorted[0]?.url ?? placeholderImage(product.slug, { label: product.name }),
+    images: sorted.map((img) => ({
+      url: img.url,
+      // Older payloads (and the list projection) omit the field entirely;
+      // treat a missing value as shared rather than as undefined.
+      variantId: img.variantId ?? null,
+      altText: img.altText ?? undefined,
+    })),
   };
 }
 

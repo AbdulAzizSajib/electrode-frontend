@@ -6,8 +6,9 @@
  * - `Api*` mirrors the wire format, where every monetary value is a decimal
  *   *string* ("79.99").
  * - `Product` / `ProductVariant` are the view models the UI renders, with money
- *   parsed to numbers and images flattened. Converting once at the service
- *   boundary keeps `"79.99" * 2` (which is NaN) out of the components.
+ *   parsed to numbers and images narrowed to what the UI needs. Converting once
+ *   at the service boundary keeps `"79.99" * 2` (which is NaN) out of the
+ *   components.
  */
 
 export type ProductType = "SIMPLE" | "VARIABLE";
@@ -16,6 +17,14 @@ export type ProductStatus = "ACTIVE" | "INACTIVE" | "DRAFT";
 export interface ApiProductImage {
   id: string;
   productId: string;
+  /**
+   * The variant this image depicts, or `null` when it is shared by the whole
+   * product (packaging, size chart) and applies to every variant.
+   *
+   * Only the detail endpoint carries this — the list projection returns just
+   * the primary image, so a listing cannot know an image's variant.
+   */
+  variantId: string | null;
   url: string;
   altText: string | null;
   sortOrder: number;
@@ -138,6 +147,20 @@ export interface ProductAttribute {
   value: string;
 }
 
+/**
+ * One gallery image in the view model.
+ *
+ * An object rather than a bare url string: a url cannot say which variant it
+ * depicts, and that association is what lets the gallery show only the photos
+ * matching the option a shopper selected.
+ */
+export interface ProductImage {
+  url: string;
+  /** The variant this image depicts; `null` means shared across all variants. */
+  variantId: string | null;
+  altText?: string;
+}
+
 /** The shape every product-rendering component consumes. */
 export interface Product {
   id: string;
@@ -151,9 +174,13 @@ export interface Product {
   isVariable: boolean;
   price: number;
   compareAtPrice?: number;
-  /** Primary image, or a placeholder when the product has none. */
+  /** Primary image url, or a placeholder when the product has none. */
   image: string;
-  images: string[];
+  /**
+   * The full gallery, primary first then by sort order. Carries each image's
+   * variant association, so a bare url is `images[i].url`.
+   */
+  images: ProductImage[];
   brand?: string;
   category?: string;
   categorySlug?: string;

@@ -4,8 +4,9 @@ import { useId, useState } from "react";
 import Link from "next/link";
 import clsx from "clsx";
 import { ArrowRight, Loader2, Minus, Plus } from "lucide-react";
-import type { Product } from "@/types/product";
+import type { Product, ProductImage } from "@/types/product";
 import { discountPercent, formatPrice } from "@/lib/format";
+import { variantIdForImage, visibleImages } from "@/lib/variant-gallery";
 import { useAddItemMutation } from "@/store/cartApi";
 import { useGetProductBySlugQuery } from "@/store/productApi";
 import { useAppDispatch } from "@/store/hooks";
@@ -41,6 +42,8 @@ export default function ProductQuickView({
   // derived below, so the preselected variant needs no effect to install it —
   // which also means it cannot briefly render as unselected.
   const [chosenVariantId, setChosenVariantId] = useState<string | null>(null);
+  /** Displayed image url; `undefined` means "the first visible one". */
+  const [activeImageUrl, setActiveImageUrl] = useState<string | undefined>(undefined);
   const [quantity, setQuantity] = useState(1);
   const [addError, setAddError] = useState("");
 
@@ -61,9 +64,22 @@ export default function ProductQuickView({
 
   const selectedVariant = variants.find((v) => v.id === selectedVariantId) ?? null;
 
+  /** Selecting an option moves to that option's first image (see ProductDetail). */
   function selectVariant(variantId: string) {
     setChosenVariantId(variantId);
+    setActiveImageUrl(undefined);
     setQuantity(1);
+  }
+
+  /**
+   * Selecting a thumbnail sets the image and the variant in one transition, so
+   * the "first image of the new selection" rule cannot displace the photo just
+   * clicked. Same reasoning as ProductDetail.
+   */
+  function selectImage(image: ProductImage) {
+    setActiveImageUrl(image.url);
+    const variantId = variantIdForImage(image);
+    if (variantId) setChosenVariantId(variantId);
   }
 
   // Clear transient state as the dialog closes rather than reacting to it
@@ -71,6 +87,7 @@ export default function ProductQuickView({
   function handleClose() {
     setAddError("");
     setChosenVariantId(null);
+    setActiveImageUrl(undefined);
     setQuantity(1);
     onClose();
   }
@@ -89,7 +106,13 @@ export default function ProductQuickView({
   // Show a price on every chip as soon as they are not all identical.
   const variantPricesDiffer = new Set(variants.map((v) => v.price)).size > 1;
 
-  const images = base.images.length > 0 ? base.images : [base.image];
+  const images: ProductImage[] =
+    base.images.length > 0 ? base.images : [{ url: base.image, variantId: null }];
+
+  // Derived, not stored — same rule as the detail page.
+  const galleryImages = visibleImages(images, selectedVariantId);
+  const activeImage =
+    galleryImages.find((img) => img.url === activeImageUrl) ?? galleryImages[0];
 
   // Nothing may be added until the real choices are known — the card's props
   // cannot tell us whether a variant is still unpicked.
@@ -144,7 +167,12 @@ export default function ProductQuickView({
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-8 p-6 sm:p-8 md:grid-cols-2">
-          <ProductGallery images={images} title={base.name} />
+          <ProductGallery
+            images={galleryImages}
+            activeUrl={activeImage?.url}
+            onSelect={selectImage}
+            title={base.name}
+          />
 
           <div className="flex flex-col">
             {base.brand && <p className="text-xs text-gray-500">{base.brand}</p>}

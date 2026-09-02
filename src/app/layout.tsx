@@ -3,8 +3,10 @@ import "./globals.css";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import CartDrawer from "@/components/layout/CartDrawer";
+import CartRail from "@/components/layout/CartRail";
 import MobileBottomNav from "@/components/layout/MobileBottomNav";
 import StoreProvider from "@/store/StoreProvider";
+import SmoothScrollProvider from "@/components/providers/SmoothScrollProvider";
 import { getCurrentUser } from "@/services/auth";
 import { getCategoryTree } from "@/services/category";
 
@@ -26,11 +28,16 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
     <html lang="en" className="h-full antialiased">
       <body className="flex min-h-full flex-col">
         <StoreProvider isSignedIn={Boolean(user)}>
-          <Header user={user} categories={categories} />
-          <main className="flex-1">{children}</main>
-          <Footer />
-          <CartDrawer />
-          <MobileBottomNav />
+          {/* Inside StoreProvider so the drawers can read both the cart state and
+              the scroll authority that locks the page behind them. */}
+          <SmoothScrollProvider>
+            <Header user={user} categories={categories} />
+            <main className="flex-1">{children}</main>
+            <Footer />
+            <CartDrawer />
+            <CartRail />
+            <MobileBottomNav />
+          </SmoothScrollProvider>
         </StoreProvider>
       </body>
     </html>
