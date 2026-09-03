@@ -5,6 +5,7 @@ import Footer from "@/components/layout/Footer";
 import CartDrawer from "@/components/layout/CartDrawer";
 import CartRail from "@/components/layout/CartRail";
 import MobileBottomNav from "@/components/layout/MobileBottomNav";
+import CompareBar from "@/components/layout/CompareBar";
 import StoreProvider from "@/store/StoreProvider";
 import SmoothScrollProvider from "@/components/providers/SmoothScrollProvider";
 import { getCurrentUser } from "@/services/auth";
@@ -37,6 +38,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
             <CartDrawer />
             <CartRail />
             <MobileBottomNav />
+            <CompareBar />
           </SmoothScrollProvider>
         </StoreProvider>
       </body>

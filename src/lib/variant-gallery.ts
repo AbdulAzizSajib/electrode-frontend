@@ -1,51 +1,54 @@
 import type { ProductImage } from "@/types/product";
 
 /**
- * Which images to show for a selected variant, and which variant a chosen image
- * depicts. Pure and shared, because the product page and the in-listing quick
- * view must answer both questions identically.
+ * How a product's images are ordered for a selected variant, and which variant a
+ * chosen image depicts. Pure and shared, because the product page and the
+ * in-listing quick view must answer both questions identically.
  */
 
 /**
- * The images visible for `selectedVariantId`, as an ordered fallback:
+ * The product's images ordered for `selectedVariantId`:
  *
- *   1. the selected variant's images, plus the shared ones
- *   2. the shared images alone
- *   3. every image
+ *   1. the selected variant's images
+ *   2. the shared images
+ *   3. everything else, in the order given
  *
- * The first non-empty rung wins. Rungs 2 and 3 exist so the gallery is never
- * empty because of how an admin assigned photos — a variant with no photos of
- * its own still shows the packaging shots, and a variant on a product where
- * every photo belongs to some *other* variant still shows something.
+ * Every image is always returned. Ordering, not filtering, is what the
+ * variant-to-image link drives.
  *
- * Order within a rung is the order given, which is `pickImages`' primary-then-
- * sortOrder sequence. With no selection, or on a product whose images carry no
- * variant at all, rung 1 already yields the full list unchanged — which is what
- * keeps products predating image-to-variant assignment behaving exactly as
- * they did.
+ * This deliberately replaces an earlier rule that showed only the selected
+ * variant's images plus the shared ones. The common way a small catalogue is
+ * photographed — one photo per variant, no packaging shots — left that rule
+ * returning a single image, and `ProductGallery` hides its thumbnail strip when
+ * there is only one image, so a four-photo product showed one photo and no way
+ * to reach the other three. Nothing is hidden now: the selection decides which
+ * image leads, not which images exist.
+ *
+ * Order within each group is the order given, which is `pickImages`'
+ * primary-then-sortOrder sequence. With no selection, or on a product whose
+ * images carry no variant at all, the result is the input unchanged.
  */
 export function visibleImages(
   images: ProductImage[],
   selectedVariantId: string | null,
 ): ProductImage[] {
-  if (images.length === 0) return images;
+  if (selectedVariantId === null) return images;
 
-  const shared = images.filter((img) => img.variantId === null);
+  const own: ProductImage[] = [];
+  const shared: ProductImage[] = [];
+  const rest: ProductImage[] = [];
 
-  if (selectedVariantId !== null) {
-    const forSelection = images.filter(
-      (img) => img.variantId === null || img.variantId === selectedVariantId,
-    );
-    if (forSelection.length > 0) return forSelection;
-  } else if (shared.length > 0) {
-    // No selection yet: shared images describe the product as a whole.
-    // Falls through to the full set when every image belongs to a variant.
-    return shared;
+  for (const image of images) {
+    if (image.variantId === selectedVariantId) own.push(image);
+    else if (image.variantId === null) shared.push(image);
+    else rest.push(image);
   }
 
-  if (shared.length > 0) return shared;
+  // Nothing to reorder when the selection matches no image and none are shared,
+  // which is every product whose images predate variant assignment.
+  if (own.length === 0 && shared.length === 0) return images;
 
-  return images;
+  return [...own, ...shared, ...rest];
 }
 
 /**

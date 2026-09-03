@@ -11,6 +11,7 @@ import { useAppDispatch } from "@/store/hooks";
 import { openCart } from "@/store/uiSlice";
 import ProductQuickView from "@/components/product/ProductQuickView";
 import WishlistButton from "@/components/product/WishlistButton";
+import CompareButton from "@/components/product/CompareButton";
 import StarRating from "@/components/ui/StarRating";
 import clsx from "clsx";
 
@@ -55,6 +56,16 @@ export default function ProductCard({ product }: { product: Product }) {
             // Sits below the sold-out chip when one is present, so the two
             // never overlap in the same corner.
             product.inStock ? "right-3 top-3" : "right-3 top-12",
+          )}
+        />
+        <CompareButton
+          slug={product.slug}
+          size={16}
+          className={clsx(
+            "absolute z-10 rounded-full bg-white/90 p-2 text-gray-600 shadow-sm hover:text-brand",
+            // Directly under the wishlist heart, which itself shifts down when
+            // the sold-out chip takes the top corner.
+            product.inStock ? "right-3 top-14" : "right-3 top-23",
           )}
         />
         <Link href={`/products/${product.slug}`}>

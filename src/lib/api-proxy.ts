@@ -22,8 +22,21 @@ import { API_BASE_URL } from "@/lib/api-client";
  */
 const TIMEOUT_MS = 10_000;
 
-/** Request headers forwarded to the backend beyond cookies and content type. */
-const FORWARDED_HEADERS = ["idempotency-key"];
+/**
+ * Request headers forwarded to the backend beyond cookies and content type.
+ *
+ * `user-agent` and `x-forwarded-for` matter because these routes run on the
+ * server: without them every request reaches the backend looking like it came
+ * from this process, so anything deriving a per-visitor identity — the view
+ * counter's dedup key — would collapse every guest into one. Forwarding them
+ * preserves the real client, which the backend already trusts via
+ * `app.set("trust proxy")`.
+ */
+const FORWARDED_HEADERS = [
+  "idempotency-key",
+  "user-agent",
+  "x-forwarded-for",
+];
 
 /** Cookies the storefront forwards to the backend. */
 const FORWARDED_COOKIES = [

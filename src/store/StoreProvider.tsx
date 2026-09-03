@@ -3,6 +3,7 @@
 import { useState, type ReactNode } from "react";
 import { Provider } from "react-redux";
 import { makeStore } from "@/store";
+import CompareHydrator from "@/store/CompareHydrator";
 
 export default function StoreProvider({
   children,
@@ -20,5 +21,10 @@ export default function StoreProvider({
   // an authenticated request it should have skipped (or skips one it shouldn't).
   const [store] = useState(() => makeStore({ isSignedIn }));
 
-  return <Provider store={store}>{children}</Provider>;
+  return (
+    <Provider store={store}>
+      <CompareHydrator />
+      {children}
+    </Provider>
+  );
 }

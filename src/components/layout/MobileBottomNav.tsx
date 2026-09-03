@@ -3,12 +3,16 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Icon } from "@iconify/react";
-import { Home, Phone, ShoppingBag, Store } from "lucide-react";
+import { Home, Phone, Repeat, ShoppingBag, Store } from "lucide-react";
 import clsx from "clsx";
 import { contact } from "@/data/content";
 import { EMPTY_CART, useGetCartQuery } from "@/store/cartApi";
-import { useAppDispatch } from "@/store/hooks";
+import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { openCart } from "@/store/uiSlice";
+import {
+  selectCompareCount,
+  selectIsCompareHydrated,
+} from "@/store/compareSlice";
 
 /**
  * Thumb-reach navigation for small screens, hidden from `md` up where the
@@ -26,6 +30,8 @@ export default function MobileBottomNav() {
   // rather than costing a second request.
   const { data: cart = EMPTY_CART } = useGetCartQuery();
   const itemCount = cart.itemCount;
+  const compareCount = useAppSelector(selectCompareCount);
+  const isCompareHydrated = useAppSelector(selectIsCompareHydrated);
 
   const itemClass = (active: boolean) =>
     clsx(
@@ -83,6 +89,21 @@ export default function MobileBottomNav() {
           </span>
           Cart
         </button>
+
+        {/* Only while something is being compared. The row already carries five
+            items at phone width, and a sixth that is empty most of the time
+            would crowd the four that are always useful. */}
+        {isCompareHydrated && compareCount > 0 && (
+          <Link href="/compare" className={itemClass(pathname === "/compare")}>
+            <span className="relative">
+              <Repeat size={20} strokeWidth={1.75} />
+              <span className="absolute -right-2 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-sale px-1 text-[10px] font-bold text-white">
+                {compareCount}
+              </span>
+            </span>
+            Compare
+          </Link>
+        )}
       </div>
     </nav>
   );

@@ -1,22 +1,31 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import clsx from "clsx";
-import { Eye, Loader2, Minus, Plus, Repeat } from "lucide-react";
+import { Eye, Loader2, Minus, Plus } from "lucide-react";
 import type { PaginationMeta, Product, ProductImage } from "@/types/product";
 import type { RatingBreakdown, Review } from "@/types/review";
-import { discountPercent, formatPrice } from "@/lib/format";
+import { discountPercent, formatCount, formatPrice } from "@/lib/format";
 import { variantIdForImage, visibleImages } from "@/lib/variant-gallery";
+import {
+  choicesForVariant,
+  defaultVariant,
+  resolveOptions,
+  resolveVariant,
+  type OptionChoices,
+} from "@/lib/product-options";
 import { saveDirectOrderIntent } from "@/lib/guest-checkout";
 import { useAddItemMutation } from "@/store/cartApi";
 import { useAppDispatch } from "@/store/hooks";
 import { openCart } from "@/store/uiSlice";
 import ProductGallery from "@/components/product/ProductGallery";
+import OptionSelector from "@/components/product/OptionSelector";
 import ProductCard from "@/components/product/ProductCard";
 import ProductReviews from "@/components/product/ProductReviews";
 import WishlistButton from "@/components/product/WishlistButton";
+import CompareButton from "@/components/product/CompareButton";
 import StarRating from "@/components/ui/StarRating";
 
 /** The tab strip is a literal list, not data — adding a panel means widening this. */
@@ -54,51 +63,76 @@ export default function ProductDetail({
       ? product.images
       : [{ url: product.image, variantId: null }];
 
-  // Only the shopper's explicit choice is stored; the effective variant is
-  // derived, so an id left over from a previously-rendered product cannot
-  // survive as a selection this product does not have.
-  const [chosenVariantId, setChosenVariantId] = useState<string | null>(null);
-  const defaultVariantId =
-    product.variants.find((v) => v.inStock)?.id ?? product.variants[0]?.id ?? null;
-  const selectedVariantId =
-    chosenVariantId && product.variants.some((v) => v.id === chosenVariantId)
-      ? chosenVariantId
-      : defaultVariantId;
+  /*
+   * Selection is a value per option, not a variant id: on a two-option product
+   * "Black" is not a variant, so there is nothing to store until both options
+   * are answered. The variant is derived from the choices instead.
+   *
+   * Seeded from the default variant so a single-option product opens resolved,
+   * exactly as it did before options existed.
+   */
+  const [choices, setChoices] = useState<OptionChoices>(() =>
+    choicesForVariant(product, defaultVariant(product)),
+  );
 
-  // Which images this selection shows, derived rather than stored — there is no
-  // second piece of state to fall out of step when the variant changes.
+  const selection = resolveOptions(product, choices);
+  const selectedVariant = selection.variant;
+  const selectedVariantId = selectedVariant?.id ?? null;
+
+  // Every image, ordered so the selected option's photos lead. Derived rather
+  // than stored — there is no second piece of state to fall out of step when the
+  // variant changes. Nothing is ever filtered out: the selection decides which
+  // image leads, not which images exist.
   const galleryImages = visibleImages(images, selectedVariantId);
 
-  // The displayed image, as a url. `undefined` means "the first visible one",
-  // which is what makes selecting an option reset the view to that option's
-  // first photo without an effect.
+  // The displayed image, as a url. `undefined` means "the first one in order",
+  // which is what makes selecting an option move to that option's photo without
+  // an effect.
   const [activeImageUrl, setActiveImageUrl] = useState<string | undefined>(undefined);
   const [quantity, setQuantity] = useState(1);
 
   /**
-   * Selecting an option through the option control: move to that option's first
-   * image by clearing the explicit image choice.
+   * Picking a value on one option control.
+   *
+   * The gallery moves to the newly-resolved variant's first image by clearing
+   * the explicit image choice, so the display falls through to the head of the
+   * reordered list. When the resolution has no photo of its own — including
+   * while the selection is still incomplete — there is nothing to move to, and
+   * clearing would displace whatever the shopper was looking at with an
+   * unrelated photo, so the current image is pinned instead.
+   *
+   * `activeImage` is declared below; this only reads it on click, long after
+   * render has initialised it.
    */
-  function selectVariant(variantId: string) {
-    setChosenVariantId(variantId);
-    setActiveImageUrl(undefined);
+  function selectOptionValue(optionId: string, valueId: string) {
+    const next = { ...choices, [optionId]: valueId };
+    const nextVariantId = resolveVariant(product, next)?.id;
+    const hasOwnImage =
+      nextVariantId !== undefined &&
+      images.some((img) => img.variantId === nextVariantId);
+
+    setChoices(next);
+    setActiveImageUrl(hasOwnImage ? undefined : activeImage?.url);
     setQuantity(1);
   }
 
   /**
-   * Selecting a thumbnail. One transition, setting the image AND the variant
+   * Selecting a thumbnail. One transition, setting the image AND the selection
    * together.
    *
-   * Doing it in two steps looks equivalent and is not: changing the variant
-   * re-filters the gallery, and the "show the first image of the new selection"
+   * Doing it in two steps looks equivalent and is not: changing the selection
+   * reorders the gallery, and the "show the first image of the new selection"
    * rule then displaces the very photo just clicked. Setting the url here means
-   * the reset rule only ever applies to changes coming from the option control.
+   * that rule only ever applies to changes coming from an option control.
    */
   function selectImage(image: ProductImage) {
     setActiveImageUrl(image.url);
     const variantId = variantIdForImage(image);
     // A shared image depicts no particular option, so it leaves the choice be.
-    if (variantId) setChosenVariantId(variantId);
+    if (!variantId) return;
+
+    const variant = product.variants.find((v) => v.id === variantId);
+    if (variant) setChoices(choicesForVariant(product, variant));
   }
 
   const [tab, setTab] = useState<ProductTab>("description");
@@ -109,9 +143,6 @@ export default function ProductDetail({
     setTab("reviews");
     document.getElementById("product-tabs")?.scrollIntoView({ behavior: "smooth" });
   }
-
-  const selectedVariant =
-    product.variants.find((v) => v.id === selectedVariantId) ?? null;
 
   // The image actually on screen — the gallery resolves an unknown url to the
   // first visible image, so this mirrors that rule rather than guessing.
@@ -128,22 +159,12 @@ export default function ProductDetail({
     ? selectedVariant.stockQuantity
     : product.stockQuantity;
 
-  // Show a price on every variant chip as soon as they are not all identical.
-  // Comparing each against the product's base price instead would leave the
-  // one that happens to match the base with no price while its siblings show
-  // theirs, which reads as a rendering fault rather than a deliberate omission.
-  const variantPricesDiffer =
-    new Set(product.variants.map((v) => v.price)).size > 1;
+  // Nothing may be added until every option is answered — an incomplete
+  // selection does not name a product to buy. `selection.isComplete` covers a
+  // legacy product too, whose single synthetic option opens already answered.
   const canAdd =
-    availableStock > 0 && (!product.isVariable || selectedVariantId !== null);
-
-  // Randomized "viewers" count. Starts at a fixed value so server and client
-  // markup match on hydration, then randomizes client-side after mount.
-  const [viewers, setViewers] = useState(14);
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setViewers(8 + Math.floor(Math.random() * 20));
-  }, []);
+    availableStock > 0 &&
+    (product.variants.length === 0 ? !product.isVariable : selection.isComplete);
 
   async function handleAddToCart() {
     setError("");
@@ -257,9 +278,23 @@ export default function ProductDetail({
             fabricated one is not.
           */}
 
-          <p className="mt-4 flex items-center gap-2 text-xs text-gray-500">
-            <Eye size={14} /> {viewers} people are viewing this right now
-          </p>
+          {/*
+            This line used to read "N people are viewing this right now" from a
+            random number generated on mount — the same class of fabrication as
+            the countdown above, and it survived that cleanup.
+
+            It now states the product's real recorded view count. The wording is
+            past tense on purpose: the count is a lifetime total and carries no
+            information about the present moment, so it must not claim any. A
+            product nobody has opened shows nothing rather than a zero.
+          */}
+          {product.viewCount > 0 && (
+            <p className="mt-4 flex items-center gap-2 text-xs text-gray-500">
+              <Eye size={14} /> {formatCount(product.viewCount)}{" "}
+              {product.viewCount === 1 ? "person has" : "people have"} viewed this
+              product
+            </p>
+          )}
 
           <p className="mt-3 text-sm">
             <span className="font-semibold text-gray-700">Availability: </span>
@@ -270,38 +305,18 @@ export default function ProductDetail({
             )}
           </p>
 
-          {product.variants.length > 0 && (
-            <div className="mt-5">
-              <p className="mb-2 text-sm font-semibold text-gray-700">
-                Option
-                {selectedVariant && (
-                  <span className="ml-1 font-normal text-gray-500">
-                    — {selectedVariant.name}
-                  </span>
-                )}
-              </p>
-              <div className="flex flex-wrap gap-2">
-                {product.variants.map((variant) => (
-                  <button
-                    key={variant.id}
-                    onClick={() => selectVariant(variant.id)}
-                    disabled={!variant.inStock}
-                    className={clsx(
-                      "rounded border px-4 py-2 text-sm transition-colors",
-                      selectedVariantId === variant.id
-                        ? "border-brand bg-brand/5 font-semibold text-brand"
-                        : "border-gray-300 text-gray-600 hover:border-brand",
-                      !variant.inStock && "cursor-not-allowed opacity-40 line-through",
-                    )}
-                  >
-                    {variant.name}
-                    {variantPricesDiffer && (
-                      <span className="ml-2 text-xs">{formatPrice(variant.price)}</span>
-                    )}
-                  </button>
-                ))}
-              </div>
-            </div>
+          <OptionSelector
+            options={selection.options}
+            onSelect={selectOptionValue}
+            className="mt-5"
+          />
+
+          {/* Names what is still missing rather than leaving a disabled button
+              with no explanation. */}
+          {selection.unansweredNames.length > 0 && (
+            <p className="mt-3 text-sm text-gray-500">
+              Choose a {selection.unansweredNames.join(" and a ")} to continue.
+            </p>
           )}
 
           <div className="mt-6">
@@ -361,9 +376,7 @@ export default function ProductDetail({
               standalone
               className="hover:text-brand"
             />
-            <button className="flex items-center gap-1.5 hover:text-brand">
-              <Repeat size={16} /> Compare
-            </button>
+            <CompareButton slug={product.slug} size={16} withLabel className="hover:text-brand" />
           </div>
 
           <div className="mt-6 space-y-1 border-t border-gray-100 pt-4 text-sm text-gray-500">

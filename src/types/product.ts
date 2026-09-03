@@ -32,6 +32,30 @@ export interface ApiProductImage {
   createdAt: string;
 }
 
+/** How an option's values are drawn. Anything unrecognised renders as `LABEL`. */
+export type ApiOptionPresentation = "SWATCH" | "LABEL";
+
+export interface ApiProductOptionValue {
+  id: string;
+  label: string;
+  position: number;
+  /** CSS colour, present only on a SWATCH option's values. */
+  swatch: string | null;
+}
+
+/**
+ * A named axis of choice — Colour, Size, Weight — with its values in the order
+ * the merchant authored them. Arrives ordered by `position`; the storefront
+ * sorts again rather than trusting array order.
+ */
+export interface ApiProductOption {
+  id: string;
+  name: string;
+  position: number;
+  presentation: ApiOptionPresentation;
+  values: ApiProductOptionValue[];
+}
+
 export interface ApiProductVariant {
   id: string;
   name: string;
@@ -45,6 +69,12 @@ export interface ApiProductVariant {
   attributes: Record<string, string> | null;
   image: string | null;
   status: boolean;
+  /**
+   * The option values defining this variant — one per option of its product.
+   * Absent on payloads predating options, and empty for products that define
+   * none.
+   */
+  optionValues?: { valueId: string }[];
 }
 
 /** A spec row, e.g. `{ name: "Connectivity", value: "Wi-Fi and Bluetooth" }`. */
@@ -103,6 +133,8 @@ export interface ApiProduct {
   brand: ApiBrand | null;
   images: ApiProductImage[];
   variants?: ApiProductVariant[];
+  /** Only on the detail endpoint, like `variants`. Absent means no options. */
+  options?: ApiProductOption[];
   attributes?: ApiProductAttribute[];
   /** Set when an active campaign discounts this product. */
   campaignPrice: string | null;
@@ -120,6 +152,15 @@ export interface ApiProduct {
    * `?sortBy=totalSold` orders by.
    */
   totalSold: number;
+  /**
+   * Lifetime product-page views, deduplicated per viewer. A LIFETIME TOTAL —
+   * it says nothing about how many people are on the page now, and must never
+   * be presented as though it did.
+   *
+   * Optional because a storefront deployed ahead of the backend would not
+   * receive it.
+   */
+  viewCount?: number;
 }
 
 /** Pagination block returned alongside a product list. */
@@ -128,6 +169,23 @@ export interface PaginationMeta {
   limit: number;
   total: number;
   totalPages: number;
+}
+
+export type OptionPresentation = "SWATCH" | "LABEL";
+
+export interface ProductOptionValue {
+  id: string;
+  label: string;
+  /** CSS colour for a swatch; absent on a label option. */
+  swatch?: string;
+}
+
+export interface ProductOption {
+  id: string;
+  name: string;
+  presentation: OptionPresentation;
+  /** In the merchant's authored order — S, M, XL, not alphabetical. */
+  values: ProductOptionValue[];
 }
 
 export interface ProductVariant {
@@ -140,6 +198,13 @@ export interface ProductVariant {
   attributes: Record<string, string>;
   image?: string;
   inStock: boolean;
+  /**
+   * Ids of the option values defining this variant, one per option. Empty for a
+   * product with no options, which is every product authored before options
+   * existed — those are presented through a synthetic option built from variant
+   * names instead.
+   */
+  optionValueIds: string[];
 }
 
 export interface ProductAttribute {
@@ -188,6 +253,12 @@ export interface Product {
   inStock: boolean;
   isFeatured: boolean;
   variants: ProductVariant[];
+  /**
+   * The product's axes of choice. Empty for a simple product and for every
+   * product authored before options existed — `product-options.ts` presents
+   * those through a synthetic option instead, so components never branch on it.
+   */
+  options: ProductOption[];
   attributes: ProductAttribute[];
   /**
    * Undefined when the product has no published reviews — deliberately not 0,
@@ -196,6 +267,12 @@ export interface Product {
    */
   rating?: number;
   reviewCount: number;
+  /**
+   * Lifetime views, deduplicated per viewer. 0 for a product nobody has opened
+   * — and for any payload predating view tracking, which is why the page shows
+   * nothing at 0 rather than claiming zero interest.
+   */
+  viewCount: number;
 }
 
 export interface ProductListResult {

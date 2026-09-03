@@ -2,11 +2,13 @@ import { ApiError, apiFetch } from "@/lib/api-client";
 import { placeholderImage } from "@/lib/placeholder";
 import type {
   ApiProduct,
+  ApiProductOption,
   ApiProductVariant,
   PaginationMeta,
   Product,
   ProductImage,
   ProductListResult,
+  ProductOption,
   ProductQuery,
   ProductVariant,
 } from "@/types/product";
@@ -66,6 +68,35 @@ function toVariant(variant: ApiProductVariant): ProductVariant {
     attributes: variant.attributes ?? {},
     image: variant.image ?? undefined,
     inStock: variant.stockQuantity > 0,
+    // Defaults to empty rather than undefined, so a storefront deployed ahead
+    // of the backend renders every product through the no-options path instead
+    // of crashing on a missing field.
+    optionValueIds: (variant.optionValues ?? []).map((ov) => ov.valueId),
+  };
+}
+
+/**
+ * Maps an option and sorts its values by the merchant's authored `position`.
+ *
+ * Sorted here rather than trusted from the payload: the order is the whole
+ * point (S -> M -> XL is not derivable from the labels), and a single mapper is
+ * a cheaper guarantee than every consumer remembering.
+ *
+ * An unrecognised presentation becomes `LABEL`, so a presentation added to the
+ * backend later cannot break a deployed storefront.
+ */
+function toOption(option: ApiProductOption): ProductOption {
+  return {
+    id: option.id,
+    name: option.name,
+    presentation: option.presentation === "SWATCH" ? "SWATCH" : "LABEL",
+    values: [...option.values]
+      .sort((a, b) => a.position - b.position)
+      .map((value) => ({
+        id: value.id,
+        label: value.label,
+        swatch: value.swatch ?? undefined,
+      })),
   };
 }
 
@@ -111,12 +142,18 @@ export function toProduct(product: ApiProduct): Product {
     inStock: product.stockQuantity > 0,
     isFeatured: product.isFeatured,
     variants: (product.variants ?? []).filter((v) => v.status).map(toVariant),
+    options: [...(product.options ?? [])]
+      .sort((a, b) => a.position - b.position)
+      .map(toOption),
     attributes: (product.attributes ?? []).map((a) => ({
       name: a.name,
       value: a.value,
     })),
     rating,
     reviewCount,
+    // Defaults to 0 so a storefront deployed ahead of the backend renders — and
+    // 0 is what makes the page show no view line at all.
+    viewCount: product.viewCount ?? 0,
   };
 }
 

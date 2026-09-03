@@ -266,7 +266,7 @@ export default function CartDrawer() {
               )}
               <div className="mb-3 flex items-center justify-between text-base font-semibold">
                 <span>Total</span>
-                <span className="text-sale">{formatPrice(cart.total)} USD</span>
+                <span className="text-sale">{formatPrice(cart.total)} BDT</span>
               </div>
               <p className="mb-4 text-xs text-gray-500">
                 Taxes and shipping calculated at checkout

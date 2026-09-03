@@ -6,6 +6,8 @@ import { orderApi } from "@/store/orderApi";
 import { productApi } from "@/store/productApi";
 import { reviewApi } from "@/store/reviewApi";
 import { wishlistApi } from "@/store/wishlistApi";
+import compareReducer from "@/store/compareSlice";
+import { compareListenerMiddleware } from "@/store/compareMiddleware";
 import uiReducer from "@/store/uiSlice";
 
 /**
@@ -26,10 +28,14 @@ export function makeStore({ isSignedIn = false }: { isSignedIn?: boolean } = {})
       [productApi.reducerPath]: productApi.reducer,
       [reviewApi.reducerPath]: reviewApi.reducer,
       [wishlistApi.reducerPath]: wishlistApi.reducer,
+      compare: compareReducer,
       ui: uiReducer,
     },
+    // The compare list starts empty and is never preloaded: `preloadedState` is
+    // computed on the server, where `localStorage` does not exist. It is seeded
+    // after mount instead — see `CompareHydrator`.
     middleware: (getDefaultMiddleware) =>
-      getDefaultMiddleware().concat(
+      getDefaultMiddleware().prepend(compareListenerMiddleware.middleware).concat(
         cartApi.middleware,
         addressApi.middleware,
         orderApi.middleware,

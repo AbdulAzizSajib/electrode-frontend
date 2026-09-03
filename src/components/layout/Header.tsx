@@ -3,13 +3,17 @@ import { Icon } from "@iconify/react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { ChevronDown, ChevronRight, Heart, LayoutGrid, Menu, ShoppingBag, User } from "lucide-react";
+import { ChevronDown, ChevronRight, Heart, LayoutGrid, Menu, Repeat, ShoppingBag, User } from "lucide-react";
 import MobileMenuDrawer from "@/components/layout/MobileMenuDrawer";
 import SearchBox from "@/components/layout/SearchBox";
 import { contact, navLinks } from "@/data/content";
 import { EMPTY_CART, useGetCartQuery } from "@/store/cartApi";
 import { useGetWishlistCountQuery } from "@/store/wishlistApi";
-import { useAppDispatch } from "@/store/hooks";
+import {
+  selectCompareCount,
+  selectIsCompareHydrated,
+} from "@/store/compareSlice";
+import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { openCart } from "@/store/uiSlice";
 import type { AuthUser } from "@/types/auth";
 import type { CategoryNode } from "@/types/category";
@@ -32,6 +36,10 @@ export default function Header({
   const { data: wishlistCount = 0 } = useGetWishlistCountQuery(undefined, {
     skip: !user,
   });
+  // Local state, not a query: the compare list lives in `localStorage` and works
+  // signed out, so there is nothing to fetch and nothing to skip.
+  const compareCount = useAppSelector(selectCompareCount);
+  const isCompareHydrated = useAppSelector(selectIsCompareHydrated);
   const router = useRouter();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [openMenu, setOpenMenu] = useState<string | null>(null);
@@ -143,6 +151,25 @@ export default function Header({
               </span>
             </span>
           </Link>
+
+          {/* Only once the stored list has been read — before that the count is
+              zero by construction and would tick up a beat after the page
+              settled. */}
+          {isCompareHydrated && compareCount > 0 && (
+            <Link href="/compare" className="hidden items-center gap-2 lg:flex">
+              <span className="relative">
+                <Repeat size={22} />
+                <span className="absolute -right-2 -top-2 flex h-4 w-4 items-center justify-center rounded-full bg-sale text-[10px] font-bold text-white">
+                  {compareCount}
+                </span>
+              </span>
+              <span className="flex flex-col items-center">
+                Compare
+                <br />
+                <span className="font-semibold">{compareCount} Added</span>
+              </span>
+            </Link>
+          )}
           {/* Hidden below `md`: the mobile bottom nav already carries the cart,
               and two cart buttons on one screen is just noise. */}
           <button

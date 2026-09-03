@@ -34,10 +34,14 @@ export default function ProductGallery({
   return (
     <div className="flex flex-col-reverse gap-4 sm:flex-row">
       {images.length > 1 && (
-        <div className="flex gap-3 sm:flex-col">
+        <div className="flex gap-3 overflow-x-auto overflow-y-hidden sm:max-h-112 sm:flex-col sm:overflow-x-hidden sm:overflow-y-auto">
           {images.map((img, i) => (
+            // Keyed by url *and* variant: the same file can be assigned to two
+            // variants, and the list is no longer filtered, so a url alone is
+            // not unique and React would silently reuse the wrong element.
             <button
-              key={img.url}
+              key={`${img.variantId ?? "shared"}:${img.url}`}
+              type="button"
               onClick={() => onSelect(img)}
               className={clsx(
                 "relative h-16 w-16 shrink-0 overflow-hidden rounded border-2",

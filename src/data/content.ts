@@ -59,7 +59,7 @@ export const midBanners = [
     id: 1,
     eyebrow: "Don't worry, we have it",
     title: "True Wireless Earbuds",
-    price: "$39.99",
+    price: "৳39.99",
     image: placeholderImage("mid-earbuds", { w: 500, h: 400, label: "True Wireless Earbuds" }),
     href: "/products/in-ear-microphone-earphone",
   },
@@ -67,7 +67,7 @@ export const midBanners = [
     id: 2,
     eyebrow: "Only this week",
     title: "Wired Gaming Headphone",
-    price: "$45.99",
+    price: "৳45.99",
     image: placeholderImage("mid-gaming-headset", { w: 500, h: 400, label: "Wired Gaming Headphone" }),
     href: "/products/hammer-bash-max-over-ear-headphones",
   },
@@ -75,22 +75,22 @@ export const midBanners = [
     id: 3,
     eyebrow: "Earn 5% cash back",
     title: "Drone Camera Remote",
-    price: "$49.49",
+    price: "৳49.49",
     image: placeholderImage("mid-drone", { w: 500, h: 400, label: "Drone Camera Remote" }),
     href: "/products",
   },
 ];
 
 export const perks = [
-  { title: "Free Shipping", description: "For orders over $130." },
+  { title: "Free Shipping", description: "For orders over ৳130." },
   { title: "Money Return", description: "30 days for an exchange" },
   { title: "Member Discount", description: "Shop smart and save bigger" },
   { title: "Special Gifts", description: "Contact us anytime" },
 ];
 
 export const collectionTiles = [
-  { id: 1, title: "Only this week. Don't miss...", subtitle: "3D Glasses VR All In One Machine", price: "$149.00", image: placeholderImage("coll-vr", { w: 700, h: 500, label: "3D Glasses VR" }), href: "/products" },
-  { id: 2, title: "Find everything you need", subtitle: "Vifa Wireless Portable Bluetooth Speaker", price: "$599.00", image: placeholderImage("coll-speaker", { w: 700, h: 500, label: "Vifa Bluetooth Speaker" }), href: "/products" },
+  { id: 1, title: "Only this week. Don't miss...", subtitle: "3D Glasses VR All In One Machine", price: "৳149.00", image: placeholderImage("coll-vr", { w: 700, h: 500, label: "3D Glasses VR" }), href: "/products" },
+  { id: 2, title: "Find everything you need", subtitle: "Vifa Wireless Portable Bluetooth Speaker", price: "৳599.00", image: placeholderImage("coll-speaker", { w: 700, h: 500, label: "Vifa Bluetooth Speaker" }), href: "/products" },
 ];
 
 export const categoryGrid = [

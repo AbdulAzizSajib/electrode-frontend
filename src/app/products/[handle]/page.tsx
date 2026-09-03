@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import ProductDetail from "@/components/product/ProductDetail";
+import RecordProductView from "@/components/product/RecordProductView";
 import { getCurrentUser } from "@/services/auth";
 import { getProductBySlug, getRelatedProducts } from "@/services/product";
 import { getProductReviews } from "@/services/review";
@@ -41,14 +42,20 @@ export default async function ProductPage({
   ]);
 
   return (
-    <ProductDetail
-      product={product}
+    <>
+      {/* Renders nothing; exists to record that this page was opened. Mounted
+          here rather than inside ProductDetail so it is unmistakably tied to
+          the detail route and cannot be dragged into a listing or preview. */}
+      <RecordProductView productId={product.id} />
+      <ProductDetail
+        product={product}
       related={related}
-      initialReviews={reviews.reviews}
-      initialBreakdown={reviews.breakdown}
-      initialReviewMeta={reviews.meta}
-      reviewsUnavailable={reviews.failed}
-      isSignedIn={Boolean(user)}
-    />
+        initialReviews={reviews.reviews}
+        initialBreakdown={reviews.breakdown}
+        initialReviewMeta={reviews.meta}
+        reviewsUnavailable={reviews.failed}
+        isSignedIn={Boolean(user)}
+      />
+    </>
   );
 }

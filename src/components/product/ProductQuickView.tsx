@@ -2,17 +2,25 @@
 
 import { useId, useState } from "react";
 import Link from "next/link";
-import clsx from "clsx";
 import { ArrowRight, Loader2, Minus, Plus } from "lucide-react";
 import type { Product, ProductImage } from "@/types/product";
 import { discountPercent, formatPrice } from "@/lib/format";
 import { variantIdForImage, visibleImages } from "@/lib/variant-gallery";
+import {
+  choicesForVariant,
+  defaultVariant,
+  resolveOptions,
+  resolveVariant,
+  type OptionChoices,
+} from "@/lib/product-options";
 import { useAddItemMutation } from "@/store/cartApi";
 import { useGetProductBySlugQuery } from "@/store/productApi";
 import { useAppDispatch } from "@/store/hooks";
 import { openCart } from "@/store/uiSlice";
 import Modal from "@/components/ui/Modal";
 import ProductGallery from "@/components/product/ProductGallery";
+import OptionSelector from "@/components/product/OptionSelector";
+import CompareButton from "@/components/product/CompareButton";
 
 interface ProductQuickViewProps {
   /** The card's product — carries name, image and price, but never variants. */
@@ -38,10 +46,11 @@ export default function ProductQuickView({
     isError,
   } = useGetProductBySlugQuery(product.slug, { skip: !isOpen });
 
-  // Only the shopper's *explicit* choice is state. The effective selection is
+  // Only the shopper's *explicit* choices are state. The effective selection is
   // derived below, so the preselected variant needs no effect to install it —
-  // which also means it cannot briefly render as unselected.
-  const [chosenVariantId, setChosenVariantId] = useState<string | null>(null);
+  // which also means it cannot briefly render as unselected, and does not have
+  // to wait for `detailed` to arrive before seeding.
+  const [chosenValues, setChosenValues] = useState<OptionChoices | null>(null);
   /** Displayed image url; `undefined` means "the first visible one". */
   const [activeImageUrl, setActiveImageUrl] = useState<string | undefined>(undefined);
   const [quantity, setQuantity] = useState(1);
@@ -49,44 +58,68 @@ export default function ProductQuickView({
 
   const variants = detailed?.variants ?? [];
 
-  // Preselect the first in-stock variant so a shopper indifferent to the choice
-  // is not blocked. A product with no in-stock variant yields null, which keeps
-  // the add disabled rather than silently picking an unavailable option.
-  const defaultVariantId =
-    variants.find((v) => v.inStock)?.id ?? variants[0]?.id ?? null;
+  /*
+   * Options resolve against the fetched detail, which is the only payload
+   * carrying them. Until it arrives there are no options and no variants, so
+   * the panel renders the card's own price and cannot be added — which is what
+   * `canAdd`'s `Boolean(detailed)` already required.
+   *
+   * Choices default to those selecting the first in-stock variant, so a shopper
+   * indifferent to the choice is not blocked. Deriving rather than storing that
+   * default means it needs no effect and cannot briefly render as unselected.
+   */
+  const selection = detailed
+    ? resolveOptions(
+        detailed,
+        chosenValues ?? choicesForVariant(detailed, defaultVariant(detailed)),
+      )
+    : null;
 
-  // A chosen id is only honoured while it exists in the current variant list;
-  // otherwise a stale choice could outlive the product it belonged to.
-  const selectedVariantId =
-    chosenVariantId && variants.some((v) => v.id === chosenVariantId)
-      ? chosenVariantId
-      : defaultVariantId;
+  const selectedVariant = selection?.variant ?? null;
+  const selectedVariantId = selectedVariant?.id ?? null;
 
-  const selectedVariant = variants.find((v) => v.id === selectedVariantId) ?? null;
+  /**
+   * Picking a value on one option control. Moves to the newly-resolved
+   * variant's first image, or leaves the displayed photo alone when it has none
+   * of its own (see ProductDetail). `images` and `activeImage` are declared
+   * below; this only reads them on click, long after render has initialised
+   * them.
+   */
+  function selectOptionValue(optionId: string, valueId: string) {
+    if (!detailed) return;
 
-  /** Selecting an option moves to that option's first image (see ProductDetail). */
-  function selectVariant(variantId: string) {
-    setChosenVariantId(variantId);
-    setActiveImageUrl(undefined);
+    const current =
+      chosenValues ?? choicesForVariant(detailed, defaultVariant(detailed));
+    const next = { ...current, [optionId]: valueId };
+    const nextVariantId = resolveVariant(detailed, next)?.id;
+    const hasOwnImage =
+      nextVariantId !== undefined &&
+      images.some((img) => img.variantId === nextVariantId);
+
+    setChosenValues(next);
+    setActiveImageUrl(hasOwnImage ? undefined : activeImage?.url);
     setQuantity(1);
   }
 
   /**
-   * Selecting a thumbnail sets the image and the variant in one transition, so
+   * Selecting a thumbnail sets the image and the selection in one transition, so
    * the "first image of the new selection" rule cannot displace the photo just
    * clicked. Same reasoning as ProductDetail.
    */
   function selectImage(image: ProductImage) {
     setActiveImageUrl(image.url);
     const variantId = variantIdForImage(image);
-    if (variantId) setChosenVariantId(variantId);
+    if (!variantId || !detailed) return;
+
+    const variant = variants.find((v) => v.id === variantId);
+    if (variant) setChosenValues(choicesForVariant(detailed, variant));
   }
 
   // Clear transient state as the dialog closes rather than reacting to it
   // having closed, so a reopened panel never flashes a previous error.
   function handleClose() {
     setAddError("");
-    setChosenVariantId(null);
+    setChosenValues(null);
     setActiveImageUrl(undefined);
     setQuantity(1);
     onClose();
@@ -103,24 +136,22 @@ export default function ProductQuickView({
     ? selectedVariant.stockQuantity
     : base.stockQuantity;
 
-  // Show a price on every chip as soon as they are not all identical.
-  const variantPricesDiffer = new Set(variants.map((v) => v.price)).size > 1;
-
   const images: ProductImage[] =
     base.images.length > 0 ? base.images : [{ url: base.image, variantId: null }];
 
-  // Derived, not stored — same rule as the detail page.
+  // Every image, ordered so the selected option's photos lead. Derived, not
+  // stored, and never filtered — same rule as the detail page.
   const galleryImages = visibleImages(images, selectedVariantId);
   const activeImage =
     galleryImages.find((img) => img.url === activeImageUrl) ?? galleryImages[0];
 
   // Nothing may be added until the real choices are known — the card's props
-  // cannot tell us whether a variant is still unpicked.
+  // cannot tell us whether an option is still unanswered.
   const canAdd =
     Boolean(detailed) &&
     !isFetching &&
     availableStock > 0 &&
-    (!detailed?.isVariable || selectedVariantId !== null) &&
+    (variants.length === 0 ? !detailed?.isVariable : Boolean(selection?.isComplete)) &&
     !isAdding;
 
   async function handleAddToCart() {
@@ -220,41 +251,18 @@ export default function ProductQuickView({
                   )}
                 </p>
 
-                {variants.length > 0 && (
-                  <div className="mt-5">
-                    <p className="mb-2 text-sm font-semibold text-gray-700">
-                      Option
-                      {selectedVariant && (
-                        <span className="ml-1 font-normal text-gray-500">
-                          — {selectedVariant.name}
-                        </span>
-                      )}
-                    </p>
-                    <div className="flex flex-wrap gap-2">
-                      {variants.map((variant) => (
-                        <button
-                          key={variant.id}
-                          onClick={() => selectVariant(variant.id)}
-                          disabled={!variant.inStock}
-                          className={clsx(
-                            "rounded border px-4 py-2 text-sm transition-colors",
-                            selectedVariantId === variant.id
-                              ? "border-brand bg-brand/5 font-semibold text-brand"
-                              : "border-gray-300 text-gray-600 hover:border-brand",
-                            !variant.inStock &&
-                              "cursor-not-allowed opacity-40 line-through",
-                          )}
-                        >
-                          {variant.name}
-                          {variantPricesDiffer && (
-                            <span className="ml-2 text-xs">
-                              {formatPrice(variant.price)}
-                            </span>
-                          )}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
+                {selection && (
+                  <OptionSelector
+                    options={selection.options}
+                    onSelect={selectOptionValue}
+                    className="mt-5"
+                  />
+                )}
+
+                {selection && selection.unansweredNames.length > 0 && (
+                  <p className="mt-3 text-sm text-gray-500">
+                    Choose a {selection.unansweredNames.join(" and a ")} to continue.
+                  </p>
                 )}
 
                 <div className="mt-6">
@@ -304,6 +312,12 @@ export default function ProductQuickView({
               >
                 View Full Product Details <ArrowRight size={16} />
               </Link>
+
+              <CompareButton
+                slug={base.slug}
+                withLabel
+                className="justify-center py-1 text-sm text-gray-500 hover:text-brand"
+              />
             </div>
           </div>
         </div>
