@@ -47,6 +47,13 @@ export interface ApiProductOptionValue {
  * A named axis of choice — Colour, Size, Weight — with its values in the order
  * the merchant authored them. Arrives ordered by `position`; the storefront
  * sorts again rather than trusting array order.
+ *
+ * **Derived, not stored.** A product no longer defines its own options; it
+ * sells values of shop-wide attributes, and the backend rebuilds this list from
+ * the attributes its variants' values belong to. `id` is therefore the
+ * *attribute's* id, and `values` holds only the values this product sells, not
+ * every value the attribute defines. The shape reaching the storefront is
+ * unchanged — see `storefront/product-options`.
  */
 export interface ApiProductOption {
   id: string;
@@ -127,6 +134,30 @@ export interface ApiProduct {
   isFeatured: boolean;
   seoTitle: string | null;
   seoDescription: string | null;
+
+  /*
+   * Facts a shopper needs before buying. All optional on the wire so a
+   * storefront deployed ahead of the backend keeps rendering.
+   *
+   * `isRefundable` / `hasWarranty` are TRI-STATE: `null` means the merchant has
+   * not said, which is a different claim from `false`. Rendering null as "No"
+   * would put words in a merchant's mouth about a refund policy.
+   */
+  unit?: string | null;
+  badge?: string | null;
+  isRefundable?: boolean | null;
+  hasWarranty?: boolean | null;
+  /** An uploaded product video, shown alongside the gallery. */
+  video?: string | null;
+  /** Its poster frame. Always present when `video` is — the backend derives one. */
+  videoThumbnail?: string | null;
+
+  /** The offer this product carries, when it carries one. */
+  bundleDeal?: { id: string; name: string; buyQuantity: number; freeQuantity: number } | null;
+  /** Visible collections only — the backend filters hidden ones out. */
+  collections?: { collection: { id: string; name: string; slug: string } }[];
+  tags?: { tag: { id: string; name: string } }[];
+
   createdAt: string;
   updatedAt: string;
   category: ApiProductCategory | null;
@@ -260,6 +291,30 @@ export interface Product {
    */
   options: ProductOption[];
   attributes: ProductAttribute[];
+
+  /*
+   * The facts a shopper reads before buying. Each is `undefined` when the
+   * merchant did not supply it, and the UI renders NOTHING for an undefined one
+   * rather than an empty label — see `admin/product-authoring`, "a product
+   * missing an optional fact SHALL display nothing for it".
+   *
+   * `isRefundable` / `hasWarranty` stay tri-state through the mapper: `false`
+   * is "no", `undefined` is "not stated", and collapsing the two would have the
+   * storefront assert a refund policy the merchant never gave.
+   */
+  unit?: string;
+  badge?: string;
+  isRefundable?: boolean;
+  hasWarranty?: boolean;
+  /** Video and its poster frame, presented alongside the gallery. */
+  video?: string;
+  videoThumbnail?: string;
+  /** "Buy N, get M free", when this product carries an offer. */
+  bundleDeal?: { name: string; buyQuantity: number; freeQuantity: number };
+  /** Visible collections this product belongs to. */
+  collections: { id: string; name: string; slug: string }[];
+  tags: string[];
+
   /**
    * Undefined when the product has no published reviews — deliberately not 0,
    * so an unrated product renders no stars at all rather than an empty

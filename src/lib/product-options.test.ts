@@ -58,6 +58,10 @@ const product = (
     options,
     variants,
     attributes: [],
+    // Present because `Product` requires them, and empty because option
+    // resolution has nothing to do with either.
+    collections: [],
+    tags: [],
   }) as Product;
 
 /** Colour(red|green) x Size(s|m) with only three of the four combinations made. */

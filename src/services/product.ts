@@ -149,6 +149,27 @@ export function toProduct(product: ApiProduct): Product {
       name: a.name,
       value: a.value,
     })),
+
+    // `?? undefined` and not `?? ""`: an absent fact must be absent, so the UI
+    // can render nothing at all rather than an empty label. The two booleans
+    // stay tri-state for the same reason — `null` becomes `undefined` ("not
+    // stated"), never `false`.
+    unit: product.unit || undefined,
+    badge: product.badge || undefined,
+    isRefundable: product.isRefundable ?? undefined,
+    hasWarranty: product.hasWarranty ?? undefined,
+    video: product.video ?? undefined,
+    videoThumbnail: product.videoThumbnail ?? undefined,
+    bundleDeal: product.bundleDeal
+      ? {
+          name: product.bundleDeal.name,
+          buyQuantity: product.bundleDeal.buyQuantity,
+          freeQuantity: product.bundleDeal.freeQuantity,
+        }
+      : undefined,
+    collections: (product.collections ?? []).map((row) => row.collection),
+    tags: (product.tags ?? []).map((row) => row.tag.name),
+
     rating,
     reviewCount,
     // Defaults to 0 so a storefront deployed ahead of the backend renders — and

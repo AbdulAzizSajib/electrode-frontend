@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import clsx from "clsx";
-import { Eye, Loader2, Minus, Plus } from "lucide-react";
+import { Eye, Gift, Loader2, Minus, Plus, RotateCcw, ShieldCheck, XCircle } from "lucide-react";
 import type { PaginationMeta, Product, ProductImage } from "@/types/product";
 import type { RatingBreakdown, Review } from "@/types/review";
 import { discountPercent, formatCount, formatPrice } from "@/lib/format";
@@ -21,6 +21,9 @@ import { useAddItemMutation } from "@/store/cartApi";
 import { useAppDispatch } from "@/store/hooks";
 import { openCart } from "@/store/uiSlice";
 import ProductGallery from "@/components/product/ProductGallery";
+import ProductVideo from "@/components/product/ProductVideo";
+import RichText from "@/components/product/RichText";
+import { isBlankHtml } from "@/lib/sanitize-html";
 import OptionSelector from "@/components/product/OptionSelector";
 import ProductCard from "@/components/product/ProductCard";
 import ProductReviews from "@/components/product/ProductReviews";
@@ -219,15 +222,38 @@ export default function ProductDetail({
       </p>
 
       <div className="grid grid-cols-1 gap-10 lg:grid-cols-2">
-        <ProductGallery
-          images={galleryImages}
-          activeUrl={activeImage?.url}
-          onSelect={selectImage}
-          title={product.name}
-        />
+        <div>
+          <ProductGallery
+            images={galleryImages}
+            activeUrl={activeImage?.url}
+            onSelect={selectImage}
+            title={product.name}
+          />
+          {/* Beside the gallery, not inside it: gallery images are filtered by
+              the selected variant, and the video belongs to the product. */}
+          {product.video && (
+            <ProductVideo
+              url={product.video}
+              thumbnail={product.videoThumbnail}
+              title={product.name}
+            />
+          )}
+        </div>
 
         <div>
+          {/* A badge is presentation the merchant chose; absent means nothing
+              is shown, not an empty chip. */}
+          {product.badge && (
+            <span className="mb-2 inline-block rounded bg-brand/10 px-2 py-0.5 text-xs font-semibold uppercase tracking-wide text-brand">
+              {product.badge}
+            </span>
+          )}
+
           <h1 className="text-2xl font-bold text-gray-900 sm:text-3xl">{product.name}</h1>
+
+          {product.unit && (
+            <p className="mt-1 text-sm text-gray-500">{product.unit}</p>
+          )}
 
           {/* Omitted entirely for an unrated product — see toProduct: `rating`
               is undefined until the product actually has published reviews. */}
@@ -261,8 +287,47 @@ export default function ProductDetail({
             )}
           </div>
 
-          {product.shortDescription && (
-            <p className="mt-4 text-sm text-gray-600">{product.shortDescription}</p>
+          {/* The overview is merchant-authored markup now, so it goes through
+              the same sanitiser as the full description. */}
+          {!isBlankHtml(product.shortDescription) && (
+            <RichText html={product.shortDescription as string} className="mt-4" />
+          )}
+
+          {product.bundleDeal && (
+            <p className="mt-4 inline-flex items-center gap-2 rounded border border-green-200 bg-green-50 px-3 py-2 text-sm font-medium text-green-800">
+              <Gift size={15} />
+              Buy {product.bundleDeal.buyQuantity}, get {product.bundleDeal.freeQuantity} free
+            </p>
+          )}
+
+          {/*
+            Refundable and warranty are tri-state: `undefined` means the merchant
+            has not said, and nothing is shown for it. Rendering "No" there would
+            assert a returns policy on their behalf.
+          */}
+          {(product.isRefundable !== undefined || product.hasWarranty !== undefined) && (
+            <div className="mt-4 flex flex-wrap gap-4 text-sm">
+              {product.isRefundable !== undefined && (
+                <span className="inline-flex items-center gap-1.5 text-gray-600">
+                  {product.isRefundable ? (
+                    <RotateCcw size={15} className="text-green-600" />
+                  ) : (
+                    <XCircle size={15} className="text-gray-400" />
+                  )}
+                  {product.isRefundable ? "Refundable" : "Not refundable"}
+                </span>
+              )}
+              {product.hasWarranty !== undefined && (
+                <span className="inline-flex items-center gap-1.5 text-gray-600">
+                  {product.hasWarranty ? (
+                    <ShieldCheck size={15} className="text-green-600" />
+                  ) : (
+                    <XCircle size={15} className="text-gray-400" />
+                  )}
+                  {product.hasWarranty ? "Warranty included" : "No warranty"}
+                </span>
+              )}
+            </div>
           )}
 
           {/*
@@ -417,11 +482,16 @@ export default function ProductDetail({
             </button>
           ))}
         </div>
-        {tab === "description" && (
-          <p className="max-w-3xl text-sm leading-relaxed text-gray-600">
-            {product.description ?? "No description available for this product yet."}
-          </p>
-        )}
+        {tab === "description" &&
+          (isBlankHtml(product.description) ? (
+            <p className="max-w-3xl text-sm leading-relaxed text-gray-600">
+              No description available for this product yet.
+            </p>
+          ) : (
+            /* Merchant-authored markup. `RichText` sanitises it here, where it
+               meets the browser — never trusting what was stored. */
+            <RichText html={product.description as string} className="max-w-3xl" />
+          ))}
         {tab === "shipping" && (
           <p className="max-w-3xl text-sm leading-relaxed text-gray-600">
             Free shipping on orders over ৳130. Items can be returned or exchanged within 30 days of

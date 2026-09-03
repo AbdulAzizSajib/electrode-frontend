@@ -18,7 +18,7 @@ import {
 import { isBdPhone, normalizeBdPhone } from "@/lib/validation";
 import { useGetAddressesQuery } from "@/store/addressApi";
 import { EMPTY_CART, useGetCartQuery } from "@/store/cartApi";
-import { usePlaceOrderMutation } from "@/store/orderApi";
+import { usePlaceOrderMutation, useQuoteCheckoutQuery } from "@/store/orderApi";
 import { formatAddress, type Address } from "@/types/address";
 import type { CartLine, CartSummary } from "@/types/cart";
 import type { PlaceOrderPayload, ShippingMethod } from "@/types/order";
@@ -116,6 +116,9 @@ export default function CheckoutForm({
     shippingMethods[0]?.id ?? null,
   );
   const [notes, setNotes] = useState("");
+  // Whether the shopper *asked* to collect. Whether they actually can depends
+  // on the quote below, which is why the two are separate values.
+  const [collectInPerson, setCollectInPerson] = useState(false);
   const [isAddingAddress, setIsAddingAddress] = useState(false);
   const [error, setError] = useState("");
   // Distinct from `error`: the order may actually have been placed, so the
@@ -168,6 +171,9 @@ export default function CheckoutForm({
   const orderFingerprint = [
     addressId,
     shippingMethodId,
+    // Collecting rather than having it delivered is a different order at a
+    // different price, so it must not reuse the delivery attempt's key.
+    collectInPerson ? "pickup" : "delivery",
     isSignedIn
       ? ""
       : [
@@ -199,22 +205,67 @@ export default function CheckoutForm({
     if (next) setAddressId(next.id);
   }, [addresses, addressId]);
 
-  const selectedShipping =
-    shippingMethods.find((m) => m.id === shippingMethodId) ?? null;
+  const hasLines = displayLines.length > 0;
 
-  // An ESTIMATE only. The server applies tax and any free-shipping threshold
-  // from settings the storefront cannot read, so this is deliberately not
-  // presented as the amount payable.
-  const estimatedTotal = roundMoney(
-    displayTotal + (selectedShipping?.price ?? 0),
+  /*
+   * The server's own arithmetic for this basket, at this destination.
+   *
+   * Shipping is no longer a flat price the storefront can add up: it comes from
+   * each product's rule matched against where the order is going, and so does
+   * tax. Asking the server is what makes the number shown here the number
+   * charged — and what surfaces "we cannot deliver there" before the shopper
+   * presses Place Order rather than after.
+   *
+   * Skipped while there is nothing to price. A guest's address arrives as they
+   * type it, so a partial one is a real question, not an error.
+   */
+  const {
+    data: quoteResponse,
+    isFetching: quoting,
+    error: quoteError,
+  } = useQuoteCheckoutQuery(
+    {
+      ...(isSignedIn && addressId ? { shippingAddressId: addressId } : {}),
+      /*
+       * A guest's City is the region shipping is priced by — "Dhaka" is both
+       * the city they type and the region a merchant writes a rate for. It is
+       * sent as `state` here AND as `state` on the order below, so the quote
+       * and the charge match the same place. Sending it to only one of the two
+       * would show one price and charge another, which is the whole failure
+       * this quote exists to prevent.
+       */
+      ...(!isSignedIn && guest.city.trim() ? { state: guest.city.trim() } : {}),
+      shippingMethodId: shippingMethodId ?? undefined,
+      items: directOrder ? [directOrder.item] : undefined,
+    },
+    { skip: !hasLines },
   );
 
-  const hasLines = displayLines.length > 0;
+  const quote = quoteResponse?.data ?? null;
+  // The backend refuses an undeliverable destination rather than charging zero,
+  // and that refusal is the message the shopper needs to read.
+  const undeliverable =
+    (quoteError as { data?: { message?: string } } | undefined)?.data?.message ?? null;
+
+  const pickupOffered = quote?.pickupAmount !== null && quote?.pickupAmount !== undefined;
+  // A shopper who chose collection and then changed their address to somewhere
+  // that does not offer it must not silently be charged the pickup price.
+  const collecting = collectInPerson && pickupOffered;
+
+  const shippingCharge = collecting ? (quote?.pickupAmount ?? 0) : (quote?.shippingAmount ?? 0);
+  const payableTotal = quote
+    ? roundMoney(collecting ? (quote.pickupTotalAmount ?? quote.totalAmount) : quote.totalAmount)
+    : roundMoney(displayTotal);
+
   // A guest needs no saved address, and a shipping method is optional for both
   // — the backend defaults it — so neither gates the button for them.
-  const canOrder = isSignedIn
-    ? Boolean(addressId && shippingMethodId) && hasLines
-    : hasLines;
+  //
+  // An undeliverable destination does gate it, for both: the server will refuse
+  // the order anyway, and letting the shopper press the button only to be told
+  // no is worse than telling them now.
+  const canOrder =
+    !undeliverable &&
+    (isSignedIn ? Boolean(addressId && shippingMethodId) && hasLines : hasLines);
 
   /** Guest-only. Mirrors what the API requires, no stricter. */
   function validateGuest(): boolean {
@@ -252,17 +303,24 @@ export default function CheckoutForm({
           mode: "account",
           shippingAddressId: addressId as string,
           shippingMethodId: shippingMethodId ?? undefined,
+          // Only sent when it is actually on offer — the server refuses a
+          // pickup the matched places do not provide, and sending it blindly
+          // would turn a change of address into a rejected order.
+          ...(collecting ? { deliveryMethod: "PICKUP" as const } : {}),
           notes: notes.trim() || undefined,
           idempotencyKey,
         }
       : {
           mode: "guest",
+          ...(collecting ? { deliveryMethod: "PICKUP" as const } : {}),
           fullName: guest.fullName.trim(),
           phone: normalizedPhone,
           shippingAddress: {
             addressLine1: guest.addressLine1.trim(),
             addressLine2: guest.addressLine2.trim() || undefined,
             city: guest.city.trim(),
+            // The same value the quote was priced against — see the note there.
+            state: guest.city.trim() || undefined,
             postalCode: guest.postalCode.trim() || undefined,
           },
           // Present only for a direct product order; otherwise the cart is used.
@@ -509,6 +567,42 @@ export default function CheckoutForm({
             <h2 className="mb-4 text-lg font-semibold text-gray-900">
               Shipping method
             </h2>
+
+            {/* The server refuses an undeliverable destination rather than
+                charging nothing for it, and says which item cannot get there.
+                Shown here, beside the address, where it can be acted on. */}
+            {undeliverable && (
+              <div
+                role="alert"
+                className="mb-4 flex items-start gap-2 rounded border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
+              >
+                <AlertCircle size={16} className="mt-0.5 shrink-0" />
+                <span>{undeliverable}</span>
+              </div>
+            )}
+
+            {/* Offered only when every item in the basket can be collected —
+                an order half of which still has to be delivered cannot be. */}
+            {pickupOffered && (
+              <label className="mb-4 flex cursor-pointer items-start gap-3 rounded-xl border border-gray-200 p-4 hover:border-gray-300">
+                <input
+                  type="checkbox"
+                  checked={collectInPerson}
+                  onChange={(e) => setCollectInPerson(e.target.checked)}
+                  className="mt-0.5 accent-brand"
+                />
+                <span className="flex-1 text-sm">
+                  <span className="font-medium text-gray-900">Collect in person</span>
+                  <span className="mt-0.5 block text-gray-500">
+                    Pick this order up yourself instead of having it delivered.
+                  </span>
+                </span>
+                <span className="text-sm font-semibold text-gray-900">
+                  {formatPrice(quote?.pickupAmount ?? 0)}
+                </span>
+              </label>
+            )}
+
             {shippingMethods.length === 0 ? (
               <p className="rounded border border-gray-200 p-4 text-sm text-gray-500">
                 No shipping methods are available right now. Please try again
@@ -663,30 +757,62 @@ export default function CheckoutForm({
           <div className="mt-5 space-y-2 border-t border-gray-200 pt-4 text-sm">
             <div className="flex items-center justify-between text-gray-600">
               <span>Subtotal</span>
-              <span>{formatPrice(displaySubtotal)}</span>
+              <span>{formatPrice(quote?.subtotal ?? displaySubtotal)}</span>
             </div>
-            {displayDiscount > 0 && (
+            {(quote?.discountAmount ?? displayDiscount) > 0 && (
               <div className="flex items-center justify-between text-green-700">
                 <span>Discount{cart.discountCode ? ` (${cart.discountCode})` : ""}</span>
-                <span>-{formatPrice(displayDiscount)}</span>
+                <span>-{formatPrice(quote?.discountAmount ?? displayDiscount)}</span>
               </div>
             )}
             <div className="flex items-center justify-between text-gray-600">
-              <span>Shipping</span>
+              <span>{collecting ? "Collection" : "Delivery"}</span>
               <span>
-                {selectedShipping ? formatPrice(selectedShipping.price) : "—"}
+                {undeliverable ? (
+                  <span className="text-red-600">Unavailable</span>
+                ) : quote ? (
+                  // A waived delivery charge says so, and says what it would
+                  // have cost — "Free" alone hides the saving.
+                  !collecting && quote.shippingAmount === 0 && quote.shippingBeforeWaiver > 0 ? (
+                    <span className="text-green-700">
+                      Free{" "}
+                      <span className="text-gray-400 line-through">
+                        {formatPrice(quote.shippingBeforeWaiver)}
+                      </span>
+                    </span>
+                  ) : (
+                    formatPrice(shippingCharge)
+                  )
+                ) : (
+                  "—"
+                )}
               </span>
             </div>
+            {quote && quote.taxAmount > 0 && (
+              <div className="flex items-center justify-between text-gray-600">
+                <span>Tax</span>
+                <span>{formatPrice(quote.taxAmount)}</span>
+              </div>
+            )}
+            {!collecting && quote?.deliveryDays != null && quote.deliveryDays > 0 && (
+              <p className="text-xs text-gray-400">
+                Arrives in about {quote.deliveryDays}{" "}
+                {quote.deliveryDays === 1 ? "day" : "days"}.
+              </p>
+            )}
           </div>
 
           <div className="mt-4 flex items-center justify-between border-t border-gray-200 pt-4 text-base font-bold text-gray-900">
-            <span>Estimated total</span>
-            <span className="text-sale">{formatPrice(estimatedTotal)}</span>
+            <span>Total</span>
+            <span className="text-sale">
+              {quoting && !quote ? "…" : formatPrice(payableTotal)}
+            </span>
           </div>
-          <p className="mt-2 text-xs text-gray-400">
-            An estimate. Tax and any free-shipping discount are applied by the
-            store when your order is confirmed.
-          </p>
+          {!quote && !undeliverable && (
+            <p className="mt-2 text-xs text-gray-400">
+              Delivery and tax are added once we know where this is going.
+            </p>
+          )}
         </div>
       </div>
     </div>

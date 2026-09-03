@@ -1,6 +1,12 @@
 import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
 import { cartApi, EMPTY_CART } from "@/store/cartApi";
-import type { ApiOrder, GuestOrderLookup, PlaceOrderPayload } from "@/types/order";
+import type {
+  ApiOrder,
+  CheckoutQuote,
+  CheckoutQuoteRequest,
+  GuestOrderLookup,
+  PlaceOrderPayload,
+} from "@/types/order";
 import type { ApiResponse } from "@/types/auth";
 
 /**
@@ -28,6 +34,7 @@ import type { ApiResponse } from "@/types/auth";
 export const orderApi = createApi({
   reducerPath: "orderApi",
   baseQuery: fetchBaseQuery({ baseUrl: "/api/orders" }),
+  tagTypes: ["CheckoutQuote"],
   endpoints: (builder) => ({
     placeOrder: builder.mutation<ApiResponse<ApiOrder>, PlaceOrderPayload>({
       query: (payload) => {
@@ -80,7 +87,32 @@ export const orderApi = createApi({
     trackOrder: builder.mutation<ApiResponse<ApiOrder>, GuestOrderLookup>({
       query: (body) => ({ url: "/track", method: "POST", body }),
     }),
+
+    /**
+     * What this basket costs to a given destination, without placing anything.
+     *
+     * A query rather than a mutation despite being a POST: it commits nothing,
+     * and it is driven by rendering — the destination changes as the shopper
+     * types their address, and the cost has to follow. POST only because the
+     * request carries a body.
+     *
+     * Necessary because shipping is no longer a flat price the storefront can
+     * add up itself: it depends on each product's rule and on where the order
+     * is going, and so does tax. Without asking the server, checkout would show
+     * one number and charge another — or let the shopper reach Place Order
+     * before learning nobody delivers to their address.
+     */
+    quoteCheckout: builder.query<ApiResponse<CheckoutQuote>, CheckoutQuoteRequest>({
+      query: (body) => ({ url: "/quote", method: "POST", body }),
+      // The quote is a function of the cart as much as of the address, so a
+      // cart change has to invalidate it.
+      providesTags: ["CheckoutQuote"],
+    }),
   }),
 });
 
-export const { usePlaceOrderMutation, useTrackOrderMutation } = orderApi;
+export const {
+  usePlaceOrderMutation,
+  useTrackOrderMutation,
+  useQuoteCheckoutQuery,
+} = orderApi;

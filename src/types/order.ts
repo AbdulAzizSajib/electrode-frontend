@@ -127,10 +127,63 @@ export interface CheckoutItemInput {
   quantity: number;
 }
 
+/**
+ * What to price and where to, for `POST /orders/quote`.
+ *
+ * Everything optional because a quote is asked for while the shopper is still
+ * filling the form in: a partial destination simply matches fewer places, and
+ * an unmatched one comes back as "cannot be delivered there" rather than as a
+ * validation error.
+ */
+export interface CheckoutQuoteRequest {
+  /** A saved address, which outranks the inline country/state below. */
+  shippingAddressId?: string;
+  country?: string;
+  state?: string;
+  shippingMethodId?: string;
+  /** Prices these lines instead of the cart, for a direct product order. */
+  items?: CheckoutItemInput[];
+}
+
+/** One shipping place the quote matched, for showing what is on offer. */
+export interface CheckoutQuotePlace {
+  name: string | null;
+  price: number;
+  deliveryDays: number;
+  offersPickup: boolean;
+  pickupPrice: number;
+}
+
+/**
+ * The server's own arithmetic for this basket. Not an estimate — checkout uses
+ * exactly this calculation, so what is shown here is what will be charged.
+ */
+export interface CheckoutQuote {
+  subtotal: number;
+  discountAmount: number;
+  taxAmount: number;
+  shippingAmount: number;
+  /** What delivery costs before any waiver, so "Free" can be shown as a saving. */
+  shippingBeforeWaiver: number;
+  /** Null when collection in person is not offered for every item. */
+  pickupAmount: number | null;
+  deliveryDays: number | null;
+  totalAmount: number;
+  /** The same order collected in person, when that is on offer. */
+  pickupTotalAmount: number | null;
+  places: CheckoutQuotePlace[];
+}
+
 /** Shared by both checkout flows. */
 interface PlaceOrderCommon {
   shippingMethodId?: string;
   notes?: string;
+  /**
+   * Delivered or collected in person. Absent means delivery. Only accepted when
+   * every matched shipping place offers collection, and charged at those
+   * places' pickup price rather than their delivery price.
+   */
+  deliveryMethod?: "DELIVERY" | "PICKUP";
   /**
    * Sent as the `Idempotency-Key` header rather than in the body. Identifies
    * one checkout *attempt*, so a retry after an unconfirmed outcome resolves

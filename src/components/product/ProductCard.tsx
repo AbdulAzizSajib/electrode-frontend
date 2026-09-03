@@ -38,9 +38,22 @@ export default function ProductCard({ product }: { product: Product }) {
   return (
     <div className="group relative flex flex-col">
       <div className="relative aspect-square overflow-hidden rounded-lg bg-gray-100">
+        {/* The discount is the stronger claim, so it keeps the corner. A badge
+            is the merchant's own label and sits below when both apply — and a
+            product with no badge shows nothing rather than an empty chip. */}
         {discount && (
           <span className="absolute left-3 top-3 z-10 rounded bg-brand px-2 py-1 text-xs font-semibold text-white">
             -{discount}%
+          </span>
+        )}
+        {product.badge && (
+          <span
+            className={clsx(
+              "absolute left-3 z-10 rounded bg-gray-900/80 px-2 py-1 text-xs font-semibold uppercase tracking-wide text-white",
+              discount ? "top-12" : "top-3",
+            )}
+          >
+            {product.badge}
           </span>
         )}
         {!product.inStock && (

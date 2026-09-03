@@ -110,11 +110,16 @@ export default function CartPage() {
               discountAmount={cart.discountAmount}
             />
 
+            {/* Still true, and now for a sharper reason: tax comes from each
+                product's own rule and delivery from matching its shipping rule
+                against a destination — neither of which the cart knows. The
+                checkout asks the server for both. */}
             <p className="mt-4 text-xs text-gray-400">
-              Taxes and shipping calculated at checkout
+              Tax and delivery depend on where this is going, and are calculated
+              at checkout.
             </p>
             <div className="mt-4 flex items-center justify-between border-t border-gray-200 pt-4 text-base font-bold text-gray-900">
-              <span>Total</span>
+              <span>Subtotal</span>
               <span className="text-sale">{formatPrice(cart.total)}</span>
             </div>
             <Link
