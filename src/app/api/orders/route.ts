@@ -1,7 +1,7 @@
 import { proxyRequest } from "@/lib/api-proxy";
 
 /**
- * Body: `{ shippingAddressId, shippingMethodId, notes? }`.
+ * Body: `{ shippingAddressId, notes? }`.
  *
  * The proxy relays the backend's status and message untouched, which is what
  * lets a 409 — e.g. "Insufficient stock for 'JBL Flip 6' — requested 2,

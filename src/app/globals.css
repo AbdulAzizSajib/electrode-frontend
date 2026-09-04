@@ -1,6 +1,18 @@
 @import url("https://fonts.googleapis.com/css2?family=Outfit:wght@100..900&display=swap");
 @import "tailwindcss";
 
+/*
+ * These are now the FALLBACK theme, not the theme.
+ *
+ * The storefront's root layout overrides every one of these properties with the
+ * merchant's stored values, as an inline style attribute on <html> (see
+ * lib/theme.ts). What is left here is what an unconfigured store, or one whose
+ * settings read failed, renders instead — which is why the values still match
+ * the palette this site shipped with rather than being neutral blanks.
+ *
+ * Keep them in step with the backend's DEFAULT_THEME; the two are the same
+ * fallback expressed on the two sides of the API.
+ */
 :root {
   --background: #ffffff;
   --foreground: #1a1a1a;
@@ -63,6 +75,25 @@ body {
   body {
     padding-bottom: calc(3.75rem + env(safe-area-inset-bottom));
   }
+}
+
+/*
+ * The site's content width, in one place.
+ *
+ * Replaces the literal `max-w-346` that used to be repeated at 23 call sites —
+ * a merchant changing their site width could not reach a utility class, and one
+ * missed call site would have left a single row at the old width while the rest
+ * of the page narrowed.
+ *
+ * The fallback is exactly what `max-w-346` computed to (346 × 0.25rem), so a
+ * store that has never configured a width is pixel-identical to before. Full
+ * width is expressed as `--site-max-width: 100%` rather than a second class, so
+ * there is one code path for both modes; `container-px` still supplies the side
+ * padding, which is what keeps content off the viewport edge in that mode.
+ */
+.site-container {
+  max-width: var(--site-max-width, 86.5rem);
+  margin-inline: auto;
 }
 
 .container-px {

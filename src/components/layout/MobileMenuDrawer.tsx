@@ -6,9 +6,9 @@ import { ChevronDown, ChevronRight, X } from "lucide-react";
 import clsx from "clsx";
 import SearchBox from "@/components/layout/SearchBox";
 import { useScrollLock } from "@/components/providers/SmoothScrollProvider";
-import { navLinks } from "@/data/content";
 import type { AuthUser } from "@/types/auth";
 import type { CategoryNode } from "@/types/category";
+import type { NavItem } from "@/types/store-settings";
 
 type Tab = "menu" | "categories";
 
@@ -28,11 +28,14 @@ export default function MobileMenuDrawer({
   onClose,
   user,
   categories,
+  mainNav,
 }: {
   open: boolean;
   onClose: () => void;
   user: AuthUser | null;
   categories: CategoryNode[];
+  /** The same merchant-managed nav the desktop header renders. */
+  mainNav: NavItem[];
 }) {
   // Categories is the more useful default when there is a catalog to show, but
   // the tab only exists if there is one — otherwise the drawer opens on an
@@ -130,9 +133,9 @@ export default function MobileMenuDrawer({
         <div className="flex-1 overflow-y-auto overscroll-contain" data-lenis-prevent>
           {activeTab === "menu" ? (
             <ul className="text-sm">
-              {navLinks.map((link) => (
+              {mainNav.map((link) => (
                 <li key={link.label} className="border-b border-gray-100">
-                  {link.children ? (
+                  {link.children?.length ? (
                     <>
                       <button
                         onClick={() =>
@@ -151,7 +154,7 @@ export default function MobileMenuDrawer({
                       </button>
                       {openLink === link.label && (
                         <ul className="bg-gray-50">
-                          {link.children.map((child) => (
+                          {(link.children ?? []).map((child) => (
                             <li key={child.label}>
                               <Link
                                 href={child.href}

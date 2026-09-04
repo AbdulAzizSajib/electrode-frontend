@@ -6,7 +6,8 @@ import { useEffect, useRef, useState } from "react";
 import { ChevronDown, ChevronRight, Heart, LayoutGrid, Menu, Repeat, ShoppingBag, User } from "lucide-react";
 import MobileMenuDrawer from "@/components/layout/MobileMenuDrawer";
 import SearchBox from "@/components/layout/SearchBox";
-import { contact, navLinks } from "@/data/content";
+import { resolveAnnouncementLink } from "@/services/store-settings";
+import type { StoreSettings } from "@/types/store-settings";
 import { EMPTY_CART, useGetCartQuery } from "@/store/cartApi";
 import { useGetWishlistCountQuery } from "@/store/wishlistApi";
 import {
@@ -21,10 +22,14 @@ import type { CategoryNode } from "@/types/category";
 export default function Header({
   user,
   categories,
+  settings,
 }: {
   user: AuthUser | null;
   categories: CategoryNode[];
+  /** Merchant-managed chrome, fetched once in the root layout. */
+  settings: StoreSettings;
 }) {
+  const { mainNav, announcementBar, contact } = settings;
   const dispatch = useAppDispatch();
   // The cart query lives here because the header is on every page — it keeps
   // the cart cached so the drawer opens instantly, and the count updates
@@ -61,36 +66,57 @@ export default function Header({
   return (
     <>
       <header className="bg-brand shadow-sm ">
-      {/* Announcement bar */}
-      <div className="hidden bg-brand text-white md:block border-b border-white/30">
-        <div className="container-px mx-auto flex max-w-346 items-center justify-between py-2.25 text-[15px] ">
-          <p>Free delivery &amp; 40% discount for next 3 orders! Place your 1st order in.</p>
-          <div className="flex items-center gap-4">
-           
-            <a
-              href={`https://wa.me/${contact.phoneDigits}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="hover:underline flex items-center gap-2 font-light"
-            >
-            <Icon icon="akar-icons:whatsapp-fill" />
-              {contact.phone}
-            </a>
-             <a href={`mailto:${contact.email}`} className="hover:underline flex items-center gap-2 font-light">
-            <Icon icon="garden:email-stroke-16" />
-              {contact.email}
-            </a>
-             <Link href="/track-order" className="hover:underline flex items-center gap-2 font-light">
-            <Icon icon="fa-solid:truck" />
-              Track Order
-            </Link>
+      {/* Announcement bar. Rendered only when the merchant has switched it on —
+          and omitted entirely rather than emptied, so the header below it does
+          not sit on a stray border or a collapsed row. */}
+      {announcementBar.enabled && (
+        <div className="hidden bg-brand text-white md:block border-b border-white/30">
+          <div className="container-px flex site-container items-center justify-between py-2.25 text-[15px] ">
+            <p>{announcementBar.text}</p>
+            <div className="flex items-center gap-4">
+              {(announcementBar.links ?? []).map((link, index) => {
+                // A link bound to the store's phone or email resolves against
+                // the contact block here, so changing the number in the admin
+                // updates the bar and the footer together.
+                const { label, href } = resolveAnnouncementLink(link, contact);
+                const isExternal = /^https?:\/\//.test(href);
+                const className =
+                  "hover:underline flex items-center gap-2 font-light";
+
+                const body = (
+                  <>
+                    {link.icon && <Icon icon={link.icon} />}
+                    {label}
+                  </>
+                );
+
+                // `mailto:`/`tel:`/external targets are not routes, so they use
+                // a plain anchor; internal ones keep client-side navigation.
+                return isExternal || href.includes(":") ? (
+                  <a
+                    key={index}
+                    href={href}
+                    {...(isExternal
+                      ? { target: "_blank", rel: "noopener noreferrer" }
+                      : {})}
+                    className={className}
+                  >
+                    {body}
+                  </a>
+                ) : (
+                  <Link key={index} href={href} className={className}>
+                    {body}
+                  </Link>
+                );
+              })}
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Main header */}
       <div className="border-b border-white/30">
-      <div className="container-px mx-auto flex max-w-346 items-center  gap-4 py-4.75 text-white">
+      <div className="container-px flex site-container items-center  gap-4 py-4.75 text-white">
         {/* The menu button and the account icon are given equal flex-basis so
             the logo between them lands on the true centre of the row — sizing
             them to their own content would offset it by the difference. Both
@@ -112,7 +138,10 @@ export default function Header({
           href="/"
           className="whitespace-nowrap text-center text-3xl font-semibold max-md:flex-1 sm:text-4xl md:shrink-0 md:text-left"
         >
-          Gadgets<span className="text-accent ml-2">Mart</span>
+          {settings.storeName}
+          {settings.siteNameAccent && (
+            <span className="text-accent ml-2">{settings.siteNameAccent}</span>
+          )}
         </Link>
 
         {/* Mobile-only account entry. The bottom nav carries phone, chat, home,
@@ -209,7 +238,7 @@ export default function Header({
       {/* Mobile search. Its own row rather than a tap-to-open icon: search is
           the primary way to find a product on a small screen, so it should not
           cost an extra tap. */}
-      <div className="container-px mx-auto max-w-346 pb-3 md:hidden">
+      <div className="container-px site-container pb-3 md:hidden">
         <SearchBox />
       </div>
       </div>
@@ -231,7 +260,7 @@ export default function Header({
         is exactly what an overflow value would do.
       */}
       <nav className="sticky top-0 z-40 hidden bg-brand text-white shadow-sm md:block">
-        <div className="container-px relative mx-auto flex max-w-346 items-center gap-8 py-4 text-[16px] font-medium">
+        <div className="container-px relative flex site-container items-center gap-8 py-4 text-[16px] font-medium">
           {/* Shop By Categories mega menu. Omitted entirely when the catalog
               is empty or unreachable — better no menu than dead links. */}
           {categories.length > 0 && (
@@ -302,8 +331,8 @@ export default function Header({
           </div>
           )}
 
-          {navLinks.map((link) =>
-            link.children ? (
+          {mainNav.map((link) =>
+            link.children?.length ? (
               <div
                 key={link.label}
                 className="relative"
@@ -316,7 +345,7 @@ export default function Header({
                 </Link>
                 {openMenu === link.label && (
                   <div className="absolute left-0 top-full z-50 w-52 rounded-b-lg bg-white py-2 text-gray-700 shadow-xl">
-                    {link.children.map((child) => (
+                    {(link.children ?? []).map((child) => (
                       <Link
                         key={child.label}
                         href={child.href}
@@ -346,6 +375,7 @@ export default function Header({
         onClose={() => setMobileOpen(false)}
         user={user}
         categories={categories}
+        mainNav={mainNav}
       />
     </>
   );

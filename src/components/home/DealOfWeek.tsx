@@ -36,7 +36,7 @@ export default function DealOfWeek({ campaign }: { campaign: Campaign }) {
   if (expired || campaign.products.length === 0) return null;
 
   return (
-    <section className="container-px sm:container-px mx-auto max-w-346 py-8">
+    <section className="container-px sm:container-px site-container py-8">
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-6">
         <div className="flex flex-col justify-center rounded-xl bg-[#eef1fb] p-6 lg:col-span-1">
           <p className="mb-3 inline-block w-fit rounded bg-sale px-3 py-1 text-xs font-bold text-white">

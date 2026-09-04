@@ -56,7 +56,7 @@ export default function ProductListing({
   const hasFilters = Boolean(selectedCategory || selectedBrand || searchTerm);
 
   return (
-    <div className="container-px mx-auto max-w-346 py-8">
+    <div className="container-px site-container py-8">
       <div className="mb-6 flex items-center justify-between border-b border-gray-100 pb-4 text-sm text-gray-500">
         <span>Home / {heading ?? "Shop"}</span>
         {searchTerm && <span>Results for &ldquo;{searchTerm}&rdquo;</span>}

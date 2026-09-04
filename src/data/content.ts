@@ -127,61 +127,15 @@ export const blogPosts = [
   { title: "How to Set Up a Smart Home on a Budget", date: "Jul 19, 2026", excerpt: "Welcome to the ultimate shopping event you've been waiting for — our upcoming sale with big discounts.", image: placeholderImage("blog-4", { w: 500, h: 350, label: "Smart Home" }) },
 ];
 
-/**
- * Store contact details. Kept here rather than inline so the announcement bar
- * and the mobile bottom nav dial the same number.
+/*
+ * Removed here, now merchant-managed: `contact`, `navLinks`/`NavLink` and
+ * `footerColumns`.
  *
- * `phoneDigits` is the E.164 form without the `+` — what wa.me expects — while
- * `phone` is what a shopper reads.
+ * They live on the StoreSetting singleton and reach the header and footer via
+ * `getStoreSettings()` (src/services/store-settings.ts), fetched once in the
+ * root layout. Keeping a static copy here would give the chrome two sources of
+ * truth — which is exactly what left every footer link pointing at "#".
+ *
+ * The "Shop By Categories" mega menu is likewise not here: it comes from the
+ * live catalog via `getCategoryTree()` (src/services/category.ts).
  */
-export const contact = {
-  phone: "+8801782521705",
-  phoneDigits: "8801782521705",
-  email: "contact@sheisite.com",
-};
-
-export interface NavLink {
-  label: string;
-  href: string;
-  children?: { label: string; href: string }[];
-}
-
-/**
- * Shop / Best Selling / New Arrivals pointed at `/shop`, which is not a route
- * in this app — all three 404'd. They now point at `/products`, the real
- * catalog page, which carries the category, brand and price filters.
- *
- * The sort travels in the URL so the server orders the whole catalog; the
- * listing used to reorder only the fetched page, which made "best selling"
- * mean "best of these twelve".
- *
- * `sort` values must stay in step with `SORT_OPTIONS` in
- * components/product/ProductListing.tsx. An unrecognised value there falls back
- * to the default listing rather than erroring, so a stale bookmark still works.
- */
-export const navLinks: NavLink[] = [
-  { label: "Home", href: "/" },
-  { label: "Shop", href: "/products" },
-  { label: "Best Selling", href: "/products?sort=best" },
-  { label: "New Arrivals", href: "/products?sort=new" },
-  { label: "Blogs", href: "/blogs" },
-  { label: "Contact", href: "/contact" },
-];
-
-// The "Shop By Categories" mega menu is no longer defined here — it comes from
-// the live catalog via `getCategoryTree()` (see src/services/category.ts).
-
-export const footerColumns = [
-  {
-    title: "Information",
-    links: ["Size Chart", "Shipping", "Legal Notice", "Delivery", "Shipping & Refund", "Sitemap"],
-  },
-  {
-    title: "Your Account",
-    links: ["Search", "About Us", "Delivery Information", "Contact", "Our Stories", "FAQs"],
-  },
-  {
-    title: "Quick Links",
-    links: ["Privacy Policy", "Refund Policy", "Shipping Policy", "Terms of Service", "Policy for Buyers", "Policy for Sellers"],
-  },
-];

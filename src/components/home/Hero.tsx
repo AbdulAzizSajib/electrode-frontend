@@ -25,7 +25,7 @@ export default async function Hero() {
   if (!slides.length && !sideBanners.length && !promoTile) return null;
 
   return (
-    <section className="container-px mx-auto max-w-346 py-4">
+    <section className="container-px site-container py-4">
       <div className="flex flex-col gap-4 lg:flex-row">
         {slides.length > 0 && (
           <div className="relative overflow-hidden rounded-sm bg-[#f2efe9] w-full ">

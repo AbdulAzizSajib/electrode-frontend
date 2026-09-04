@@ -6,7 +6,7 @@ export default async function CategoryGrid({ title }: { title: string }) {
   const categories = await getCategoryGrid();
 
   return (
-    <section className="container-px mx-auto max-w-346 pb-8 ">
+    <section className="container-px site-container pb-8 ">
         <h2 className="text-xl mb-8  font-bold text-gray-900 sm:text-2xl">{title} </h2>
       <div className="grid grid-cols-3 gap-4 sm:grid-cols-4 lg:grid-cols-7">
         {categories.map((cat) => (

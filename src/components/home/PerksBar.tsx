@@ -6,7 +6,7 @@ const icons = [Truck, RotateCcw, Gift, Headset];
 export default function PerksBar() {
   return (
     <section className="bg-brand text-white">
-      <div className="container-px mx-auto grid max-w-346 grid-cols-1 gap-6 py-8 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="container-px grid site-container grid-cols-1 gap-6 py-8 sm:grid-cols-2 lg:grid-cols-4">
         {perks.map((perk, i) => {
           const Icon = icons[i];
           return (

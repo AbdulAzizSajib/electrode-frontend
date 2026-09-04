@@ -213,7 +213,7 @@ export default function ProductDetail({
   }
 
   return (
-    <div className="container-px mx-auto max-w-346 py-8">
+    <div className="container-px site-container py-8">
       <p className="mb-6 text-sm text-gray-500">
         <Link href="/" className="hover:text-brand">
           Home

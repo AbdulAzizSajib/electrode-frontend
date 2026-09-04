@@ -21,7 +21,9 @@ import { EMPTY_CART, useGetCartQuery } from "@/store/cartApi";
 import { usePlaceOrderMutation, useQuoteCheckoutQuery } from "@/store/orderApi";
 import { formatAddress, type Address } from "@/types/address";
 import type { CartLine, CartSummary } from "@/types/cart";
-import type { PlaceOrderPayload, ShippingMethod } from "@/types/order";
+import type { PlaceOrderPayload } from "@/types/order";
+import type { CheckoutConfig, CheckoutFieldKey } from "@/types/store-settings";
+import CouponForm from "@/components/cart/CouponForm";
 
 /**
  * Surfaces the backend's own message — e.g. an out-of-stock line naming the
@@ -53,17 +55,37 @@ type GuestDetails = typeof EMPTY_GUEST_DETAILS;
 
 export default function CheckoutForm({
   isSignedIn,
-  shippingMethods,
   initialAddresses,
   initialCart,
+  checkout,
 }: {
   /** Decides which delivery section renders — saved addresses, or inline fields. */
   isSignedIn: boolean;
-  shippingMethods: ShippingMethod[];
   initialAddresses: Address[];
   /** Server-read cart, so an empty cart renders immediately without a spinner. */
   initialCart: CartSummary | null;
+  /**
+   * What the merchant has configured checkout to ask for. The API applies the
+   * same configuration when the order is submitted, so this decides what is
+   * rendered, not what is ultimately allowed.
+   */
+  checkout: CheckoutConfig;
 }) {
+  const fields = checkout.fields;
+
+  /** A guest field is only collected when the merchant shows it. */
+  const shows = (key: CheckoutFieldKey) => fields[key].show;
+
+  /**
+   * What to send for a guest field: its trimmed value, or `undefined` when the
+   * merchant is not collecting it or the shopper left it blank.
+   */
+  const collected = (key: CheckoutFieldKey & keyof GuestDetails) =>
+    (shows(key) && guest[key].trim()) || undefined;
+
+  /** Marks a field's label when it is shown but not mandatory. */
+  const optionalSuffix = (key: CheckoutFieldKey) =>
+    fields[key].required ? "" : " (optional)";
   const router = useRouter();
   const { data, isLoading } = useGetCartQuery();
 
@@ -111,9 +133,6 @@ export default function CheckoutForm({
 
   const [addressId, setAddressId] = useState<string | null>(
     initialAddresses.find((a) => a.isDefault)?.id ?? initialAddresses[0]?.id ?? null,
-  );
-  const [shippingMethodId, setShippingMethodId] = useState<string | null>(
-    shippingMethods[0]?.id ?? null,
   );
   const [notes, setNotes] = useState("");
   // Whether the shopper *asked* to collect. Whether they actually can depends
@@ -170,7 +189,6 @@ export default function CheckoutForm({
   // key would hand back the one already placed to the old address.
   const orderFingerprint = [
     addressId,
-    shippingMethodId,
     // Collecting rather than having it delivered is a different order at a
     // different price, so it must not reuse the delivery attempt's key.
     collectInPerson ? "pickup" : "delivery",
@@ -235,7 +253,6 @@ export default function CheckoutForm({
        * this quote exists to prevent.
        */
       ...(!isSignedIn && guest.city.trim() ? { state: guest.city.trim() } : {}),
-      shippingMethodId: shippingMethodId ?? undefined,
       items: directOrder ? [directOrder.item] : undefined,
     },
     { skip: !hasLines },
@@ -257,28 +274,43 @@ export default function CheckoutForm({
     ? roundMoney(collecting ? (quote.pickupTotalAmount ?? quote.totalAmount) : quote.totalAmount)
     : roundMoney(displayTotal);
 
-  // A guest needs no saved address, and a shipping method is optional for both
-  // — the backend defaults it — so neither gates the button for them.
+  // A guest needs no saved address, so only a signed-in shopper's address gates
+  // the button. There is nothing else to pick: delivery is priced from where the
+  // order is going, not chosen.
   //
   // An undeliverable destination does gate it, for both: the server will refuse
   // the order anyway, and letting the shopper press the button only to be told
   // no is worse than telling them now.
   const canOrder =
-    !undeliverable &&
-    (isSignedIn ? Boolean(addressId && shippingMethodId) && hasLines : hasLines);
+    !undeliverable && (isSignedIn ? Boolean(addressId) && hasLines : hasLines);
 
-  /** Guest-only. Mirrors what the API requires, no stricter. */
+  /**
+   * Guest-only. Mirrors what the API requires, no stricter — and now that "what
+   * the API requires" is a merchant setting, this reads the same configuration
+   * the server validates against rather than a hardcoded list of its own.
+   */
   function validateGuest(): boolean {
     const errors: Partial<Record<keyof GuestDetails, string>> = {};
 
-    if (!guest.fullName.trim()) errors.fullName = "Your name is required.";
-    if (!guest.phone.trim()) errors.phone = "Phone number is required.";
-    else if (!isBdPhone(guest.phone)) {
+    const requireField = (key: CheckoutFieldKey & keyof GuestDetails, message: string) => {
+      // A hidden field is never required — the merchant is not collecting it.
+      if (fields[key].show && fields[key].required && !guest[key].trim()) {
+        errors[key] = message;
+      }
+    };
+
+    requireField("fullName", "Your name is required.");
+    requireField("phone", "Phone number is required.");
+    requireField("addressLine1", "Address is required.");
+    requireField("addressLine2", "This field is required.");
+    requireField("city", "City is required.");
+    requireField("postalCode", "Postal code is required.");
+
+    // Format is checked independently of whether the field is mandatory: a
+    // phone number that IS given must still be a real one.
+    if (fields.phone.show && guest.phone.trim() && !isBdPhone(guest.phone)) {
       errors.phone = "Enter a valid Bangladeshi mobile number.";
     }
-    if (!guest.addressLine1.trim()) errors.addressLine1 = "Address is required.";
-    if (!guest.city.trim()) errors.city = "City is required.";
-    // addressLine2 and postalCode are optional to the backend, so not required here.
 
     setGuestErrors(errors);
     return Object.keys(errors).length === 0;
@@ -291,7 +323,7 @@ export default function CheckoutForm({
     // The address form renders inside this one, so Enter in one of its inputs
     // reaches here. Placing an order mid-edit is never what was meant.
     if (isAddingAddress) return;
-    if (isSignedIn && (!addressId || !shippingMethodId)) return;
+    if (isSignedIn && !addressId) return;
     if (!isSignedIn && !validateGuest()) return;
 
     // Normalized so the phone stored against the order matches what the
@@ -302,7 +334,6 @@ export default function CheckoutForm({
       ? {
           mode: "account",
           shippingAddressId: addressId as string,
-          shippingMethodId: shippingMethodId ?? undefined,
           // Only sent when it is actually on offer — the server refuses a
           // pickup the matched places do not provide, and sending it blindly
           // would turn a change of address into a rejected order.
@@ -313,20 +344,25 @@ export default function CheckoutForm({
       : {
           mode: "guest",
           ...(collecting ? { deliveryMethod: "PICKUP" as const } : {}),
-          fullName: guest.fullName.trim(),
+          /*
+           * A field the merchant is not collecting is sent as `undefined`, not
+           * as an empty string — the server treats absent and blank alike, but
+           * sending "" would record an empty value on the order's address as
+           * though the shopper had been asked and left it blank.
+           */
+          fullName: collected("fullName"),
           phone: normalizedPhone,
           shippingAddress: {
-            addressLine1: guest.addressLine1.trim(),
-            addressLine2: guest.addressLine2.trim() || undefined,
-            city: guest.city.trim(),
+            addressLine1: collected("addressLine1"),
+            addressLine2: collected("addressLine2"),
+            city: collected("city"),
             // The same value the quote was priced against — see the note there.
-            state: guest.city.trim() || undefined,
-            postalCode: guest.postalCode.trim() || undefined,
+            state: collected("city"),
+            postalCode: collected("postalCode"),
           },
           // Present only for a direct product order; otherwise the cart is used.
           items: directOrder ? [directOrder.item] : undefined,
           paymentMethod: "COD",
-          shippingMethodId: shippingMethodId ?? undefined,
           notes: notes.trim() || undefined,
           idempotencyKey,
         };
@@ -430,62 +466,78 @@ export default function CheckoutForm({
                   to use your saved addresses.
                 </p>
 
-                <Field
-                  label="Full name"
-                  name="fullName"
-                  value={guest.fullName}
-                  onChange={(e) => updateGuest("fullName", e.target.value)}
-                  error={guestErrors.fullName}
-                  placeholder="e.g. Rahim Uddin"
-                  autoComplete="name"
-                />
-                <Field
-                  label="Phone number"
-                  name="phone"
-                  value={guest.phone}
-                  onChange={(e) => updateGuest("phone", e.target.value)}
-                  error={guestErrors.phone}
-                  placeholder="01XXXXXXXXX"
-                  autoComplete="tel"
-                  inputMode="tel"
-                />
-                <Field
-                  label="Address"
-                  name="addressLine1"
-                  value={guest.addressLine1}
-                  onChange={(e) => updateGuest("addressLine1", e.target.value)}
-                  error={guestErrors.addressLine1}
-                  placeholder="House, road, area"
-                  autoComplete="address-line1"
-                />
-                <Field
-                  label="Apartment, floor (optional)"
-                  name="addressLine2"
-                  value={guest.addressLine2}
-                  onChange={(e) => updateGuest("addressLine2", e.target.value)}
-                  error={guestErrors.addressLine2}
-                  autoComplete="address-line2"
-                />
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                {/* Each field renders only if the merchant collects it, and
+                    says so in its label when it is not mandatory. */}
+                {shows("fullName") && (
                   <Field
-                    label="City"
-                    name="city"
-                    value={guest.city}
-                    onChange={(e) => updateGuest("city", e.target.value)}
-                    error={guestErrors.city}
-                    placeholder="e.g. Dhaka"
-                    autoComplete="address-level2"
+                    label={`Full name${optionalSuffix("fullName")}`}
+                    name="fullName"
+                    value={guest.fullName}
+                    onChange={(e) => updateGuest("fullName", e.target.value)}
+                    error={guestErrors.fullName}
+                    placeholder="e.g. Rahim Uddin"
+                    autoComplete="name"
                   />
+                )}
+                {shows("phone") && (
                   <Field
-                    label="Postal code (optional)"
-                    name="postalCode"
-                    value={guest.postalCode}
-                    onChange={(e) => updateGuest("postalCode", e.target.value)}
-                    error={guestErrors.postalCode}
-                    autoComplete="postal-code"
-                    inputMode="numeric"
+                    label={`Phone number${optionalSuffix("phone")}`}
+                    name="phone"
+                    value={guest.phone}
+                    onChange={(e) => updateGuest("phone", e.target.value)}
+                    error={guestErrors.phone}
+                    placeholder="01XXXXXXXXX"
+                    autoComplete="tel"
+                    inputMode="tel"
                   />
-                </div>
+                )}
+                {shows("addressLine1") && (
+                  <Field
+                    label={`Address${optionalSuffix("addressLine1")}`}
+                    name="addressLine1"
+                    value={guest.addressLine1}
+                    onChange={(e) => updateGuest("addressLine1", e.target.value)}
+                    error={guestErrors.addressLine1}
+                    placeholder="House, road, area"
+                    autoComplete="address-line1"
+                  />
+                )}
+                {shows("addressLine2") && (
+                  <Field
+                    label={`Apartment, floor${optionalSuffix("addressLine2")}`}
+                    name="addressLine2"
+                    value={guest.addressLine2}
+                    onChange={(e) => updateGuest("addressLine2", e.target.value)}
+                    error={guestErrors.addressLine2}
+                    autoComplete="address-line2"
+                  />
+                )}
+                {(shows("city") || shows("postalCode")) && (
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    {shows("city") && (
+                      <Field
+                        label={`City${optionalSuffix("city")}`}
+                        name="city"
+                        value={guest.city}
+                        onChange={(e) => updateGuest("city", e.target.value)}
+                        error={guestErrors.city}
+                        placeholder="e.g. Dhaka"
+                        autoComplete="address-level2"
+                      />
+                    )}
+                    {shows("postalCode") && (
+                      <Field
+                        label={`Postal code${optionalSuffix("postalCode")}`}
+                        name="postalCode"
+                        value={guest.postalCode}
+                        onChange={(e) => updateGuest("postalCode", e.target.value)}
+                        error={guestErrors.postalCode}
+                        autoComplete="postal-code"
+                        inputMode="numeric"
+                      />
+                    )}
+                  </div>
+                )}
               </div>
             ) : isAddingAddress ? (
               <div className="rounded-xl border border-gray-200 p-5">
@@ -565,7 +617,7 @@ export default function CheckoutForm({
 
           <section>
             <h2 className="mb-4 text-lg font-semibold text-gray-900">
-              Shipping method
+              Delivery
             </h2>
 
             {/* The server refuses an undeliverable destination rather than
@@ -603,49 +655,44 @@ export default function CheckoutForm({
               </label>
             )}
 
-            {shippingMethods.length === 0 ? (
-              <p className="rounded border border-gray-200 p-4 text-sm text-gray-500">
-                No shipping methods are available right now. Please try again
-                shortly.
-              </p>
-            ) : (
-              <div className="space-y-3">
-                {shippingMethods.map((method) => (
-                  <label
-                    key={method.id}
-                    className={clsx(
-                      "flex cursor-pointer items-center gap-3 rounded-xl border p-4 transition-colors",
-                      shippingMethodId === method.id
-                        ? "border-brand bg-brand/5"
-                        : "border-gray-200 hover:border-gray-300",
-                    )}
-                  >
-                    <input
-                      type="radio"
-                      name="shipping"
-                      checked={shippingMethodId === method.id}
-                      onChange={() => setShippingMethodId(method.id)}
-                      className="accent-brand"
-                    />
-                    <Truck size={18} className="shrink-0 text-gray-400" />
-                    <span className="flex-1 text-sm">
-                      <span className="font-medium text-gray-900">
-                        {method.name}
-                      </span>
-                      {method.estimatedDays !== undefined && (
-                        <span className="mt-0.5 block text-gray-500">
-                          Estimated delivery in {method.estimatedDays}{" "}
-                          {method.estimatedDays === 1 ? "day" : "days"}
+            {/* Read-only, deliberately. A place is matched to the shopper's
+                address, not chosen by them — offering the list would let
+                someone pick the city rate for a rural address. */}
+            {!undeliverable &&
+              (quote && quote.places.length > 0 ? (
+                <div className="space-y-3">
+                  {quote.places.map((place, index) => (
+                    <div
+                      key={`${place.name ?? "place"}-${index}`}
+                      className="flex items-center gap-3 rounded-xl border border-gray-200 p-4"
+                    >
+                      <Truck size={18} className="shrink-0 text-gray-400" />
+                      <span className="flex-1 text-sm">
+                        <span className="font-medium text-gray-900">
+                          {place.name ?? "Standard delivery"}
                         </span>
-                      )}
-                    </span>
-                    <span className="text-sm font-semibold text-gray-900">
-                      {formatPrice(method.price)}
-                    </span>
-                  </label>
-                ))}
-              </div>
-            )}
+                        {place.deliveryDays > 0 && (
+                          <span className="mt-0.5 block text-gray-500">
+                            Estimated delivery in {place.deliveryDays}{" "}
+                            {place.deliveryDays === 1 ? "day" : "days"}
+                          </span>
+                        )}
+                      </span>
+                      <span className="text-sm font-semibold text-gray-900">
+                        {formatPrice(place.price)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="rounded border border-gray-200 p-4 text-sm text-gray-500">
+                  {quoting
+                    ? "Working out delivery for your address…"
+                    : isSignedIn
+                      ? "Choose a delivery address to see what delivery costs."
+                      : "Fill in your delivery address to see what delivery costs."}
+                </p>
+              ))}
           </section>
 
           {!isSignedIn && (
@@ -664,19 +711,21 @@ export default function CheckoutForm({
             </section>
           )}
 
-          <section>
-            <h2 className="mb-4 text-lg font-semibold text-gray-900">
-              Order note <span className="text-sm font-normal text-gray-400">(optional)</span>
-            </h2>
-            <textarea
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              rows={3}
-              maxLength={1000}
-              placeholder="e.g. Please call before delivery"
-              className="w-full rounded border border-gray-300 px-4 py-3 text-sm text-gray-800 outline-none focus:border-brand"
-            />
-          </section>
+          {checkout.showOrderNote && (
+            <section>
+              <h2 className="mb-4 text-lg font-semibold text-gray-900">
+                Order note <span className="text-sm font-normal text-gray-400">(optional)</span>
+              </h2>
+              <textarea
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                rows={3}
+                maxLength={1000}
+                placeholder="e.g. Please call before delivery"
+                className="w-full rounded border border-gray-300 px-4 py-3 text-sm text-gray-800 outline-none focus:border-brand"
+              />
+            </section>
+          )}
 
           {error && (
             <div
@@ -705,6 +754,13 @@ export default function CheckoutForm({
           )}
 
           <div>
+            {/* Merchant-authored, and rendered only when there is something to
+                say — an empty notice must leave no container or spacing behind. */}
+            {checkout.notice.trim() && (
+              <p className="mb-4 rounded border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-700">
+                {checkout.notice.trim()}
+              </p>
+            )}
             <button
               type="submit"
               disabled={!canOrder || placing}
@@ -801,6 +857,19 @@ export default function CheckoutForm({
               </p>
             )}
           </div>
+
+          {/*
+            The same coupon box the cart page has, gated by the same setting, so
+            a shopper who skipped straight to checkout is not asked to go back
+            to the cart to redeem a code. Not offered for a direct "buy this
+            one" order, which is bought outside the cart the coupon applies to.
+          */}
+          {checkout.showCouponBox && !directOrder && (
+            <CouponForm
+              appliedCode={cart.discountCode}
+              discountAmount={cart.discountAmount}
+            />
+          )}
 
           <div className="mt-4 flex items-center justify-between border-t border-gray-200 pt-4 text-base font-bold text-gray-900">
             <span>Total</span>

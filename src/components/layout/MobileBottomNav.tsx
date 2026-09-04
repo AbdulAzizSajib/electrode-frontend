@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { Icon } from "@iconify/react";
 import { Home, Phone, Repeat, ShoppingBag, Store } from "lucide-react";
 import clsx from "clsx";
-import { contact } from "@/data/content";
+import type { StoreSettings } from "@/types/store-settings";
 import { EMPTY_CART, useGetCartQuery } from "@/store/cartApi";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { openCart } from "@/store/uiSlice";
@@ -23,7 +23,12 @@ import {
  * each page adding its own — a page that forgot would lose its footer links
  * underneath this.
  */
-export default function MobileBottomNav() {
+export default function MobileBottomNav({
+  contact,
+}: {
+  /** The store's contact details, from the settings fetched in the root layout. */
+  contact: StoreSettings["contact"];
+}) {
   const dispatch = useAppDispatch();
   const pathname = usePathname();
   // Already cached by the header's query, so this subscribes to the same data
@@ -47,20 +52,27 @@ export default function MobileBottomNav() {
       style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
     >
       <div className="mx-auto flex max-w-lg items-stretch">
-        <a href={`tel:${contact.phone}`} className={itemClass(false)}>
-          <Phone size={20} strokeWidth={1.75} />
-          Phone
-        </a>
+        {/* Both dial the store's configured number. Omitted when it is unset
+            rather than rendering a `tel:` link that goes nowhere — the
+            remaining items simply spread to fill the bar. */}
+        {contact.phone && (
+          <>
+            <a href={`tel:${contact.phone}`} className={itemClass(false)}>
+              <Phone size={20} strokeWidth={1.75} />
+              Phone
+            </a>
 
-        <a
-          href={`https://wa.me/${contact.phoneDigits}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className={itemClass(false)}
-        >
-          <Icon icon="akar-icons:whatsapp-fill" width={20} height={20} />
-          WhatsApp
-        </a>
+            <a
+              href={`https://wa.me/${contact.phone.replace(/\D/g, "")}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={itemClass(false)}
+            >
+              <Icon icon="akar-icons:whatsapp-fill" width={20} height={20} />
+              WhatsApp
+            </a>
+          </>
+        )}
 
         <Link href="/" className={itemClass(pathname === "/")}>
           <Home size={20} strokeWidth={1.75} />

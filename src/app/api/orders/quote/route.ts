@@ -1,7 +1,7 @@
 import { proxyRequest } from "@/lib/api-proxy";
 
 /**
- * Body: `{ shippingAddressId? , country?, state?, shippingMethodId?, items? }`.
+ * Body: `{ shippingAddressId?, country?, state?, items? }`.
  *
  * Prices the basket without placing anything, so checkout can show what
  * delivery actually costs to the shopper's destination — and tell them up front

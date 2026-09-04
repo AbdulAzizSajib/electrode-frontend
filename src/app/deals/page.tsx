@@ -13,7 +13,7 @@ export default async function DealsPage() {
   const deals = products.filter((p) => p.compareAtPrice);
 
   return (
-    <div className="container-px mx-auto max-w-346 py-14">
+    <div className="container-px site-container py-14">
       <h1 className="mb-2 text-3xl font-bold text-gray-900">Today&apos;s Deal</h1>
       <p className="mb-10 text-gray-500">
         {deals.length === 0

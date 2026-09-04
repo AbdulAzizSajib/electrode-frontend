@@ -14,7 +14,7 @@ export default function ProductSection({
   viewAllHref?: string;
 }) {
   return (
-    <section className=" container-px  mx-auto max-w-346 py-8  ">
+    <section className=" container-px  site-container py-8  ">
       <div className="mb-8 flex flex-wrap items-center justify-between gap-4 ">
         <h2 className="text-xl flex items-center gap-12 font-bold text-gray-900 sm:text-2xl">{title}
         </h2>

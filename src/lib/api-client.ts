@@ -64,6 +64,12 @@ interface RequestOptions {
    * hit the API on every render.
    */
   revalidate?: number;
+  /**
+   * Cache tags, so a mutation elsewhere can invalidate this entry before its
+   * `revalidate` window elapses. Only meaningful alongside `revalidate` — an
+   * uncached (`no-store`) request has nothing to tag.
+   */
+  tags?: string[];
   /** Abort the request after this many ms. Defaults to 10s. */
   timeoutMs?: number;
 }
@@ -83,6 +89,7 @@ export async function apiFetch<TData>(
     cookie,
     cache = "no-store",
     revalidate,
+    tags,
     timeoutMs = DEFAULT_TIMEOUT_MS,
   }: RequestOptions = {},
 ): Promise<ApiResponse<TData>> {
@@ -99,7 +106,7 @@ export async function apiFetch<TData>(
   const cacheOptions =
     revalidate === undefined
       ? { cache }
-      : { next: { revalidate } };
+      : { next: { revalidate, ...(tags ? { tags } : {}) } };
 
   let response: Response;
   try {

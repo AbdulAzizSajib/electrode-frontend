@@ -1,9 +1,13 @@
 import type { ApiCustomerAddress } from "@/types/address";
 
 /**
- * Order and shipping types mirroring the backend's order and shipping-method
- * endpoints. As everywhere else in this API, monetary values arrive as decimal
- * strings and are parsed to numbers at the service boundary.
+ * Order types mirroring the backend's order endpoints. As everywhere else in
+ * this API, monetary values arrive as decimal strings and are parsed to numbers
+ * at the service boundary.
+ *
+ * Delivery has no type of its own here: it is not something the shopper picks,
+ * it is priced by the server from each product's shipping rule matched against
+ * their address, and arrives as `places` on the quote.
  */
 
 export type OrderStatus =
@@ -14,25 +18,6 @@ export type OrderStatus =
   | "DELIVERED"
   | "CANCELLED"
   | "COMPLETED";
-
-export interface ApiShippingMethod {
-  id: string;
-  name: string;
-  description: string | null;
-  price: string;
-  estimatedDays: number | null;
-  isActive: boolean;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface ShippingMethod {
-  id: string;
-  name: string;
-  description?: string;
-  price: number;
-  estimatedDays?: number;
-}
 
 export interface ApiOrderItem {
   id: string;
@@ -111,10 +96,16 @@ export interface Order {
 }
 
 /** A delivery address typed in at checkout, as a guest has none saved. */
+/**
+ * Every field is optional, `addressLine1` and `city` included: which of them a
+ * guest must supply is a merchant setting (see `checkoutConfig`), so a field
+ * the merchant is not collecting is simply absent. Mirrors the backend's
+ * `guestAddressZodSchema`, which was relaxed for the same reason.
+ */
 export interface GuestAddressInput {
-  addressLine1: string;
+  addressLine1?: string;
   addressLine2?: string;
-  city: string;
+  city?: string;
   state?: string;
   postalCode?: string;
   country?: string;
@@ -140,7 +131,6 @@ export interface CheckoutQuoteRequest {
   shippingAddressId?: string;
   country?: string;
   state?: string;
-  shippingMethodId?: string;
   /** Prices these lines instead of the cart, for a direct product order. */
   items?: CheckoutItemInput[];
 }
@@ -176,7 +166,6 @@ export interface CheckoutQuote {
 
 /** Shared by both checkout flows. */
 interface PlaceOrderCommon {
-  shippingMethodId?: string;
   notes?: string;
   /**
    * Delivered or collected in person. Absent means delivery. Only accepted when
@@ -211,7 +200,13 @@ export type PlaceOrderPayload =
     })
   | (PlaceOrderCommon & {
       mode: "guest";
-      fullName: string;
+      /** Absent when the merchant has turned the name field off. */
+      fullName?: string;
+      /**
+       * Required, and not configurable: guest order lookup and the per-phone
+       * cash-on-delivery limit are both keyed on it, so the backend refuses an
+       * order without one regardless of settings.
+       */
       phone: string;
       shippingAddress: GuestAddressInput;
       /** Present for a direct product order; absent means "use my cart". */
