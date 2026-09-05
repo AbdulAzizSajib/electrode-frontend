@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import WishlistView from "@/app/wishlist/WishlistView";
+import WishlistView from "@/app/(shop)/wishlist/WishlistView";
 
 export const metadata: Metadata = {
   title: "My Wishlist – Electrode",

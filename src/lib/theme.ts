@@ -26,8 +26,17 @@ const HEX = /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/;
 /** Matches the backend's FAMILY_PATTERN — letters, digits, spaces, hyphens. */
 const FAMILY = /^[A-Za-z0-9][A-Za-z0-9 -]{0,63}$/;
 
-const MIN_WIDTH = 960;
-const MAX_WIDTH = 2560;
+/**
+ * The content widths the admin offers, mirroring the backend's
+ * `SITE_CONTENT_WIDTHS`. A stored width that is not one of these — a legacy
+ * 1384, or a row edited outside the API — snaps to the nearest one rather than
+ * rendering as itself: the homepage hero is proportioned from this value, and
+ * an unvetted width is exactly what used to reshape the slider's box out from
+ * under the merchant's artwork.
+ */
+const CONTENT_WIDTHS = [1140, 1280, 1440, 1600] as const;
+
+const DEFAULT_WIDTH = 1440;
 
 /**
  * The stack behind the merchant's family, kept from the original `globals.css`
@@ -47,10 +56,12 @@ const colour = (value: string | undefined, fallback: string): string =>
 export function resolveMaxWidth(maxWidth: Theme["maxWidth"]): string {
   if (maxWidth === "full") return "100%";
   if (typeof maxWidth === "number" && Number.isFinite(maxWidth)) {
-    const clamped = Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, Math.round(maxWidth)));
-    return `${clamped}px`;
+    const nearest = CONTENT_WIDTHS.reduce((best, width) =>
+      Math.abs(width - maxWidth) < Math.abs(best - maxWidth) ? width : best,
+    );
+    return `${nearest}px`;
   }
-  return "86.5rem"; // max-w-346, the width this storefront shipped with
+  return `${DEFAULT_WIDTH}px`;
 }
 
 /** The merchant's family, quoted, ahead of the fallback stack. */

@@ -1,8 +1,16 @@
 import Image from "next/image";
 import Link from "next/link";
-import { midBanners } from "@/data/content";
 import { getBannersByPlacement } from "@/services/banner";
 
+/**
+ * The three-across promo strip below the hero.
+ *
+ * A ratio rather than the fixed `h-56` it had, for the reason spelled out in
+ * `Hero.tsx`: the tiles are a third of the content width, so a fixed height
+ * meant their shape changed every time the merchant changed that width, and
+ * `object-cover` cropped a different part of the artwork at each one. 2:1 is
+ * what `h-56` came to at the width this shipped with.
+ */
 export default async function MidBanners() {
   const banners = await getBannersByPlacement();
   const midBanners = banners.MID ?? [];
@@ -13,19 +21,15 @@ export default async function MidBanners() {
           <Link
             key={b.id}
             href={b.href}
-            className="relative flex h-56 items-center overflow-hidden rounded-xl bg-gray-100"
+            className="relative aspect-2/1 overflow-hidden rounded-xl bg-gray-100"
           >
-            {/* <div className="relative z-10 max-w-[65%] p-6">
-              <p className="text-xs text-gray-500">{b.eyebrow}</p>
-              <p className="mt-1 text-lg font-bold text-gray-900">{b.title}</p>
-              <p className="mt-2 text-sm text-gray-600">
-                Starting <span className="font-semibold text-sale">{b.price}</span>
-              </p>
-              <span className="mt-3 inline-block text-xs font-semibold text-brand underline">Shop Now</span>
-            </div>
-            <div className="absolute right-0 top-0 h-full w-32 sm:w-36"> */}
-              <Image src={b.image} alt={b.title} fill className="object-cover" />
-            {/* </div> */}
+            <Image
+              src={b.image}
+              alt={b.title}
+              fill
+              sizes="(min-width: 640px) 33vw, 100vw"
+              className="object-cover"
+            />
           </Link>
         ))}
       </div>

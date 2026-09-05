@@ -1,5 +1,8 @@
 import { revalidateTag } from "next/cache";
 import { STORE_SETTINGS_CACHE_TAG } from "@/services/store-settings";
+import { BLOG_POSTS_CACHE_TAG } from "@/services/blog";
+import { TESTIMONIALS_CACHE_TAG } from "@/services/testimonials";
+import { LANDING_PAGES_CACHE_TAG } from "@/services/landing-page";
 
 /**
  * Drops a cached storefront tag on request, so a merchant's save shows up on
@@ -18,7 +21,22 @@ import { STORE_SETTINGS_CACHE_TAG } from "@/services/store-settings";
  */
 
 /** Only tags this route is willing to drop. An allow-list, not free-form input. */
-const ALLOWED_TAGS = new Set<string>([STORE_SETTINGS_CACHE_TAG]);
+const ALLOWED_TAGS = new Set<string>([
+  STORE_SETTINGS_CACHE_TAG,
+  // The two merchant-managed homepage sections. Both are invalidated by the
+  // backend on every create, edit and delete, so publishing a post or a
+  // testimonial shows up on the next request rather than up to five minutes
+  // later.
+  BLOG_POSTS_CACHE_TAG,
+  TESTIMONIALS_CACHE_TAG,
+  /*
+   * Campaign landing pages. The backend pings this AND `store-settings` on
+   * every landing page write, because publishing or unpublishing a page changes
+   * what the settings payload says about the storefront root — not just what
+   * `/lp/<slug>` renders.
+   */
+  LANDING_PAGES_CACHE_TAG,
+]);
 
 export async function POST(request: Request) {
   const secret = process.env.REVALIDATE_SECRET;

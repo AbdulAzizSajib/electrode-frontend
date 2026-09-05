@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
-import MyReviewsView from "@/app/account/reviews/MyReviewsView";
+import MyReviewsView from "@/app/(shop)/account/reviews/MyReviewsView";
 import { getCurrentUser } from "@/services/auth";
 
 export const metadata: Metadata = {

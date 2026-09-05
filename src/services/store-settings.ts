@@ -52,6 +52,14 @@ const FALLBACK_SETTINGS: StoreSettings = {
   metaDescription: null,
   currency: "BDT",
   currencySymbol: "৳",
+  /*
+   * Reproduce the storefront's pre-configuration rendering — `formatPrice` was
+   * the literal `` `৳${value.toFixed(2)}` `` — so a failed settings read leaves
+   * prices looking as they always have rather than symbol-less. Mirrors the
+   * backend's DEFAULT_PUBLIC_SETTINGS.
+   */
+  currencyPosition: "BEFORE",
+  currencyDecimals: 2,
   contact: {
     email: "contact@sheisite.com",
     phone: "+8801782521705",
@@ -111,12 +119,28 @@ const FALLBACK_SETTINGS: StoreSettings = {
     showOrderNote: true,
     allowGuestCheckout: true,
     notice: "",
+    /*
+     * No options, which is the honest fallback rather than a safe-looking one.
+     * Delivery prices are merchant money; inventing an area and a charge to
+     * degrade gracefully would mean charging a shopper an amount nobody chose.
+     * Checkout refuses to price an order against an empty list and says the
+     * store has not set delivery up.
+     */
+    delivery: { offersPickup: false, options: [] },
   },
   /*
    * Mirrors the backend's DEFAULT_THEME, which mirrors globals.css. These are
    * the same values the stylesheet already carries, so a failed settings read
    * paints the site exactly as the stylesheet alone would.
    */
+  /*
+   * WEBSITE and null, so a storefront that cannot reach the settings API
+   * renders the normal shop. This is the only safe direction to fail in:
+   * falling back to LANDING_PAGE would replace the home page with a redirect to
+   * a page whose slug we do not know. Mirrors the backend's own default.
+   */
+  siteMode: "WEBSITE",
+  activeLandingPage: null,
   theme: {
     background: "#ffffff",
     foreground: "#1a1a1a",
@@ -124,7 +148,7 @@ const FALLBACK_SETTINGS: StoreSettings = {
     brandDark: "#133f9e",
     accent: "#f5b301",
     sale: "#e02020",
-    maxWidth: 1384,
+    maxWidth: 1440,
     font: {
       family: "Outfit",
       url: "https://fonts.googleapis.com/css2?family=Outfit:wght@100..900&display=swap",
@@ -155,6 +179,16 @@ export async function getStoreSettings(): Promise<StoreSettings> {
     return {
       ...FALLBACK_SETTINGS,
       ...data,
+      /*
+       * Backfilled individually because a spread would carry through an
+       * explicit `null` or a missing key from an older API, and `formatPrice`
+       * would then interpolate `undefined` into every price on the site.
+       */
+      currencyPosition: data.currencyPosition ?? FALLBACK_SETTINGS.currencyPosition,
+      currencyDecimals:
+        typeof data.currencyDecimals === "number"
+          ? data.currencyDecimals
+          : FALLBACK_SETTINGS.currencyDecimals,
       contact: { ...FALLBACK_SETTINGS.contact, ...(data.contact ?? {}) },
       announcementBar: data.announcementBar ?? FALLBACK_SETTINGS.announcementBar,
       newsletter: data.newsletter ?? FALLBACK_SETTINGS.newsletter,
@@ -171,12 +205,31 @@ export async function getStoreSettings(): Promise<StoreSettings> {
           ...FALLBACK_SETTINGS.checkoutConfig.fields,
           ...(data.checkoutConfig?.fields ?? {}),
         },
+        delivery: {
+          ...FALLBACK_SETTINGS.checkoutConfig.delivery,
+          ...(data.checkoutConfig?.delivery ?? {}),
+        },
       },
       theme: {
         ...FALLBACK_SETTINGS.theme,
         ...(data.theme ?? {}),
         font: { ...FALLBACK_SETTINGS.theme.font, ...(data.theme?.font ?? {}) },
       },
+      /*
+       * Backfilled together and defensively. An older API that predates these
+       * keys reports neither, and a spread would leave `siteMode` undefined —
+       * which is falsy, so the root would render the homepage, but only by
+       * accident. Saying WEBSITE explicitly makes that the decision it is.
+       *
+       * The pair is also cross-checked: LANDING_PAGE mode with no page to serve
+       * is not a state the root can act on, so it degrades to WEBSITE rather
+       * than redirecting to `/lp/undefined`.
+       */
+      siteMode:
+        data.siteMode === "LANDING_PAGE" && data.activeLandingPage?.slug
+          ? "LANDING_PAGE"
+          : "WEBSITE",
+      activeLandingPage: data.activeLandingPage?.slug ? data.activeLandingPage : null,
       // Arrays are taken only when they really are arrays. An empty list is a
       // legitimate merchant choice ("no footer columns") and is preserved; a
       // malformed value falls back rather than reaching `.map()`.

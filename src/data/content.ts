@@ -109,27 +109,17 @@ export const categoryGrid = [
 
 ];
 
-export const testimonials = [
-  { name: "Augusta Wind", role: "Web Designer" },
-  { name: "Reema Ghurde", role: "Manager" },
-  { name: "Luies Charls", role: "CEO" },
-  { name: "Stefanie Rashford", role: "Founder" },
-].map((t) => ({
-  ...t,
-  quote:
-    "Lorem Ipsum is simply dummy text of the printing and typesetting industry, Lorem Ipsum has been the industry's standard.",
-}));
-
-export const blogPosts = [
-  { title: "How to Keep Your Devices Safe from Viruses", date: "Jul 19, 2026", excerpt: "Trends are patterns or shifts in behavior, preferences, or ideas that gain popularity within a specific industry.", image: placeholderImage("blog-1", { w: 500, h: 350, label: "Device Safety" }) },
-  { title: "Tips for Extending the Life of Your Electronics", date: "Jul 19, 2026", excerpt: "In a world where information is abundant and time is precious, our blog is your sanctuary of meaningful content.", image: placeholderImage("blog-2", { w: 500, h: 350, label: "Electronics Care" }) },
-  { title: "Must-Have Accessories for Your Gaming Setup", date: "Jul 19, 2026", excerpt: "Welcome to the digital world, where technology is constantly evolving and shaping how we live and work.", image: placeholderImage("blog-3", { w: 500, h: 350, label: "Gaming Setup" }) },
-  { title: "How to Set Up a Smart Home on a Budget", date: "Jul 19, 2026", excerpt: "Welcome to the ultimate shopping event you've been waiting for — our upcoming sale with big discounts.", image: placeholderImage("blog-4", { w: 500, h: 350, label: "Smart Home" }) },
-];
-
 /*
- * Removed here, now merchant-managed: `contact`, `navLinks`/`NavLink` and
- * `footerColumns`.
+ * Removed here, now merchant-managed: `contact`, `navLinks`/`NavLink`,
+ * `footerColumns`, and the two homepage content rows — the client quotes and
+ * the latest-posts cards, which are now models with their own admin sections.
+ *
+ * Those last two were deleted outright rather than kept as a fallback behind an
+ * empty API. A fallback would mean an unseeded shop silently showing someone
+ * else's stock content, with no way for a merchant to tell "not published yet"
+ * from "broken" — and both sections are specified to be ABSENT when nothing is
+ * published, which a fixture fallback would make unreachable.
+ * See the storefront-cms blog and testimonials specs.
  *
  * They live on the StoreSetting singleton and reach the header and footer via
  * `getStoreSettings()` (src/services/store-settings.ts), fetched once in the

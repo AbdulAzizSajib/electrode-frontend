@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import CartView from "@/app/cart/CartView";
+import CartView from "@/app/(shop)/cart/CartView";
 import { getStoreSettings } from "@/services/store-settings";
 
 export const metadata: Metadata = {

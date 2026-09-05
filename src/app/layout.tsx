@@ -1,24 +1,39 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import Header from "@/components/layout/Header";
-import Footer from "@/components/layout/Footer";
-import CartDrawer from "@/components/layout/CartDrawer";
-import CartRail from "@/components/layout/CartRail";
-import MobileBottomNav from "@/components/layout/MobileBottomNav";
-import CompareBar from "@/components/layout/CompareBar";
-import StoreProvider from "@/store/StoreProvider";
-import SmoothScrollProvider from "@/components/providers/SmoothScrollProvider";
-import { getCurrentUser } from "@/services/auth";
-import { getCategoryTree } from "@/services/category";
+import CurrencyFormatProvider from "@/components/providers/CurrencyFormatProvider";
+import { setCurrencyFormat } from "@/lib/format";
 import { getStoreSettings } from "@/services/store-settings";
 import { resolveFontHref, themeStyle } from "@/lib/theme";
+
+/**
+ * The document shell, and only the shell.
+ *
+ * This layout used to render the site chrome too — header, footer, cart drawer,
+ * cart rail, mobile nav, compare bar. It no longer does, because there are now
+ * TWO kinds of page under it and they need different shells:
+ *
+ *   app/(shop)/   the storefront, with all of that chrome
+ *   app/(landing)/ a campaign landing page, with none of it
+ *
+ * A landing page is a single focused document ending in an order form; a header
+ * offering somewhere else to go is the one thing it must not have. Route groups
+ * are how Next.js expresses that — the parentheses are not part of any URL, so
+ * moving every storefront route under `(shop)` changed no address.
+ *
+ * What stays here is what BOTH shells need and neither should duplicate: the
+ * html/body elements, the merchant's theme and font, and the currency format.
+ * A landing page still has to look like the same business.
+ *
+ * See add-single-product-landing-page design.md, Decision 6.
+ */
 
 /**
  * The site's default document metadata, from the merchant's settings.
  *
  * Was a hardcoded literal reading "Electrode - Electronics Store" — a name the
  * seeded store does not even have. A page that supplies its own title (a
- * product, a CMS page) still wins; this is only the default beneath them.
+ * product, a CMS page, a landing page) still wins; this is only the default
+ * beneath them.
  */
 export async function generateMetadata(): Promise<Metadata> {
   const settings = await getStoreSettings();
@@ -61,20 +76,28 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function RootLayout({ children }: LayoutProps<"/">) {
-  // Independent of each other, so run them concurrently — the header renders on
-  // every route, and awaiting these in series would add latency to every page.
-  //
-  // Settings is fetched once here and passed down rather than in each of the
-  // four chrome components: they all render on every page, so fetching per
-  // component would multiply the request, and fetching client-side would flash
-  // default chrome before the merchant's own arrived.
-  const [user, categories, settings] = await Promise.all([
-    getCurrentUser(),
-    getCategoryTree(),
-    getStoreSettings(),
-  ]);
+  const settings = await getStoreSettings();
 
   const fontHref = resolveFontHref(settings.theme?.font?.url);
+
+  /*
+   * How money is written, applied on BOTH sides of the boundary.
+   *
+   * Here for the server render pass — `formatPrice` reads module state, so it has to be set before
+   * any server component below this renders a price. And again inside `CurrencyFormatProvider`,
+   * which is a client component: the browser bundle has its own module registry, so a client
+   * component like `ProductCard` would otherwise hydrate against the fallback and disagree with the
+   * server-rendered markup beside it.
+   *
+   * Kept in the ROOT layout rather than in `(shop)`'s: a landing page renders
+   * prices too, and it must render them the way the rest of the shop does.
+   */
+  const currencyFormat = {
+    symbol: settings.currencySymbol,
+    position: settings.currencyPosition,
+    decimals: settings.currencyDecimals,
+  };
+  setCurrencyFormat(currencyFormat);
 
   return (
     /*
@@ -101,19 +124,8 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
       */}
       {fontHref && <link rel="stylesheet" href={fontHref} precedence="default" />}
       <body className="flex min-h-full flex-col">
-        <StoreProvider isSignedIn={Boolean(user)}>
-          {/* Inside StoreProvider so the drawers can read both the cart state and
-              the scroll authority that locks the page behind them. */}
-          <SmoothScrollProvider>
-            <Header user={user} categories={categories} settings={settings} />
-            <main className="flex-1">{children}</main>
-            <Footer settings={settings} />
-            <CartDrawer />
-            <CartRail />
-            <MobileBottomNav contact={settings.contact} />
-            <CompareBar />
-          </SmoothScrollProvider>
-        </StoreProvider>
+        {/* Outermost, so the format is in place before anything beneath it renders a price. */}
+        <CurrencyFormatProvider format={currencyFormat}>{children}</CurrencyFormatProvider>
       </body>
     </html>
   );
