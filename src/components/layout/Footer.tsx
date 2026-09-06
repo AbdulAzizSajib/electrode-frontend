@@ -69,62 +69,79 @@ export default function Footer({ settings }: { settings: StoreSettings }) {
       )}
 
       {/*
-        The column count is `auto-fit` rather than a fixed 5: the merchant
-        controls how many link columns there are, and a hardcoded grid would
-        either strand empty tracks or crush six columns into five slots.
+        Two grids, not one, below `lg`.
+
+        The brand block sits outside the link grid so its heading and about
+        paragraph get the full row on phones — sharing a row with a link column
+        squeezed the prose into a ragged half-width strip. From `lg` up the
+        outer flex turns back into a row and the brand takes a normal track.
+
+        The link grid itself is `auto-fit` rather than a fixed 4: the merchant
+        controls how many columns there are, and a hardcoded count would either
+        strand empty tracks or crush extra columns into too few slots.
       */}
-      <div className="container-px grid site-container grid-cols-1 gap-10 py-12 sm:grid-cols-2 lg:grid-cols-[repeat(auto-fit,minmax(180px,1fr))]">
-        <div>
+      <div className="container-px site-container flex flex-col gap-10 py-12 lg:flex-row lg:gap-x-10">
+        <div className="lg:w-1/4 lg:shrink-0">
           <h4 className="text-2xl font-bold">{brandName}</h4>
           {aboutText && <p className="mt-3 text-sm text-white/80">{aboutText}</p>}
         </div>
 
-        {footerColumns.map((column) => (
-          <div key={column.title}>
-            <h5 className="mb-4 font-semibold">{column.title}</h5>
-            <ul className="space-y-2.5 text-sm text-white/80">
-              {column.links.map((link) => (
-                <li key={`${link.label}-${link.href}`}>
-                  {/* A real target, not `href="#"`. Footer links pointing
-                      nowhere is the bug this whole change removes. */}
-                  <Link href={link.href} className="hover:text-accent">
-                    {link.label}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </div>
-        ))}
+        {/*
+          `items-start` keeps each cell's height to its own content. Without it
+          the stretched cells make a short column's heading float in whitespace
+          instead of sitting directly under the row above.
+        */}
+        <div className="grid flex-1 grid-cols-2 items-start gap-x-6 gap-y-10 sm:gap-x-10 lg:grid-cols-[repeat(auto-fit,minmax(160px,1fr))]">
+          {footerColumns.map((column) => (
+            <div key={column.title}>
+              <h5 className="mb-4 font-semibold">{column.title}</h5>
+              <ul className="space-y-2.5 text-sm text-white/80">
+                {column.links.map((link) => (
+                  <li key={`${link.label}-${link.href}`}>
+                    {/* A real target, not `href="#"`. Footer links pointing
+                        nowhere is the bug this whole change removes. */}
+                    <Link href={link.href} className="hover:text-accent">
+                      {link.label}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
 
-        {hasContact && (
-          <div>
-            <h5 className="mb-4 font-semibold">About Information</h5>
-            <ul className="space-y-3 text-sm text-white/80">
-              {contact.address && (
-                <li className="flex gap-2">
-                  <MapPin size={18} className="mt-0.5 shrink-0" />
-                  <span>{contact.address}</span>
-                </li>
-              )}
-              {contact.email && (
-                <li className="flex items-center gap-2">
-                  <Mail size={16} />
-                  <a href={`mailto:${contact.email}`} className="hover:text-accent">
-                    {contact.email}
-                  </a>
-                </li>
-              )}
-              {contact.phone && (
-                <li className="flex items-center gap-2">
-                  <Phone size={16} />
-                  <a href={`tel:${contact.phone}`} className="hover:text-accent">
-                    {contact.phone}
-                  </a>
-                </li>
-              )}
-            </ul>
-          </div>
-        )}
+          {hasContact && (
+            <div>
+              <h5 className="mb-4 font-semibold">About Information</h5>
+              <ul className="space-y-3 text-sm text-white/80">
+                {contact.address && (
+                  <li className="flex gap-2">
+                    <MapPin size={18} className="mt-0.5 shrink-0" />
+                    <span>{contact.address}</span>
+                  </li>
+                )}
+                {contact.email && (
+                  <li className="flex items-center gap-2">
+                    <Mail size={16} className="shrink-0" />
+                    <a
+                      href={`mailto:${contact.email}`}
+                      className="break-all hover:text-accent"
+                    >
+                      {contact.email}
+                    </a>
+                  </li>
+                )}
+                {contact.phone && (
+                  <li className="flex items-center gap-2">
+                    <Phone size={16} className="shrink-0" />
+                    <a href={`tel:${contact.phone}`} className="hover:text-accent">
+                      {contact.phone}
+                    </a>
+                  </li>
+                )}
+              </ul>
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="container-px flex site-container flex-col items-center justify-between gap-4 border-t border-white/10 py-6 text-sm text-white/80 sm:flex-row">

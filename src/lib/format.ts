@@ -122,7 +122,7 @@ export function roundMoney(value: number) {
   return Math.round((value + Number.EPSILON) * 100) / 100;
 }
 
-export function discountPercent(price: number, compareAtPrice?: number) {
-  if (!compareAtPrice || compareAtPrice <= price) return null;
-  return Math.round(((compareAtPrice - price) / compareAtPrice) * 100);
+export function discountPercent(offerPrice: number, sellingPrice?: number) {
+  if (!sellingPrice || sellingPrice <= offerPrice) return null;
+  return Math.round(((sellingPrice - offerPrice) / sellingPrice) * 100);
 }

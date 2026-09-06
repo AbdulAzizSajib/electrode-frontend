@@ -6,7 +6,7 @@ import type { ApiProductImage } from "@/types/product";
  *
  * Note the nested product is a *narrower* select than the catalog's `ApiProduct`
  * — the backend returns only id/name/slug/price/status/rating/primary image, with
- * no `type`, `variants`, or `compareAtPrice`. So this deliberately does NOT reuse
+ * no `type`, `variants`, or `sellingPrice`. So this deliberately does NOT reuse
  * `toProduct`: feeding it a partial product would fabricate defaults (a base
  * price of 0, `isVariable: false`) that look like real data.
  */

@@ -38,7 +38,7 @@ export default function LandingPageView({
 }) {
   const { productSnapshot: product } = page;
   const gallery = galleryOf(page);
-  const discount = discountPercent(product.unitPrice, product.compareAtPrice);
+  const discount = discountPercent(product.unitPrice, product.sellingPrice);
 
   return (
     <div className="bg-white pb-24 md:pb-0">
@@ -78,9 +78,9 @@ export default function LandingPageView({
               <span className="text-3xl font-bold text-gray-900">
                 {formatPrice(product.unitPrice)}
               </span>
-              {product.compareAtPrice !== null && product.compareAtPrice > product.unitPrice && (
+              {product.sellingPrice !== null && product.sellingPrice > product.unitPrice && (
                 <span className="text-lg text-gray-400 line-through">
-                  {formatPrice(product.compareAtPrice)}
+                  {formatPrice(product.sellingPrice)}
                 </span>
               )}
               {discount !== null && (

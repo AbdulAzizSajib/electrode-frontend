@@ -77,8 +77,8 @@ export function galleryOf(page: LandingPage) {
  * badge, and a compare-at price BELOW the current price is a merchant data
  * error that must not render as a negative discount.
  */
-export function discountPercent(unitPrice: number, compareAtPrice: number | null): number | null {
-  if (compareAtPrice === null || compareAtPrice <= unitPrice) return null;
+export function discountPercent(unitPrice: number, sellingPrice: number | null): number | null {
+  if (sellingPrice === null || sellingPrice <= unitPrice) return null;
 
-  return Math.round(((compareAtPrice - unitPrice) / compareAtPrice) * 100);
+  return Math.round(((sellingPrice - unitPrice) / sellingPrice) * 100);
 }

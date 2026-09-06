@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { AlertCircle, BadgeCheck, Loader2, Plus, Truck } from "lucide-react";
+import { AlertCircle, BadgeCheck, Loader2, Plus, Store, Truck } from "lucide-react";
 import clsx from "clsx";
 import AddressForm from "@/components/account/AddressForm";
 import { Field } from "@/components/account/form-controls";
@@ -22,7 +22,11 @@ import { usePlaceOrderMutation, useQuoteCheckoutQuery } from "@/store/orderApi";
 import { formatAddress, type Address } from "@/types/address";
 import type { CartLine, CartSummary } from "@/types/cart";
 import type { PlaceOrderPayload } from "@/types/order";
-import type { CheckoutConfig, CheckoutFieldKey } from "@/types/store-settings";
+import type {
+  CheckoutConfig,
+  CheckoutFieldKey,
+  DeliveryOption,
+} from "@/types/store-settings";
 import CouponForm from "@/components/cart/CouponForm";
 
 /**
@@ -135,9 +139,45 @@ export default function CheckoutForm({
     initialAddresses.find((a) => a.isDefault)?.id ?? initialAddresses[0]?.id ?? null,
   );
   const [notes, setNotes] = useState("");
-  // Whether the shopper *asked* to collect. Whether they actually can depends
-  // on the quote below, which is why the two are separate values.
+
+  /*
+   * The delivery options the merchant configured, split by kind.
+   *
+   * Pickup points are dropped entirely when collection is switched off — the
+   * merchant keeps them configured for later, but a shopper must not be able to
+   * choose one, and the server refuses them in that state anyway.
+   */
+  const deliveryOptions = checkout.delivery.options;
+  const deliveryAreas = deliveryOptions.filter((o) => o.kind === "DELIVERY");
+  const pickupPoints = checkout.delivery.offersPickup
+    ? deliveryOptions.filter((o) => o.kind === "PICKUP")
+    : [];
+  // The first step exists only when there is a genuine choice to make between
+  // the two. Configured-but-not-offered pickup shows no step at all.
+  const offersCollection = pickupPoints.length > 0;
+
+  /*
+   * Whether the shopper is collecting. Only ever true when collection is
+   * actually on offer, so a merchant switching it off cannot leave a shopper
+   * mid-checkout holding a choice the server will refuse.
+   */
   const [collectInPerson, setCollectInPerson] = useState(false);
+  const collecting = collectInPerson && offersCollection;
+  const shownOptions = collecting ? pickupPoints : deliveryAreas;
+
+  /*
+   * Which option the shopper picked, by key.
+   *
+   * Null until they choose — with one exception: a single option is not a
+   * choice, so it is selected for them below. Holding the KEY rather than the
+   * option means a merchant edit between page load and submit surfaces as "that
+   * option no longer exists" rather than as a stale price.
+   */
+  const [deliveryOptionKey, setDeliveryOptionKey] = useState<string | null>(null);
+
+  const selectedOption: DeliveryOption | null =
+    shownOptions.find((o) => o.key === deliveryOptionKey) ?? null;
+
   const [isAddingAddress, setIsAddingAddress] = useState(false);
   const [error, setError] = useState("");
   // Distinct from `error`: the order may actually have been placed, so the
@@ -189,9 +229,10 @@ export default function CheckoutForm({
   // key would hand back the one already placed to the old address.
   const orderFingerprint = [
     addressId,
-    // Collecting rather than having it delivered is a different order at a
-    // different price, so it must not reuse the delivery attempt's key.
-    collectInPerson ? "pickup" : "delivery",
+    // The delivery choice is priced, so changing it makes this a different
+    // order — it must not reuse the previous attempt's key and be handed back
+    // the order already placed at the old price.
+    deliveryOptionKey ?? "",
     isSignedIn
       ? ""
       : [
@@ -223,19 +264,36 @@ export default function CheckoutForm({
     if (next) setAddressId(next.id);
   }, [addresses, addressId]);
 
+  /*
+   * Keep the delivery selection valid for the list currently on show.
+   *
+   * Runs when the shopper switches between delivery and collection — the two
+   * lists are disjoint, so the previous key never survives the switch — and when
+   * settings are re-read after a stale-option refusal.
+   *
+   * A single option is auto-selected because it is not a choice: making the
+   * shopper tick the only box adds a step and nothing else. Anything more is
+   * left unselected, so the option they order under is one they actually picked.
+   */
+  useEffect(() => {
+    if (deliveryOptionKey && shownOptions.some((o) => o.key === deliveryOptionKey)) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setDeliveryOptionKey(shownOptions.length === 1 ? shownOptions[0].key : null);
+  }, [shownOptions, deliveryOptionKey]);
+
   const hasLines = displayLines.length > 0;
 
   /*
-   * The server's own arithmetic for this basket, at this destination.
+   * The server's own arithmetic for this basket, for the option chosen.
    *
-   * Shipping is no longer a flat price the storefront can add up: it comes from
-   * each product's rule matched against where the order is going, and so does
-   * tax. Asking the server is what makes the number shown here the number
-   * charged — and what surfaces "we cannot deliver there" before the shopper
-   * presses Place Order rather than after.
+   * Asking the server is what makes the number shown here the number charged.
+   * The option's price is public and the storefront could add it up itself, but
+   * tax, the coupon and the free-delivery threshold are all server-side — so the
+   * total still has to come from one place, and it is this one.
    *
-   * Skipped while there is nothing to price. A guest's address arrives as they
-   * type it, so a partial one is a real question, not an error.
+   * Keyed on the option, and NOT on the address: the address no longer changes
+   * any price, which is the point of the change. Skipped until the shopper has
+   * chosen, because there is no delivery charge to quote before then.
    */
   const {
     data: quoteResponse,
@@ -243,46 +301,66 @@ export default function CheckoutForm({
     error: quoteError,
   } = useQuoteCheckoutQuery(
     {
-      ...(isSignedIn && addressId ? { shippingAddressId: addressId } : {}),
-      /*
-       * A guest's City is the region shipping is priced by — "Dhaka" is both
-       * the city they type and the region a merchant writes a rate for. It is
-       * sent as `state` here AND as `state` on the order below, so the quote
-       * and the charge match the same place. Sending it to only one of the two
-       * would show one price and charge another, which is the whole failure
-       * this quote exists to prevent.
-       */
-      ...(!isSignedIn && guest.city.trim() ? { state: guest.city.trim() } : {}),
+      deliveryOptionKey: deliveryOptionKey ?? "",
       items: directOrder ? [directOrder.item] : undefined,
     },
-    { skip: !hasLines },
+    { skip: !hasLines || !deliveryOptionKey },
   );
 
   const quote = quoteResponse?.data ?? null;
-  // The backend refuses an undeliverable destination rather than charging zero,
-  // and that refusal is the message the shopper needs to read.
-  const undeliverable =
+
+  /*
+   * The server's refusal, verbatim. Three distinct situations reach here and
+   * each needs its own message rather than one catch-all: the store has no
+   * options configured at all, the chosen option has since been deleted, or a
+   * pickup point was submitted while collection is off.
+   */
+  const quoteRefusal =
     (quoteError as { data?: { message?: string } } | undefined)?.data?.message ?? null;
 
-  const pickupOffered = quote?.pickupAmount !== null && quote?.pickupAmount !== undefined;
-  // A shopper who chose collection and then changed their address to somewhere
-  // that does not offer it must not silently be charged the pickup price.
-  const collecting = collectInPerson && pickupOffered;
+  // A store that has configured nothing cannot take an order at all, and says so
+  // rather than quietly charging nothing for delivery.
+  const deliveryUnconfigured = deliveryOptions.length === 0;
 
-  const shippingCharge = collecting ? (quote?.pickupAmount ?? 0) : (quote?.shippingAmount ?? 0);
-  const payableTotal = quote
-    ? roundMoney(collecting ? (quote.pickupTotalAmount ?? quote.totalAmount) : quote.totalAmount)
-    : roundMoney(displayTotal);
+  const shippingCharge = quote?.shippingAmount ?? selectedOption?.price ?? 0;
+  const payableTotal = quote ? roundMoney(quote.totalAmount) : roundMoney(displayTotal);
 
-  // A guest needs no saved address, so only a signed-in shopper's address gates
-  // the button. There is nothing else to pick: delivery is priced from where the
-  // order is going, not chosen.
-  //
-  // An undeliverable destination does gate it, for both: the server will refuse
-  // the order anyway, and letting the shopper press the button only to be told
-  // no is worse than telling them now.
+  /*
+   * A delivery option must be chosen — the server refuses an order without one,
+   * and letting the shopper press the button only to be told no is worse than
+   * telling them now. A signed-in shopper additionally needs a saved address,
+   * unless they are collecting, in which case there is nothing to deliver to.
+   */
+  const needsAddress = !collecting;
   const canOrder =
-    !undeliverable && (isSignedIn ? Boolean(addressId) && hasLines : hasLines);
+    !quoteRefusal &&
+    !deliveryUnconfigured &&
+    Boolean(deliveryOptionKey) &&
+    hasLines &&
+    (isSignedIn ? Boolean(addressId) || !needsAddress : true);
+
+  /*
+   * A refusal naming a stale option is recoverable, and recovering means
+   * re-reading the settings this page was rendered with.
+   *
+   * `router.refresh()` re-runs the server component, which re-fetches the store
+   * settings and hands down a fresh option list; the selection effect above then
+   * drops the key that no longer exists and asks the shopper to choose again.
+   * There is no client settings endpoint to re-read instead — the options arrive
+   * as a server-rendered prop.
+   */
+  const staleOption = Boolean(
+    quoteRefusal && /no longer available|choose again/i.test(quoteRefusal),
+  );
+  const refreshedFor = useRef<string | null>(null);
+  useEffect(() => {
+    if (!staleOption || !deliveryOptionKey) return;
+    // Once per offending key: refreshing on every render of the same refusal
+    // would loop, since the refusal survives until the shopper picks again.
+    if (refreshedFor.current === deliveryOptionKey) return;
+    refreshedFor.current = deliveryOptionKey;
+    router.refresh();
+  }, [staleOption, deliveryOptionKey, router]);
 
   /**
    * Guest-only. Mirrors what the API requires, no stricter — and now that "what
@@ -301,10 +379,15 @@ export default function CheckoutForm({
 
     requireField("fullName", "Your name is required.");
     requireField("phone", "Phone number is required.");
-    requireField("addressLine1", "Address is required.");
-    requireField("addressLine2", "This field is required.");
-    requireField("city", "City is required.");
-    requireField("postalCode", "Postal code is required.");
+    // The address is not asked for at all when the shopper is collecting, so it
+    // cannot be required either — the same rule the server applies in
+    // `collectMissingCheckoutFields`, applied here so the two agree.
+    if (!collecting) {
+      requireField("addressLine1", "Address is required.");
+      requireField("addressLine2", "This field is required.");
+      requireField("city", "City is required.");
+      requireField("postalCode", "Postal code is required.");
+    }
 
     // Format is checked independently of whether the field is mandatory: a
     // phone number that IS given must still be a real one.
@@ -323,8 +406,12 @@ export default function CheckoutForm({
     // The address form renders inside this one, so Enter in one of its inputs
     // reaches here. Placing an order mid-edit is never what was meant.
     if (isAddingAddress) return;
-    if (isSignedIn && !addressId) return;
+    // No address is needed to collect in person, so it only gates a delivery.
+    if (isSignedIn && needsAddress && !addressId) return;
     if (!isSignedIn && !validateGuest()) return;
+    // The server refuses an order without one; this is the same refusal, said
+    // before the request rather than after.
+    if (!deliveryOptionKey) return;
 
     // Normalized so the phone stored against the order matches what the
     // confirmation will send back to look it up.
@@ -334,32 +421,36 @@ export default function CheckoutForm({
       ? {
           mode: "account",
           shippingAddressId: addressId as string,
-          // Only sent when it is actually on offer — the server refuses a
-          // pickup the matched places do not provide, and sending it blindly
-          // would turn a change of address into a rejected order.
-          ...(collecting ? { deliveryMethod: "PICKUP" as const } : {}),
+          // The same key the quote was priced against, so the amount shown and
+          // the amount charged come from one choice. Whether this is a delivery
+          // or a collection is the option's own property, not a claim the client
+          // makes alongside it.
+          deliveryOptionKey,
           notes: notes.trim() || undefined,
           idempotencyKey,
         }
       : {
           mode: "guest",
-          ...(collecting ? { deliveryMethod: "PICKUP" as const } : {}),
+          deliveryOptionKey,
           /*
            * A field the merchant is not collecting is sent as `undefined`, not
            * as an empty string — the server treats absent and blank alike, but
            * sending "" would record an empty value on the order's address as
            * though the shopper had been asked and left it blank.
+           *
+           * The whole address goes unsent when collecting: there is nothing to
+           * deliver to, and the server stops requiring it for the same reason.
            */
           fullName: collected("fullName"),
           phone: normalizedPhone,
-          shippingAddress: {
-            addressLine1: collected("addressLine1"),
-            addressLine2: collected("addressLine2"),
-            city: collected("city"),
-            // The same value the quote was priced against — see the note there.
-            state: collected("city"),
-            postalCode: collected("postalCode"),
-          },
+          shippingAddress: collecting
+            ? {}
+            : {
+                addressLine1: collected("addressLine1"),
+                addressLine2: collected("addressLine2"),
+                city: collected("city"),
+                postalCode: collected("postalCode"),
+              },
           // Present only for a direct product order; otherwise the cart is used.
           items: directOrder ? [directOrder.item] : undefined,
           paymentMethod: "COD",
@@ -445,6 +536,10 @@ export default function CheckoutForm({
 
       <div className="grid grid-cols-1 gap-10 lg:grid-cols-3">
         <form onSubmit={handlePlaceOrder} className="space-y-8 lg:col-span-2">
+          {/* Hidden entirely when collecting — there is nothing to deliver to,
+              and the fields' required rules are dropped with them. Switching
+              back to a delivery area restores both. */}
+          {needsAddress && (
           <section>
             <h2 className="mb-4 text-lg font-semibold text-gray-900">
               Delivery address
@@ -614,85 +709,124 @@ export default function CheckoutForm({
               </div>
             )}
           </section>
+          )}
 
           <section>
             <h2 className="mb-4 text-lg font-semibold text-gray-900">
               Delivery
             </h2>
 
-            {/* The server refuses an undeliverable destination rather than
-                charging nothing for it, and says which item cannot get there.
-                Shown here, beside the address, where it can be acted on. */}
-            {undeliverable && (
+            {/* A store that has configured no options cannot take an order at
+                all. Said as the setup problem it is, rather than blamed on
+                anything the shopper typed. */}
+            {deliveryUnconfigured ? (
               <div
                 role="alert"
-                className="mb-4 flex items-start gap-2 rounded border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
+                className="flex items-start gap-2 rounded border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
               >
                 <AlertCircle size={16} className="mt-0.5 shrink-0" />
-                <span>{undeliverable}</span>
+                <span>
+                  Delivery has not been set up for this store yet, so orders
+                  cannot be placed. Please contact the store.
+                </span>
               </div>
-            )}
+            ) : (
+              <>
+                {/* The server's refusal, verbatim — a deleted option, or a
+                    pickup submitted after collection was switched off. */}
+                {quoteRefusal && (
+                  <div
+                    role="alert"
+                    className="mb-4 flex items-start gap-2 rounded border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
+                  >
+                    <AlertCircle size={16} className="mt-0.5 shrink-0" />
+                    <span>{quoteRefusal}</span>
+                  </div>
+                )}
 
-            {/* Offered only when every item in the basket can be collected —
-                an order half of which still has to be delivered cannot be. */}
-            {pickupOffered && (
-              <label className="mb-4 flex cursor-pointer items-start gap-3 rounded-xl border border-gray-200 p-4 hover:border-gray-300">
-                <input
-                  type="checkbox"
-                  checked={collectInPerson}
-                  onChange={(e) => setCollectInPerson(e.target.checked)}
-                  className="mt-0.5 accent-brand"
-                />
-                <span className="flex-1 text-sm">
-                  <span className="font-medium text-gray-900">Collect in person</span>
-                  <span className="mt-0.5 block text-gray-500">
-                    Pick this order up yourself instead of having it delivered.
-                  </span>
-                </span>
-                <span className="text-sm font-semibold text-gray-900">
-                  {formatPrice(quote?.pickupAmount ?? 0)}
-                </span>
-              </label>
-            )}
-
-            {/* Read-only, deliberately. A place is matched to the shopper's
-                address, not chosen by them — offering the list would let
-                someone pick the city rate for a rural address. */}
-            {!undeliverable &&
-              (quote && quote.places.length > 0 ? (
-                <div className="space-y-3">
-                  {quote.places.map((place, index) => (
-                    <div
-                      key={`${place.name ?? "place"}-${index}`}
-                      className="flex items-center gap-3 rounded-xl border border-gray-200 p-4"
+                {/* Step one, and ONLY when there is a real choice between the
+                    two. With collection off, the shopper goes straight to the
+                    delivery areas and never sees this. */}
+                {offersCollection && (
+                  <div className="mb-4 grid grid-cols-2 gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setCollectInPerson(false)}
+                      className={clsx(
+                        "flex items-center justify-center gap-2 rounded-xl border p-4 text-sm font-medium transition-colors",
+                        !collecting
+                          ? "border-brand bg-brand/5 text-brand"
+                          : "border-gray-200 text-gray-600 hover:border-gray-300",
+                      )}
                     >
-                      <Truck size={18} className="shrink-0 text-gray-400" />
-                      <span className="flex-1 text-sm">
-                        <span className="font-medium text-gray-900">
-                          {place.name ?? "Standard delivery"}
-                        </span>
-                        {place.deliveryDays > 0 && (
-                          <span className="mt-0.5 block text-gray-500">
-                            Estimated delivery in {place.deliveryDays}{" "}
-                            {place.deliveryDays === 1 ? "day" : "days"}
-                          </span>
+                      <Truck size={16} /> Deliver to me
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setCollectInPerson(true)}
+                      className={clsx(
+                        "flex items-center justify-center gap-2 rounded-xl border p-4 text-sm font-medium transition-colors",
+                        collecting
+                          ? "border-brand bg-brand/5 text-brand"
+                          : "border-gray-200 text-gray-600 hover:border-gray-300",
+                      )}
+                    >
+                      <Store size={16} /> Collect in person
+                    </button>
+                  </div>
+                )}
+
+                {/* Step two: the matching list. Chosen by the shopper, never
+                    matched to their address — which is the whole change. */}
+                {shownOptions.length === 0 ? (
+                  <p className="rounded border border-gray-200 p-4 text-sm text-gray-500">
+                    {collecting
+                      ? "No pickup points are available at the moment."
+                      : "No delivery areas are available at the moment."}
+                  </p>
+                ) : (
+                  <div className="space-y-3">
+                    {shownOptions.map((option) => (
+                      <label
+                        key={option.key}
+                        className={clsx(
+                          "flex cursor-pointer items-center gap-3 rounded-xl border p-4 transition-colors",
+                          deliveryOptionKey === option.key
+                            ? "border-brand bg-brand/5"
+                            : "border-gray-200 hover:border-gray-300",
                         )}
-                      </span>
-                      <span className="text-sm font-semibold text-gray-900">
-                        {formatPrice(place.price)}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="rounded border border-gray-200 p-4 text-sm text-gray-500">
-                  {quoting
-                    ? "Working out delivery for your address…"
-                    : isSignedIn
-                      ? "Choose a delivery address to see what delivery costs."
-                      : "Fill in your delivery address to see what delivery costs."}
-                </p>
-              ))}
+                      >
+                        <input
+                          type="radio"
+                          name="deliveryOption"
+                          checked={deliveryOptionKey === option.key}
+                          onChange={() => setDeliveryOptionKey(option.key)}
+                          className="accent-brand"
+                        />
+                        <span className="flex-1 text-sm">
+                          <span className="font-medium text-gray-900">{option.label}</span>
+                          {option.days > 0 && (
+                            <span className="mt-0.5 block text-gray-500">
+                              {collecting ? "Ready in" : "Estimated delivery in"}{" "}
+                              {option.days} {option.days === 1 ? "day" : "days"}
+                            </span>
+                          )}
+                        </span>
+                        <span className="text-sm font-semibold text-gray-900">
+                          {formatPrice(option.price)}
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                )}
+
+                {!deliveryOptionKey && shownOptions.length > 1 && (
+                  <p className="mt-3 text-sm text-gray-500">
+                    Choose an option to see your total.
+                  </p>
+                )}
+              </>
+            )}
           </section>
 
           {!isSignedIn && (
@@ -769,11 +903,13 @@ export default function CheckoutForm({
               {placing && <Loader2 size={16} className="animate-spin" />}
               {placing ? "Placing order..." : "Place Order"}
             </button>
-            {!canOrder && isSignedIn && (
+            {!canOrder && !deliveryUnconfigured && (
               <p className="mt-2 text-center text-xs text-gray-500">
-                {!addressId
+                {isSignedIn && needsAddress && !addressId
                   ? "Choose a delivery address to continue."
-                  : "Choose a shipping method to continue."}
+                  : !deliveryOptionKey
+                    ? "Choose a delivery option to continue."
+                    : "Please fix the problem above to continue."}
               </p>
             )}
           </div>
@@ -822,9 +958,14 @@ export default function CheckoutForm({
               </div>
             )}
             <div className="flex items-center justify-between text-gray-600">
-              <span>{collecting ? "Collection" : "Delivery"}</span>
+              {/* Names the option the shopper chose, so the line they are about
+                  to be charged is the one they picked rather than a generic
+                  "Delivery" they have to map back onto a choice. */}
               <span>
-                {undeliverable ? (
+                {selectedOption?.label ?? (collecting ? "Collection" : "Delivery")}
+              </span>
+              <span>
+                {quoteRefusal ? (
                   <span className="text-red-600">Unavailable</span>
                 ) : quote ? (
                   // A waived delivery charge says so, and says what it would
@@ -877,9 +1018,11 @@ export default function CheckoutForm({
               {quoting && !quote ? "…" : formatPrice(payableTotal)}
             </span>
           </div>
-          {!quote && !undeliverable && (
+          {!quote && !quoteRefusal && (
             <p className="mt-2 text-xs text-gray-400">
-              Delivery and tax are added once we know where this is going.
+              {deliveryUnconfigured
+                ? "This store has not set up delivery yet."
+                : "Delivery and tax are added once you choose an option."}
             </p>
           )}
         </div>

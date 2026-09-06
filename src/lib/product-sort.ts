@@ -48,8 +48,8 @@ export const SORT_OPTIONS: SortOption[] = [
   },
   { value: "name-asc", label: "Alphabetically, A-Z", query: { sortBy: "name", sortOrder: "asc" } },
   { value: "name-desc", label: "Alphabetically, Z-A", query: { sortBy: "name", sortOrder: "desc" } },
-  { value: "price-asc", label: "Price, low to high", query: { sortBy: "price", sortOrder: "asc" } },
-  { value: "price-desc", label: "Price, high to low", query: { sortBy: "price", sortOrder: "desc" } },
+  { value: "price-asc", label: "Price, low to high", query: { sortBy: "offerPrice", sortOrder: "asc" } },
+  { value: "price-desc", label: "Price, high to low", query: { sortBy: "offerPrice", sortOrder: "desc" } },
 ];
 
 /** The default, used whenever `?sort=` is absent or unrecognised. */

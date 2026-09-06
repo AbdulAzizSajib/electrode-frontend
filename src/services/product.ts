@@ -62,8 +62,8 @@ function toVariant(variant: ApiProductVariant): ProductVariant {
     id: variant.id,
     name: variant.name,
     sku: variant.sku,
-    price: toPrice(variant.price) ?? 0,
-    compareAtPrice: toPrice(variant.compareAtPrice),
+    offerPrice: toPrice(variant.offerPrice) ?? 0,
+    sellingPrice: toPrice(variant.sellingPrice),
     stockQuantity: variant.stockQuantity,
     attributes: variant.attributes ?? {},
     image: variant.image ?? undefined,
@@ -103,14 +103,14 @@ function toOption(option: ApiProductOption): ProductOption {
 /** Maps the wire shape to the view model the UI renders. */
 export function toProduct(product: ApiProduct): Product {
   const { image, images } = pickImages(product);
-  const basePrice = toPrice(product.price) ?? 0;
+  const basePrice = toPrice(product.offerPrice) ?? 0;
   // An active campaign discounts the product; when present it *is* the price
-  // the shopper pays, and the base price becomes the struck-through comparison.
+  // the shopper pays, and the offer price becomes the struck-through comparison.
   const campaignPrice = toPrice(product.campaignPrice);
-  const compareAtPrice = toPrice(product.compareAtPrice);
+  const sellingPrice = toPrice(product.sellingPrice);
 
   const effectivePrice = campaignPrice ?? basePrice;
-  const effectiveCompareAt = campaignPrice ? basePrice : compareAtPrice;
+  const effectiveCompareAt = campaignPrice ? basePrice : sellingPrice;
 
   // A rating only exists once something has been rated. Gating on reviewCount
   // rather than on the parsed number keeps "unrated" distinct from "rated 0",
@@ -127,9 +127,9 @@ export function toProduct(product: ApiProduct): Product {
     shortDescription: product.shortDescription ?? undefined,
     type: product.type,
     isVariable: product.type === "VARIABLE",
-    price: effectivePrice,
+    offerPrice: effectivePrice,
     // Only a comparison price *above* the current one represents a saving.
-    compareAtPrice:
+    sellingPrice:
       effectiveCompareAt !== undefined && effectiveCompareAt > effectivePrice
         ? effectiveCompareAt
         : undefined,

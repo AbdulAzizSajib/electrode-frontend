@@ -18,7 +18,7 @@ import clsx from "clsx";
 export default function ProductCard({ product }: { product: Product }) {
   const dispatch = useAppDispatch();
   const [addItem, { isLoading }] = useAddItemMutation();
-  const discount = discountPercent(product.price, product.compareAtPrice);
+  const discount = discountPercent(product.offerPrice, product.sellingPrice);
 
   // Local, not Redux: nothing outside this card needs to know its quick view
   // is open, and a single global "which one is open" would be wrong across the
@@ -108,13 +108,13 @@ export default function ProductCard({ product }: { product: Product }) {
           </div>
         )}
         <div className="mt-1.5 flex items-center gap-2">
-          {product.compareAtPrice && (
+          {product.sellingPrice && (
             <span className="text-sm text-gray-400 line-through">
-              {formatPrice(product.compareAtPrice)}
+              {formatPrice(product.sellingPrice)}
             </span>
           )}
           <span className="text-sm font-semibold text-sale">
-            {formatPrice(product.price)}
+            {formatPrice(product.offerPrice)}
           </span>
         </div>
 

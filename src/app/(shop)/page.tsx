@@ -94,7 +94,7 @@ export default async function Home() {
       ) : null}
       <PerksBar />
       {/* No fallback when the slot is empty: showing "any product with a
-          compareAtPrice" under a countdown would put a deadline on products
+          sellingPrice" under a countdown would put a deadline on products
           that have none. */}
       {dealCampaign ? <DealOfWeek campaign={dealCampaign} /> : null}
       {latest.products.length > 0 ? (

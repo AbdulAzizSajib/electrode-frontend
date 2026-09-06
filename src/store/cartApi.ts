@@ -36,7 +36,7 @@ export const EMPTY_CART: CartSummary = {
  */
 function toCartLine(item: ApiCartItem): CartLine {
   const unitPrice = roundMoney(
-    Number(item.variant?.price ?? item.product?.price ?? 0),
+    Number(item.variant?.offerPrice ?? item.product?.offerPrice ?? 0),
   );
 
   const primaryImage =

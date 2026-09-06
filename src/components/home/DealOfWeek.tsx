@@ -13,7 +13,7 @@ import type { Campaign } from "@/types/campaign";
  * OF / THE WEEK!" copy, and its real deadline rather than a countdown invented
  * on mount. The page omits this section entirely when no campaign occupies the
  * slot — there is deliberately no fallback to "any product with a
- * compareAtPrice", which would put a countdown beside products that are not on
+ * sellingPrice", which would put a countdown beside products that are not on
  * a deadline.
  *
  * A client component only so it can notice its own deadline passing: the

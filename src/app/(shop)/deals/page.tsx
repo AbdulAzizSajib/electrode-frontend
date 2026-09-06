@@ -8,9 +8,9 @@ export const metadata: Metadata = {
 
 export default async function DealsPage() {
   const { products } = await getProducts({ limit: 24 });
-  // A comparison price above the current price is what makes it a deal — the
-  // service already drops any compare-at that isn't a genuine saving.
-  const deals = products.filter((p) => p.compareAtPrice);
+  // A regular price above the offer price is what makes it a deal — the
+  // service already drops any that isn't a genuine saving.
+  const deals = products.filter((p) => p.sellingPrice);
 
   return (
     <div className="container-px site-container py-14">

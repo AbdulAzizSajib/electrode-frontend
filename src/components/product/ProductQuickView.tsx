@@ -128,8 +128,8 @@ export default function ProductQuickView({
   // Fall back to the card's own values while the details load, so the panel is
   // populated from the first frame rather than blank.
   const base = detailed ?? product;
-  const activePrice = selectedVariant?.price ?? base.price;
-  const activeCompareAt = selectedVariant?.compareAtPrice ?? base.compareAtPrice;
+  const activePrice = selectedVariant?.offerPrice ?? base.offerPrice;
+  const activeCompareAt = selectedVariant?.sellingPrice ?? base.sellingPrice;
   const discount = discountPercent(activePrice, activeCompareAt);
 
   const availableStock = selectedVariant

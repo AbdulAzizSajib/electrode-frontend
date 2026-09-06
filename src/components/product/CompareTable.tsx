@@ -121,18 +121,18 @@ export default function CompareTable() {
           <tbody>
             <SpecRow label="Price" sticky>
               {products.map((product) => {
-                const off = discountPercent(product.price, product.compareAtPrice);
+                const off = discountPercent(product.offerPrice, product.sellingPrice);
                 return (
                   <td
                     key={product.id}
                     className="border-l border-t border-gray-100 p-3 align-top"
                   >
                     <span className="font-semibold text-sale">
-                      {formatPrice(product.price)}
+                      {formatPrice(product.offerPrice)}
                     </span>
                     {off !== null && (
                       <span className="ml-2 text-xs text-gray-400 line-through">
-                        {formatPrice(product.compareAtPrice!)}
+                        {formatPrice(product.sellingPrice!)}
                       </span>
                     )}
                   </td>

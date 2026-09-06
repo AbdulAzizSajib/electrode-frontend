@@ -154,8 +154,8 @@ export default function ProductDetail({
 
   // What the shopper actually pays: the chosen variant's price when there is
   // one, the product's base price otherwise.
-  const activePrice = selectedVariant?.price ?? product.price;
-  const activeCompareAt = selectedVariant?.compareAtPrice ?? product.compareAtPrice;
+  const activePrice = selectedVariant?.offerPrice ?? product.offerPrice;
+  const activeCompareAt = selectedVariant?.sellingPrice ?? product.sellingPrice;
   const discount = discountPercent(activePrice, activeCompareAt);
 
   const availableStock = selectedVariant

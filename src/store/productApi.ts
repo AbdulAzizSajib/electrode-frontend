@@ -66,7 +66,7 @@ export const productApi = createApi({
           slug: item.slug,
           // Same decimal-string-to-number parse the product mapper does, so the
           // dropdown never formats a string as though it were a number.
-          price: Number(item.price) || 0,
+          offerPrice: Number(item.offerPrice) || 0,
           image: item.image ?? placeholderImage(item.slug, { label: item.name }),
           brand: item.brandName ?? undefined,
         })),

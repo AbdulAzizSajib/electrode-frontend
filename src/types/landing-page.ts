@@ -83,7 +83,7 @@ export interface LandingPageOrderForm {
 /**
  * The bound product, resolved server-side.
  *
- * `unitPrice` and `compareAtPrice` are the PRODUCT's — a landing page cannot
+ * `unitPrice` and `sellingPrice` are the PRODUCT's — a landing page cannot
  * author a price. `available` is the same stock figure the order endpoint
  * checks against, so the page's out-of-stock state and a rejected submission
  * cannot disagree.
@@ -93,7 +93,7 @@ export interface LandingPageProduct {
   name: string;
   slug: string;
   unitPrice: number;
-  compareAtPrice: number | null;
+  sellingPrice: number | null;
   unit: string | null;
   images: { url: string; alt: string | null }[];
   available: number;

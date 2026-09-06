@@ -67,9 +67,9 @@ export interface ApiProductVariant {
   id: string;
   name: string;
   sku: string;
-  price: string;
-  compareAtPrice: string | null;
-  // No `costPrice`: it is the supplier cost, and the public endpoints project
+  offerPrice: string;
+  sellingPrice: string | null;
+  // No `purchasePrice`: it is the supplier cost, and the public endpoints project
   // it out. Re-declaring it would invite a component to render it.
   stockQuantity: number;
   /** Free-form map, e.g. `{ "version": "Pro" }`. */
@@ -124,9 +124,9 @@ export interface ApiProduct {
   status: ProductStatus;
   categoryId: string;
   brandId: string | null;
-  price: string;
-  compareAtPrice: string | null;
-  // No `costPrice`: it is the supplier cost, and the public endpoints project
+  offerPrice: string;
+  sellingPrice: string | null;
+  // No `purchasePrice`: it is the supplier cost, and the public endpoints project
   // it out. Re-declaring it would invite a component to render it.
   stockQuantity: number;
   lowStockThreshold: number | null;
@@ -223,8 +223,8 @@ export interface ProductVariant {
   id: string;
   name: string;
   sku: string;
-  price: number;
-  compareAtPrice?: number;
+  offerPrice: number;
+  sellingPrice?: number;
   stockQuantity: number;
   attributes: Record<string, string>;
   image?: string;
@@ -268,8 +268,8 @@ export interface Product {
   type: ProductType;
   /** Requires a variant choice before it can be added to the cart. */
   isVariable: boolean;
-  price: number;
-  compareAtPrice?: number;
+  offerPrice: number;
+  sellingPrice?: number;
   /** Primary image url, or a placeholder when the product has none. */
   image: string;
   /**
@@ -349,7 +349,7 @@ export interface ApiSearchSuggestion {
   name: string;
   slug: string;
   /** Decimal string, like every other monetary value on this API. */
-  price: string;
+  offerPrice: string;
   image: string | null;
   brandName: string | null;
 }
@@ -359,7 +359,7 @@ export interface SearchSuggestion {
   id: string;
   name: string;
   slug: string;
-  price: number;
+  offerPrice: number;
   image: string;
   brand?: string;
 }
@@ -374,7 +374,7 @@ export interface SearchSuggestion {
  */
 export type ProductSortField =
   | "createdAt"
-  | "price"
+  | "offerPrice"
   | "name"
   | "averageRating"
   | "totalSold";

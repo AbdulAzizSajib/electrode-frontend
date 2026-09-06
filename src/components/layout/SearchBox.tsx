@@ -192,7 +192,7 @@ export default function SearchBox({
                     )}
                   </span>
                   <span className="shrink-0 text-sm font-semibold text-sale">
-                    {formatPrice(item.price)}
+                    {formatPrice(item.offerPrice)}
                   </span>
                 </button>
               ))}

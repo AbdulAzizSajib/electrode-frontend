@@ -5,10 +5,14 @@ import type { ApiCustomerAddress } from "@/types/address";
  * this API, monetary values arrive as decimal strings and are parsed to numbers
  * at the service boundary.
  *
- * Delivery has no type of its own here: it is not something the shopper picks,
- * it is priced by the server from each product's shipping rule matched against
- * their address, and arrives as `places` on the quote.
+ * Delivery is something the shopper PICKS: the store's options arrive with the
+ * public settings, the shopper chooses one, and its key is sent on both the
+ * quote and the order so the amount shown is the amount charged. Nothing is
+ * matched against or inferred from the address.
  */
+
+/** Whether an order is delivered to the shopper or collected by them. */
+export type DeliveryMethod = "DELIVERY" | "PICKUP";
 
 export type OrderStatus =
   | "PENDING"
@@ -55,6 +59,18 @@ export interface ApiOrder {
   totalAmount: string;
   couponCode: string | null;
   notes: string | null;
+  /**
+   * What the shopper chose, captured when the order was placed. The label does
+   * NOT change when the merchant later renames, reprices or deletes that
+   * option — it is what this shopper agreed to.
+   *
+   * Null on two populations that legitimately have no choice recorded: orders
+   * placed before delivery options existed, and landing-page orders, which are
+   * priced by the page's own zones.
+   */
+  deliveryMethod?: DeliveryMethod | null;
+  deliveryOptionKey?: string | null;
+  deliveryOptionLabel?: string | null;
   shippingAddressId: string | null;
   /** Recorded at checkout rather than derived, so it stays true even when a
    *  guest's phone resolves onto an existing registered customer. */
@@ -88,6 +104,13 @@ export interface Order {
   totalAmount: number;
   couponCode?: string;
   notes?: string;
+  /**
+   * The delivery choice as it was at placement. Undefined for orders placed
+   * before options existed and for landing-page orders — both of which have no
+   * choice to show, which is different from having chosen delivery.
+   */
+  deliveryMethod?: DeliveryMethod;
+  deliveryOptionLabel?: string;
   createdAt: string;
   items: OrderItem[];
   shippingAddress?: ApiCustomerAddress | null;
@@ -119,29 +142,37 @@ export interface CheckoutItemInput {
 }
 
 /**
- * What to price and where to, for `POST /orders/quote`.
+ * What to price, for `POST /orders/quote`.
  *
- * Everything optional because a quote is asked for while the shopper is still
- * filling the form in: a partial destination simply matches fewer places, and
- * an unmatched one comes back as "cannot be delivered there" rather than as a
- * validation error.
+ * The delivery option key is REQUIRED, unlike the address fields that used to be
+ * here: a quote whose delivery charge is missing is a total the shopper would be
+ * shown and then not charged. The storefront always has a key to send, because
+ * the option list arrives with the public settings before any quote is asked
+ * for.
+ *
+ * There is no address on this request at all. It used to carry one because
+ * delivery was matched from it while the shopper typed; nothing about an address
+ * changes a price now.
  */
 export interface CheckoutQuoteRequest {
-  /** A saved address, which outranks the inline country/state below. */
-  shippingAddressId?: string;
-  country?: string;
-  state?: string;
+  /** Which option the shopper picked. Priced exactly as configured. */
+  deliveryOptionKey: string;
   /** Prices these lines instead of the cart, for a direct product order. */
   items?: CheckoutItemInput[];
 }
 
-/** One shipping place the quote matched, for showing what is on offer. */
-export interface CheckoutQuotePlace {
-  name: string | null;
+/**
+ * The option the server resolved and priced, echoed back.
+ *
+ * Lets the storefront confirm it priced what the shopper has selected, so a
+ * stale key surfaces as a mismatch rather than as a silently different total.
+ */
+export interface CheckoutQuoteDelivery {
+  optionKey: string;
+  optionLabel: string;
+  method: DeliveryMethod;
   price: number;
-  deliveryDays: number;
-  offersPickup: boolean;
-  pickupPrice: number;
+  days: number;
 }
 
 /**
@@ -155,24 +186,28 @@ export interface CheckoutQuote {
   shippingAmount: number;
   /** What delivery costs before any waiver, so "Free" can be shown as a saving. */
   shippingBeforeWaiver: number;
-  /** Null when collection in person is not offered for every item. */
-  pickupAmount: number | null;
   deliveryDays: number | null;
   totalAmount: number;
-  /** The same order collected in person, when that is on offer. */
-  pickupTotalAmount: number | null;
-  places: CheckoutQuotePlace[];
+  /**
+   * Null only on the landing-page path, which prices its own zones and never
+   * consults the store's option list.
+   */
+  delivery: CheckoutQuoteDelivery | null;
 }
 
 /** Shared by both checkout flows. */
 interface PlaceOrderCommon {
   notes?: string;
   /**
-   * Delivered or collected in person. Absent means delivery. Only accepted when
-   * every matched shipping place offers collection, and charged at those
-   * places' pickup price rather than their delivery price.
+   * Which delivery option the shopper chose, and the ONLY thing that decides
+   * what delivery costs. Must be the same key the quote was priced against, or
+   * the amount shown and the amount charged are two different numbers.
+   *
+   * There is no `deliveryMethod` beside it: delivery-versus-collection is a
+   * property of the option the merchant configured, so a client cannot assert
+   * collection against a delivery price.
    */
-  deliveryMethod?: "DELIVERY" | "PICKUP";
+  deliveryOptionKey: string;
   /**
    * Sent as the `Idempotency-Key` header rather than in the body. Identifies
    * one checkout *attempt*, so a retry after an unconfirmed outcome resolves
@@ -256,6 +291,8 @@ export function toOrder(order: ApiOrder): Order {
     totalAmount: Number(order.totalAmount) || 0,
     couponCode: order.couponCode ?? undefined,
     notes: order.notes ?? undefined,
+    deliveryMethod: order.deliveryMethod ?? undefined,
+    deliveryOptionLabel: order.deliveryOptionLabel ?? undefined,
     createdAt: order.createdAt,
     items: (order.items ?? []).map(toOrderItem),
     shippingAddress: order.shippingAddress ?? null,
