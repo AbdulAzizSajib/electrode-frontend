@@ -126,7 +126,22 @@ export default function SmoothScrollProvider({ children }: { children: ReactNode
     };
     window.addEventListener("pageshow", onPageshow);
 
+    /*
+     * Lenis caches the scrollable height and clamps scrolling to it. Any content
+     * that arrives AFTER the route's first paint — a client effect reading
+     * sessionStorage, a query resolving, an image settling — grows the page
+     * without Lenis noticing, and the page then refuses to scroll past the stale
+     * limit. The `pathname` effect below cannot cover this: it runs at
+     * navigation, before that content exists.
+     *
+     * Observing the body's real box is what makes the limit follow the DOM
+     * instead of a snapshot of it.
+     */
+    const observer = new ResizeObserver(() => instance.resize());
+    observer.observe(document.body);
+
     return () => {
+      observer.disconnect();
       window.removeEventListener("pageshow", onPageshow);
       instance.destroy();
       setLenis(null);
