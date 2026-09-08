@@ -14,10 +14,21 @@ import type { ApiCustomerAddress } from "@/types/address";
 /** Whether an order is delivered to the shopper or collected by them. */
 export type DeliveryMethod = "DELIVERY" | "PICKUP";
 
+/**
+ * Mirrors the backend `OrderStatus` enum, and must be kept in step with it.
+ *
+ * Nothing here fails the build when a status is missing: every render site
+ * shows the status as `order.status.toLowerCase()`, so an unlisted value still
+ * displays, just without ever having been declared. That makes drift silent —
+ * add new statuses here when the server gains them.
+ *
+ * `PACKED` means picked and boxed but not yet handed to a carrier.
+ */
 export type OrderStatus =
   | "PENDING"
   | "CONFIRMED"
   | "PROCESSING"
+  | "PACKED"
   | "SHIPPED"
   | "DELIVERED"
   | "CANCELLED"

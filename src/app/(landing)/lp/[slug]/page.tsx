@@ -4,6 +4,7 @@ import LandingPageView from "@/components/landing/LandingPageView";
 import { getLandingPageBySlug } from "@/services/landing-page";
 import { getStoreSettings } from "@/services/store-settings";
 import { excerptFromHtml } from "@/lib/landing-page-content";
+import { resolveMetadata } from "@/lib/seo/resolve-metadata";
 
 /*
  * A single-product campaign landing page.
@@ -23,36 +24,43 @@ export async function generateMetadata({
   params,
 }: PageProps<"/lp/[slug]">): Promise<Metadata> {
   const { slug } = await params;
-  const page = await getLandingPageBySlug(slug);
-
-  if (!page) return { title: "Page not found" };
+  const [page, settings] = await Promise.all([
+    getLandingPageBySlug(slug),
+    getStoreSettings(),
+  ]);
 
   /*
-   * Falls back to the headline and to an excerpt of the page's own body, so a
-   * published campaign never has an empty title or a missing description — the
-   * two things an ad platform's link preview reads.
+   * The image chain stays here rather than moving into the resolver: it is
+   * specific to a campaign document — an explicit OG image, else the first
+   * media item, else the featured product's own photo. Everything downstream of
+   * choosing it is shared.
    */
-  const title = page.metaTitle?.trim() || page.headline;
-  const description =
-    page.metaDescription?.trim() ||
-    page.subheadline?.trim() ||
-    excerptFromHtml(page.bodyHtml);
+  const image = page
+    ? page.ogImageUrl ||
+      page.media?.find((item) => item.type === "IMAGE")?.url ||
+      page.productSnapshot.images[0]?.url
+    : undefined;
 
-  const image =
-    page.ogImageUrl ||
-    page.media?.find((item) => item.type === "IMAGE")?.url ||
-    page.productSnapshot.images[0]?.url;
-
-  return {
-    title,
-    description,
-    openGraph: {
-      title,
-      description,
-      type: "website",
-      ...(image ? { images: [{ url: image }] } : {}),
-    },
-  };
+  return resolveMetadata({
+    settings,
+    routeGroup: "landingPage",
+    path: `/lp/${slug}`,
+    record: page
+      ? {
+          /*
+           * Falls back to the headline and to an excerpt of the page's own body,
+           * so a published campaign never has an empty title or a missing
+           * description — the two things an ad platform's link preview reads.
+           */
+          metaTitle: page.metaTitle,
+          metaDescription: page.metaDescription,
+          title: page.headline,
+          description: page.subheadline?.trim() || excerptFromHtml(page.bodyHtml),
+          image,
+        }
+      : undefined,
+    fallbackTitle: page ? undefined : "Page not found",
+  });
 }
 
 export default async function LandingPageRoute({ params }: PageProps<"/lp/[slug]">) {

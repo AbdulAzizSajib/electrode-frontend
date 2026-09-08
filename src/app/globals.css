@@ -131,6 +131,57 @@ body {
   }
 }
 
+/*
+ * The catalog price slider's handles.
+ *
+ * Here rather than in the component because a range input's thumb is only
+ * reachable through vendor pseudo-elements, which no utility class can target.
+ * The two must be written as SEPARATE rules — Chrome and Firefox each drop a
+ * whole selector list containing a pseudo-element they do not recognise, so
+ * combining them into one comma-separated rule silently styles neither.
+ *
+ * The input itself is transparent and click-through (the painted track lives
+ * beneath it); `pointer-events: auto` here is what makes the handle alone
+ * grabbable, so the two stacked inputs do not block each other.
+ */
+.range-thumb::-webkit-slider-thumb {
+  pointer-events: auto;
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 9999px;
+  background: #111827;
+  border: 3px solid #ffffff;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.3);
+  cursor: grab;
+}
+
+.range-thumb::-moz-range-thumb {
+  pointer-events: auto;
+  width: 20px;
+  height: 20px;
+  border-radius: 9999px;
+  background: #111827;
+  border: 3px solid #ffffff;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.3);
+  cursor: grab;
+}
+
+/* Firefox paints its own track under the thumb; ours is already drawn. */
+.range-thumb::-moz-range-track {
+  background: transparent;
+}
+
+.range-thumb:focus-visible::-webkit-slider-thumb {
+  outline: 2px solid var(--color-brand);
+  outline-offset: 2px;
+}
+
+.range-thumb:focus-visible::-moz-range-thumb {
+  outline: 2px solid var(--color-brand);
+  outline-offset: 2px;
+}
+
 .line-clamp-2 {
   display: -webkit-box;
   -webkit-line-clamp: 2;

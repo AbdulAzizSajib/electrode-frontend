@@ -4,10 +4,18 @@ import { redirect } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
 import AddressList from "@/components/account/AddressList";
 import { getCurrentUser } from "@/services/auth";
+import { getStoreSettings } from "@/services/store-settings";
+import { resolveMetadata } from "@/lib/seo/resolve-metadata";
 
-export const metadata: Metadata = {
-  title: "Delivery Addresses - Electrode",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const settings = await getStoreSettings();
+
+  return resolveMetadata({
+    settings,
+    routeGroup: "account",
+    fallbackTitle: "Delivery Addresses",
+  });
+}
 
 export default async function AddressesPage() {
   const user = await getCurrentUser();

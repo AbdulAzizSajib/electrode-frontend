@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import RichText from "@/components/product/RichText";
 import { excerptFromBody, getPageBySlug } from "@/services/page";
+import { getStoreSettings } from "@/services/store-settings";
+import { resolveMetadata } from "@/lib/seo/resolve-metadata";
 
 /*
  * Merchant-authored content pages — About, Terms & Conditions, Refund Policy —
@@ -22,16 +24,24 @@ export async function generateMetadata({
   params,
 }: PageProps<"/[slug]">): Promise<Metadata> {
   const { slug } = await params;
-  const page = await getPageBySlug(slug);
+  const [page, settings] = await Promise.all([getPageBySlug(slug), getStoreSettings()]);
 
-  if (!page) return { title: "Page not found" };
-
-  return {
-    title: page.metaTitle || page.title,
-    // Falls back to the start of the body so a page is never published without
-    // a description search results can show.
-    description: page.metaDescription || excerptFromBody(page.body),
-  };
+  return resolveMetadata({
+    settings,
+    routeGroup: "page",
+    path: `/${slug}`,
+    record: page
+      ? {
+          metaTitle: page.metaTitle,
+          metaDescription: page.metaDescription,
+          title: page.title,
+          // Falls back to the start of the body so a page is never published
+          // without a description search results can show.
+          description: excerptFromBody(page.body),
+        }
+      : undefined,
+    fallbackTitle: page ? undefined : "Page not found",
+  });
 }
 
 export default async function ContentPageRoute({ params }: PageProps<"/[slug]">) {

@@ -6,6 +6,9 @@ import { setCurrencyFormat } from "@/lib/format";
 import { setCatalogFeatures } from "@/lib/catalog-features";
 import { getStoreSettings } from "@/services/store-settings";
 import { resolveFontHref, themeStyle } from "@/lib/theme";
+import { resolveMetadata, storeTitleOf } from "@/lib/seo/resolve-metadata";
+import { buildOrganizationSchema } from "@/lib/seo/schema-builders";
+import JsonLd from "@/components/seo/json-ld";
 
 /**
  * The document shell, and only the shell.
@@ -41,39 +44,35 @@ export async function generateMetadata(): Promise<Metadata> {
   const settings = await getStoreSettings();
 
   /*
-   * Falls back to the wordmark rather than a placeholder, so the title is never
-   * empty and never someone else's brand.
+   * The site-wide default, beneath every page that supplies its own. Resolved
+   * through the shared resolver rather than assembled here, so the root and the
+   * eighteen routes below it cannot disagree about precedence, canonical shape
+   * or robots policy — which is exactly how a dozen pages ended up hardcoding
+   * "– Electrode" while the store's real name sat unused in the settings row.
    *
-   * Joined with a space because that is how the header renders it — the accent
-   * half carries `ml-2`, so the brand reads as two words on the page and must
-   * read the same way in a tab title. Concatenating them gave "UdokktarSite".
+   * `home` as the route group: this is the metadata `/` inherits, and every
+   * other route overrides it with a group of its own.
+   *
+   * No `path` — a layout is not a page, and a canonical here would claim every
+   * route in the site is the homepage.
    */
-  const title =
-    settings.metaTitle?.trim() ||
-    [settings.storeName, settings.siteNameAccent].filter(Boolean).join(" ").trim();
+  const metadata = resolveMetadata({ settings, routeGroup: "home" });
 
   /*
-   * Only set when the merchant has recorded a usable canonical origin. Guessing
-   * one would be worse than leaving metadata relative — an absolute URL
-   * resolved against the wrong host points social previews and canonical links
-   * at somebody else's site. A malformed stored value is ignored, not thrown
-   * on: this runs for every page on the site.
+   * `title.template` in ADDITION to the already-final title above, because the
+   * two do different jobs. Next applies a template only to CHILD segments that
+   * set a bare string title — so this catches any page that has not been moved
+   * onto the resolver yet, while the resolver keeps templating the ones that
+   * have. `default` is required whenever a template is set.
    */
-  let metadataBase: URL | undefined;
-  if (settings.siteUrl) {
-    try {
-      metadataBase = new URL(settings.siteUrl);
-    } catch {
-      metadataBase = undefined;
-    }
-  }
+  const template = settings.seoConfig.titleTemplate?.trim();
+  const rootTitle = typeof metadata.title === "string" ? metadata.title : storeTitleOf(settings);
 
   return {
-    title,
-    ...(settings.metaDescription?.trim()
-      ? { description: settings.metaDescription.trim() }
+    ...metadata,
+    ...(template && template.includes("%s")
+      ? { title: { default: rootTitle, template } }
       : {}),
-    ...(metadataBase ? { metadataBase } : {}),
   };
 }
 
@@ -138,6 +137,10 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
       */}
       {fontHref && <link rel="stylesheet" href={fontHref} precedence="default" />}
       <body className="flex min-h-full flex-col">
+        {/* The store itself, on every page — which is what lets a search engine
+            attach a knowledge panel to the brand rather than to one product.
+            Renders nothing when the merchant has the toggle off. */}
+        <JsonLd data={buildOrganizationSchema(settings)} />
         {/* Outermost, so the format and the feature flags are both in place before anything
             beneath them renders a price or a product card. */}
         <CurrencyFormatProvider format={currencyFormat}>

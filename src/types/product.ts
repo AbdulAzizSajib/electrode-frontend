@@ -265,6 +265,14 @@ export interface Product {
   sku: string;
   description?: string;
   shortDescription?: string;
+  /**
+   * The merchant's SEO overrides, editable from the product form and from the
+   * SEO menu's Page SEO table — the same two columns either way. Undefined
+   * means unset, and the metadata resolver falls through to `name` and
+   * `description`.
+   */
+  seoTitle?: string;
+  seoDescription?: string;
   type: ProductType;
   /** Requires a variant choice before it can be added to the cart. */
   isVariable: boolean;

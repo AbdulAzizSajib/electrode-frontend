@@ -1,10 +1,20 @@
 import type { Metadata } from "next";
 import ProductCard from "@/components/product/ProductCard";
 import { getProducts } from "@/services/product";
+import { getStoreSettings } from "@/services/store-settings";
+import { resolveMetadata } from "@/lib/seo/resolve-metadata";
 
-export const metadata: Metadata = {
-  title: "Today's Deal – Electrode",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const settings = await getStoreSettings();
+
+  return resolveMetadata({
+    settings,
+    routeGroup: "category",
+    path: "/deals",
+    fallbackTitle: "Today's Deal",
+    record: { description: "Products on sale right now." },
+  });
+}
 
 export default async function DealsPage() {
   const { products } = await getProducts({ limit: 24 });

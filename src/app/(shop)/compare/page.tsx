@@ -3,11 +3,19 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import CompareTable from "@/components/product/CompareTable";
 import { getStoreSettings } from "@/services/store-settings";
+import { resolveMetadata } from "@/lib/seo/resolve-metadata";
 
-export const metadata: Metadata = {
-  title: "Compare Products",
-  description: "Compare products side by side by price, rating and specifications.",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const settings = await getStoreSettings();
+
+  return resolveMetadata({
+    settings,
+    routeGroup: "compare",
+    path: "/compare",
+    fallbackTitle: "Compare Products",
+    record: { description: "Compare products side by side by price, rating and specifications." },
+  });
+}
 
 /**
  * The comparison is entirely client-owned — the list lives in `localStorage`, so

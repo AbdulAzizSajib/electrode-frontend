@@ -4,10 +4,18 @@ import { redirect } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
 import MyReviewsView from "@/app/(shop)/account/reviews/MyReviewsView";
 import { getCurrentUser } from "@/services/auth";
+import { getStoreSettings } from "@/services/store-settings";
+import { resolveMetadata } from "@/lib/seo/resolve-metadata";
 
-export const metadata: Metadata = {
-  title: "My Reviews – Electrode",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const settings = await getStoreSettings();
+
+  return resolveMetadata({
+    settings,
+    routeGroup: "account",
+    fallbackTitle: "My Reviews",
+  });
+}
 
 export default async function MyReviewsPage() {
   const user = await getCurrentUser();

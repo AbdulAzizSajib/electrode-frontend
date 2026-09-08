@@ -154,6 +154,66 @@ const FALLBACK_SETTINGS: StoreSettings = {
    */
   siteMode: "WEBSITE",
   activeLandingPage: null,
+  /*
+   * Mirrors the backend's DEFAULT_SEO_CONFIG, which reproduces the storefront's
+   * metadata as it was before any of this was configurable: no title template,
+   * no defaults of its own, and indexing left as the crawlers already found it.
+   *
+   * The private groups are the one exception, and the only opinion here: a cart,
+   * a checkout and a customer's own account carry per-visitor state and thin,
+   * duplicated content, and were never pages a search engine should hold.
+   *
+   * Failing towards `globalNoindex: false` is the only safe direction — a
+   * settings read that fell back to `true` would deindex a live shop, and nobody
+   * would notice until the traffic went.
+   */
+  seoConfig: {
+    titleTemplate: "",
+    defaultMetaTitle: "",
+    defaultMetaDescription: "",
+    defaultOgImageUrl: "",
+    twitterCardType: "summary_large_image",
+    twitterSite: "",
+    robots: {
+      globalNoindex: false,
+      groups: {
+        home: { index: true, follow: true },
+        product: { index: true, follow: true },
+        category: { index: true, follow: true },
+        blog: { index: true, follow: true },
+        page: { index: true, follow: true },
+        landingPage: { index: true, follow: true },
+        account: { index: false, follow: false },
+        cart: { index: false, follow: false },
+        checkout: { index: false, follow: false },
+        wishlist: { index: false, follow: false },
+        compare: { index: false, follow: false },
+        search: { index: false, follow: false },
+      },
+      customRules: "",
+    },
+    sitemap: {
+      product: true,
+      category: true,
+      page: true,
+      blogPost: true,
+      landingPage: true,
+    },
+    structuredData: {
+      enableOrganization: true,
+      enableProduct: true,
+      enableArticle: true,
+      enableBreadcrumb: true,
+      organization: {
+        legalName: "",
+        logoUrl: "",
+        email: "",
+        phone: "",
+        sameAs: [],
+      },
+    },
+    verification: { google: "", bing: "", other: "" },
+  },
   theme: {
     background: "#ffffff",
     foreground: "#1a1a1a",
@@ -237,6 +297,48 @@ export async function getStoreSettings(): Promise<StoreSettings> {
         ...FALLBACK_SETTINGS.theme,
         ...(data.theme ?? {}),
         font: { ...FALLBACK_SETTINGS.theme.font, ...(data.theme?.font ?? {}) },
+      },
+      /*
+       * Repaired level by level, like `checkoutConfig` above — but three levels
+       * deep rather than two. A single spread would swap a whole `robots` or
+       * `structuredData` subtree for whatever the API sent, losing any key added
+       * since that row was written. For an `index` flag that reads as
+       * `undefined`, which is falsy, and drops a page from search by omission.
+       *
+       * `sameAs` is taken only when it really is an array, and NOT merged with
+       * the fallback: an empty list is a merchant saying "no social profiles",
+       * and unioning it with defaults would make that unexpressible.
+       */
+      seoConfig: {
+        ...FALLBACK_SETTINGS.seoConfig,
+        ...(data.seoConfig ?? {}),
+        robots: {
+          ...FALLBACK_SETTINGS.seoConfig.robots,
+          ...(data.seoConfig?.robots ?? {}),
+          groups: {
+            ...FALLBACK_SETTINGS.seoConfig.robots.groups,
+            ...(data.seoConfig?.robots?.groups ?? {}),
+          },
+        },
+        sitemap: {
+          ...FALLBACK_SETTINGS.seoConfig.sitemap,
+          ...(data.seoConfig?.sitemap ?? {}),
+        },
+        structuredData: {
+          ...FALLBACK_SETTINGS.seoConfig.structuredData,
+          ...(data.seoConfig?.structuredData ?? {}),
+          organization: {
+            ...FALLBACK_SETTINGS.seoConfig.structuredData.organization,
+            ...(data.seoConfig?.structuredData?.organization ?? {}),
+            sameAs: Array.isArray(data.seoConfig?.structuredData?.organization?.sameAs)
+              ? data.seoConfig.structuredData.organization.sameAs
+              : FALLBACK_SETTINGS.seoConfig.structuredData.organization.sameAs,
+          },
+        },
+        verification: {
+          ...FALLBACK_SETTINGS.seoConfig.verification,
+          ...(data.seoConfig?.verification ?? {}),
+        },
       },
       /*
        * Backfilled together and defensively. An older API that predates these

@@ -5,10 +5,18 @@ import { getMyAddresses } from "@/services/address";
 import { getCurrentUser } from "@/services/auth";
 import { getServerCart } from "@/services/cart";
 import { getStoreSettings } from "@/services/store-settings";
+import { resolveMetadata } from "@/lib/seo/resolve-metadata";
 
-export const metadata: Metadata = {
-  title: "Checkout - Electrode",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const settings = await getStoreSettings();
+
+  return resolveMetadata({
+    settings,
+    routeGroup: "checkout",
+    path: "/checkout",
+    fallbackTitle: "Checkout",
+  });
+}
 
 export default async function CheckoutPage() {
   // Checkout no longer requires an account — the API accepts a guest order

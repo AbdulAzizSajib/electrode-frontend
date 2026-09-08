@@ -1,3 +1,18 @@
+import type { Metadata } from "next";
+import { resolveMetadata } from "@/lib/seo/resolve-metadata";
+import { getStoreSettings } from "@/services/store-settings";
+
+export async function generateMetadata(): Promise<Metadata> {
+  const settings = await getStoreSettings();
+
+  return resolveMetadata({
+    settings,
+    routeGroup: "page",
+    path: "/gift-cards",
+    fallbackTitle: "Gift Cards",
+  });
+}
+
 export default function GiftCardsPage() {
   return (
     <div className="container-px mx-auto max-w-3xl py-20 text-center">

@@ -1,4 +1,6 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
+import { resolveMetadata } from "@/lib/seo/resolve-metadata";
 import { getProducts } from "@/services/product";
 import { getCampaignByPlacement } from "@/services/campaign";
 import { getStoreSettings } from "@/services/store-settings";
@@ -17,6 +19,17 @@ import BlogSection from "@/components/home/BlogSection";
 
 /** Products per merchandising row, matching the five-across deal layout. */
 const SECTION_SIZE = 6;
+
+/**
+ * The homepage inherits its title and description from the root layout, but not
+ * its canonical — a layout is not a page, so the root leaves `path` unset rather
+ * than claiming every route in the site is `/`. This supplies it for `/` alone.
+ */
+export async function generateMetadata(): Promise<Metadata> {
+  const settings = await getStoreSettings();
+
+  return resolveMetadata({ settings, routeGroup: "home", path: "/" });
+}
 
 export default async function Home() {
   /*

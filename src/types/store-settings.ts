@@ -148,6 +148,85 @@ export interface CatalogConfig {
   showQuickView: boolean;
 }
 
+/**
+ * The route groups a page can belong to, for per-group robots directives.
+ *
+ * A CLOSED set mirroring SEO_ROUTE_GROUPS in the backend's
+ * store-setting.constant.ts. Every route declares which group it is in, and the
+ * metadata resolver reads its index/follow flags from here — so "should this
+ * page be indexed" is answered by a merchant's checklist rather than by each
+ * page deciding for itself.
+ */
+export type SeoRouteGroup =
+  | "home"
+  | "product"
+  | "category"
+  | "blog"
+  | "page"
+  | "landingPage"
+  | "account"
+  | "cart"
+  | "checkout"
+  | "wishlist"
+  | "compare"
+  | "search";
+
+/** The content types the sitemap can list. Mirrors the backend's SEO_CONTENT_TYPES. */
+export type SeoContentType = "product" | "category" | "page" | "blogPost" | "landingPage";
+
+export interface SeoRobotsGroup {
+  index: boolean;
+  follow: boolean;
+}
+
+export interface SeoOrganization {
+  legalName: string;
+  logoUrl: string;
+  email: string;
+  phone: string;
+  /** Social profile URLs, emitted as schema.org `sameAs`. */
+  sameAs: string[];
+}
+
+/**
+ * Everything the SEO menu owns beyond `siteUrl`/`metaTitle`/`metaDescription`,
+ * which stay as fields of their own on StoreSettings.
+ *
+ * `""` means "unset" for every text field — the resolver treats it as absent and
+ * falls through to its next fallback, so a merchant clearing a field gets the
+ * default back rather than an empty tag.
+ */
+export interface SeoConfig {
+  /** `%s` is replaced by the page's resolved title. `""` means no template. */
+  titleTemplate: string;
+  defaultMetaTitle: string;
+  defaultMetaDescription: string;
+  defaultOgImageUrl: string;
+  twitterCardType: "summary" | "summary_large_image";
+  twitterSite: string;
+  robots: {
+    /** Overrides every group below, and empties the sitemap. */
+    globalNoindex: boolean;
+    groups: Record<SeoRouteGroup, SeoRobotsGroup>;
+    /** Appended verbatim to the generated robots.txt. */
+    customRules: string;
+  };
+  sitemap: Record<SeoContentType, boolean>;
+  structuredData: {
+    enableOrganization: boolean;
+    enableProduct: boolean;
+    enableArticle: boolean;
+    enableBreadcrumb: boolean;
+    organization: SeoOrganization;
+  };
+  /** `""` means emit no tag — an empty verification tag is a failed one. */
+  verification: {
+    google: string;
+    bing: string;
+    other: string;
+  };
+}
+
 export interface ThemeFont {
   family: string;
   /**
@@ -224,6 +303,12 @@ export interface StoreSettings {
   checkoutConfig: CheckoutConfig;
   catalogConfig: CatalogConfig;
   theme: Theme;
+  /**
+   * Everything the SEO menu controls. Always complete — the backend merges it
+   * over its own defaults, and `getStoreSettings` repairs a partial payload — so
+   * the resolver never has to null-check a nested SEO field.
+   */
+  seoConfig: SeoConfig;
   /**
    * Whether the storefront ROOT serves the shop or a campaign landing page.
    *

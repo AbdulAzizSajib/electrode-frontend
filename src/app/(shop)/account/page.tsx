@@ -4,10 +4,18 @@ import { redirect } from "next/navigation";
 import { Heart, MapPin, Package, ShoppingBag, Star } from "lucide-react";
 import LogoutButton from "@/components/account/LogoutButton";
 import { getCurrentUser } from "@/services/auth";
+import { getStoreSettings } from "@/services/store-settings";
+import { resolveMetadata } from "@/lib/seo/resolve-metadata";
 
-export const metadata: Metadata = {
-  title: "My Account - Electrode",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const settings = await getStoreSettings();
+
+  return resolveMetadata({
+    settings,
+    routeGroup: "account",
+    fallbackTitle: "My Account",
+  });
+}
 
 const shortcuts = [
   { href: "/account/addresses", label: "Addresses", icon: MapPin },

@@ -4,10 +4,18 @@ import { CheckCircle2, PackageX } from "lucide-react";
 import GuestOrderConfirmation from "@/components/checkout/GuestOrderConfirmation";
 import OrderSummaryCard from "@/components/order/OrderSummaryCard";
 import { getOrderById } from "@/services/order";
+import { getStoreSettings } from "@/services/store-settings";
+import { resolveMetadata } from "@/lib/seo/resolve-metadata";
 
-export const metadata: Metadata = {
-  title: "Order Confirmed - Electrode",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const settings = await getStoreSettings();
+
+  return resolveMetadata({
+    settings,
+    routeGroup: "checkout",
+    fallbackTitle: "Order Confirmed",
+  });
+}
 
 export default async function CheckoutSuccessPage({
   searchParams,

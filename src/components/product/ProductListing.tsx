@@ -13,8 +13,12 @@ interface Props {
   meta: PaginationMeta;
   categories: CategoryNode[];
   brands: FilterOption[];
+  /** Cheapest and dearest product in the catalog — the price slider's extremes. */
+  priceBounds: { min: number; max: number };
   selectedCategory: string | null;
   selectedBrand: string | null;
+  selectedMinPrice: number | null;
+  selectedMaxPrice: number | null;
   searchTerm: string | null;
   sort: SortKey;
   /** Set when the sort names the page, e.g. arriving from the "Best Selling" nav link. */
@@ -26,8 +30,11 @@ export default function ProductListing({
   meta,
   categories,
   brands,
+  priceBounds,
   selectedCategory,
   selectedBrand,
+  selectedMinPrice,
+  selectedMaxPrice,
   searchTerm,
   sort,
   heading,
@@ -40,20 +47,40 @@ export default function ProductListing({
    * results come from the catalog rather than a partial local copy, and a
    * filtered view can be shared or bookmarked.
    */
-  function setParam(key: string, value: string | null) {
+  /**
+   * Writes several params in ONE navigation. The price range sets two at once,
+   * and two `setParam` calls would each build their URL from the same stale
+   * `searchParams` — the second would land without the first's change.
+   */
+  function setParams(changes: Record<string, string | null>) {
     const next = new URLSearchParams(searchParams.toString());
-    if (value) next.set(key, value);
-    else next.delete(key);
+
+    for (const [key, value] of Object.entries(changes)) {
+      if (value) next.set(key, value);
+      else next.delete(key);
+    }
+
     // Any filter change invalidates the current page offset.
-    if (key !== "page") next.delete("page");
+    if (!("page" in changes)) next.delete("page");
+
     router.push(`/products${next.toString() ? `?${next}` : ""}`);
+  }
+
+  function setParam(key: string, value: string | null) {
+    setParams({ [key]: value });
   }
 
   // Sorting goes through the URL like every other filter, so the server orders
   // the whole catalog. It used to reorder the fetched page in memory, which
   // made "Price, low to high" mean "cheapest of these 12" rather than of the
   // catalog — and put the true cheapest product on some other page entirely.
-  const hasFilters = Boolean(selectedCategory || selectedBrand || searchTerm);
+  const hasFilters = Boolean(
+    selectedCategory ||
+      selectedBrand ||
+      searchTerm ||
+      selectedMinPrice !== null ||
+      selectedMaxPrice !== null,
+  );
 
   return (
     <div className="container-px site-container py-8">
@@ -72,10 +99,29 @@ export default function ProductListing({
         <ProductFilters
           categories={categories}
           brands={brands}
+          priceBounds={priceBounds}
           selectedCategory={selectedCategory}
           selectedBrand={selectedBrand}
+          selectedMinPrice={selectedMinPrice}
+          selectedMaxPrice={selectedMaxPrice}
           onCategoryChange={(slug) => setParam("category", slug)}
           onBrandChange={(slug) => setParam("brand", slug)}
+          onPriceChange={(range) =>
+            setParams({
+              minPrice: range ? String(range.min) : null,
+              maxPrice: range ? String(range.max) : null,
+            })
+          }
+          // Keeps `?q=` — clearing the refinements a shopper chose should not
+          // also discard the search they arrived with.
+          onClearAll={() =>
+            setParams({
+              category: null,
+              brand: null,
+              minPrice: null,
+              maxPrice: null,
+            })
+          }
         />
 
         <div className="flex-1">

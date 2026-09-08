@@ -1,7 +1,10 @@
+import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { Play } from "lucide-react";
 import { formatPostDate, getBlogPosts, listingImage } from "@/services/blog";
+import { getStoreSettings } from "@/services/store-settings";
+import { resolveMetadata } from "@/lib/seo/resolve-metadata";
 
 /**
  * The blog index.
@@ -14,9 +17,17 @@ import { formatPostDate, getBlogPosts, listingImage } from "@/services/blog";
  * invalidation keep the cost near zero.
  */
 
-export const metadata = {
-  title: "Blog",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const settings = await getStoreSettings();
+
+  return resolveMetadata({
+    settings,
+    routeGroup: "blog",
+    path: "/blogs",
+    fallbackTitle: "Blog",
+    record: { description: "News, guides and product stories." },
+  });
+}
 
 const PER_PAGE = 9;
 

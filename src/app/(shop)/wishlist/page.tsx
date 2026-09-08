@@ -2,10 +2,18 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import WishlistView from "@/app/(shop)/wishlist/WishlistView";
 import { getStoreSettings } from "@/services/store-settings";
+import { resolveMetadata } from "@/lib/seo/resolve-metadata";
 
-export const metadata: Metadata = {
-  title: "My Wishlist – Electrode",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const settings = await getStoreSettings();
+
+  return resolveMetadata({
+    settings,
+    routeGroup: "wishlist",
+    path: "/wishlist",
+    fallbackTitle: "My Wishlist",
+  });
+}
 
 /**
  * The saved list is per-customer and cookie-authenticated, so it is fetched

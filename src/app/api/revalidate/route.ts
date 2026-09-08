@@ -3,6 +3,7 @@ import { STORE_SETTINGS_CACHE_TAG } from "@/services/store-settings";
 import { BLOG_POSTS_CACHE_TAG } from "@/services/blog";
 import { TESTIMONIALS_CACHE_TAG } from "@/services/testimonials";
 import { LANDING_PAGES_CACHE_TAG } from "@/services/landing-page";
+import { SEO_CONFIG_CACHE_TAG } from "@/services/seo";
 
 /**
  * Drops a cached storefront tag on request, so a merchant's save shows up on
@@ -36,6 +37,13 @@ const ALLOWED_TAGS = new Set<string>([
    * `/lp/<slug>` renders.
    */
   LANDING_PAGES_CACHE_TAG,
+  /*
+   * SEO settings, which back the sitemap and robots.txt. A tag of its own rather
+   * than folding into `store-settings`, because the two cost different amounts
+   * to rebuild — this one is a five-table query, and a theme edit should not pay
+   * for it. The backend fires both on a settings save.
+   */
+  SEO_CONFIG_CACHE_TAG,
 ]);
 
 export async function POST(request: Request) {

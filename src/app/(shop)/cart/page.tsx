@@ -1,10 +1,18 @@
 import type { Metadata } from "next";
 import CartView from "@/app/(shop)/cart/CartView";
 import { getStoreSettings } from "@/services/store-settings";
+import { resolveMetadata } from "@/lib/seo/resolve-metadata";
 
-export const metadata: Metadata = {
-  title: "Your Cart - Electrode",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const settings = await getStoreSettings();
+
+  return resolveMetadata({
+    settings,
+    routeGroup: "cart",
+    path: "/cart",
+    fallbackTitle: "Your Cart",
+  });
+}
 
 /**
  * The cart itself is cookie-authenticated and fetched client-side, so this

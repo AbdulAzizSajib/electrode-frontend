@@ -125,6 +125,8 @@ export function toProduct(product: ApiProduct): Product {
     sku: product.sku,
     description: product.description ?? undefined,
     shortDescription: product.shortDescription ?? undefined,
+    seoTitle: product.seoTitle ?? undefined,
+    seoDescription: product.seoDescription ?? undefined,
     type: product.type,
     isVariable: product.type === "VARIABLE",
     offerPrice: effectivePrice,
@@ -212,6 +214,46 @@ export async function getProducts(
   } catch {
     return { products: [], meta: EMPTY_META };
   }
+}
+
+/**
+ * The cheapest and dearest active product, for the listing's price slider.
+ *
+ * Derived from two one-item sorted listings rather than a dedicated aggregate
+ * endpoint: `GET /products` already sorts by `offerPrice` server-side, so the
+ * first row of each direction *is* the bound. Two `limit=1` requests cost less
+ * than the one full page the listing fetches anyway, and they share its cache
+ * window.
+ *
+ * Bounds must come from the whole catalog, not from the products on screen —
+ * deriving them from the current page would make the slider's range shift every
+ * time the shopper moved it, so the handle could never reach a price that
+ * happens to fall on another page.
+ *
+ * Note this ignores campaign pricing, which is applied per-row after the query;
+ * a discounted product can therefore sell below `min`. The slider is a coarse
+ * budget control and the backend filters on the same `offerPrice` column, so the
+ * bounds stay consistent with what the filter actually does.
+ */
+export async function getPriceBounds(): Promise<{ min: number; max: number }> {
+  const query = { page: 1, limit: 1, sortBy: "offerPrice" as const };
+
+  const [cheapest, dearest] = await Promise.all([
+    getProducts({ ...query, sortOrder: "asc" }),
+    getProducts({ ...query, sortOrder: "desc" }),
+  ]);
+
+  const min = cheapest.products[0]?.offerPrice;
+  const max = dearest.products[0]?.offerPrice;
+
+  // An empty catalog, or a failed fetch, yields a degenerate range. Report a
+  // zero-width one rather than a made-up ceiling so the panel can hide the
+  // slider instead of offering a filter over prices that do not exist.
+  if (min === undefined || max === undefined) return { min: 0, max: 0 };
+
+  // Floor/ceil to whole units: the handles step in whole currency units, so a
+  // fractional bound would leave the extreme product unreachable by dragging.
+  return { min: Math.floor(min), max: Math.ceil(max) };
 }
 
 /**

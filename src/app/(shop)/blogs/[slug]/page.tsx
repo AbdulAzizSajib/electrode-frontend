@@ -6,6 +6,10 @@ import { ArrowLeft } from "lucide-react";
 import ProductVideo from "@/components/product/ProductVideo";
 import RichText from "@/components/product/RichText";
 import { formatPostDate, getBlogPostBySlug } from "@/services/blog";
+import { getStoreSettings } from "@/services/store-settings";
+import { resolveMetadata } from "@/lib/seo/resolve-metadata";
+import { buildArticleSchema } from "@/lib/seo/schema-builders";
+import JsonLd from "@/components/seo/json-ld";
 
 /*
  * A single blog post.
@@ -22,21 +26,30 @@ export async function generateMetadata({
   params,
 }: PageProps<"/blogs/[slug]">): Promise<Metadata> {
   const { slug } = await params;
-  const post = await getBlogPostBySlug(slug);
+  const [post, settings] = await Promise.all([getBlogPostBySlug(slug), getStoreSettings()]);
 
-  if (!post) return { title: "Post not found" };
-
-  return {
-    // Falls back to the title and the excerpt, so a post is never published
-    // without metadata a search result can show.
-    title: post.metaTitle || post.title,
-    description: post.metaDescription || post.excerpt,
-  };
+  return resolveMetadata({
+    settings,
+    routeGroup: "blog",
+    path: `/blogs/${slug}`,
+    record: post
+      ? {
+          // Falls back to the title and the excerpt, so a post is never
+          // published without metadata a search result can show.
+          metaTitle: post.metaTitle,
+          metaDescription: post.metaDescription,
+          title: post.title,
+          description: post.excerpt,
+          image: post.imageUrl,
+        }
+      : undefined,
+    fallbackTitle: post ? undefined : "Post not found",
+  });
 }
 
 export default async function BlogPostRoute({ params }: PageProps<"/blogs/[slug]">) {
   const { slug } = await params;
-  const post = await getBlogPostBySlug(slug);
+  const [post, settings] = await Promise.all([getBlogPostBySlug(slug), getStoreSettings()]);
 
   // Unknown slug, draft post and unreachable API all land here. A visitor
   // cannot tell an unpublished post from one that never existed, which is the
@@ -45,6 +58,16 @@ export default async function BlogPostRoute({ params }: PageProps<"/blogs/[slug]
 
   return (
     <article className="container-px mx-auto max-w-4xl py-10 md:py-14">
+      {/* Renders nothing when the merchant has Article structured data off. */}
+      <JsonLd
+        data={buildArticleSchema(settings, {
+          title: post.title,
+          description: post.excerpt,
+          image: post.imageUrl,
+          publishedAt: post.publishedAt,
+          slug,
+        })}
+      />
       <Link
         href="/blogs"
         className="inline-flex items-center gap-1.5 text-sm font-medium text-gray-500 hover:text-gray-900"

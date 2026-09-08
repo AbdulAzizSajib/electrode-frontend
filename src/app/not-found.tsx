@@ -1,4 +1,19 @@
 import Link from "next/link";
+import type { Metadata } from "next";
+
+/**
+ * Static, and NOT routed through the shared resolver — the one page here that
+ * should not be.
+ *
+ * A 404 must never be indexed no matter what a merchant has configured, so its
+ * robots directive is not theirs to set. Reading settings would also mean an
+ * API call on a page that exists to be cheap and to work when things are
+ * broken.
+ */
+export const metadata: Metadata = {
+  title: "Page not found",
+  robots: { index: false, follow: false },
+};
 
 /**
  * The 404 shown whenever a route calls `notFound()` — an unknown product
