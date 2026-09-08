@@ -33,6 +33,26 @@
   --color-sale: var(--color-sale);
   --font-sans: "Outfit", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica,
     Arial, sans-serif;
+
+  /*
+   * The header's dropdown panels mount and unmount rather than toggling a
+   * class, so there is nothing for a CSS transition to run between — without
+   * this they appear in a single frame while every other overlay in the shell
+   * (cart drawer, cart rail) eases in. One keyframe, shared by all of them, so
+   * the menus open with one voice instead of three.
+   *
+   * Exponential ease-out from a position that is already almost at rest: the
+   * panel settles, it does not travel. Callers pair it with
+   * `motion-reduce:animate-none`.
+   */
+  --animate-menu-in: menu-in 160ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes menu-in {
+  from {
+    opacity: 0;
+    transform: translateY(-0.375rem);
+  }
 }
 
 /*

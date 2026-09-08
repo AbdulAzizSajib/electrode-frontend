@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { notFound } from "next/navigation";
 import CompareTable from "@/components/product/CompareTable";
+import { getStoreSettings } from "@/services/store-settings";
 
 export const metadata: Metadata = {
   title: "Compare Products",
@@ -12,7 +14,16 @@ export const metadata: Metadata = {
  * the server has nothing to render it from. This page is just the frame; the
  * table hydrates from the store and fetches each product itself.
  */
-export default function ComparePage() {
+export default async function ComparePage() {
+  /*
+   * A shop that does not offer comparison has no comparison page. Same
+   * reasoning as `/wishlist`: an old link must not reach an empty version of a
+   * withdrawn feature. The shopper's stored list is untouched and comes back
+   * intact if the merchant offers comparison again.
+   */
+  const settings = await getStoreSettings();
+  if (!settings.catalogConfig.showCompare) notFound();
+
   return (
     <div className="mx-auto max-w-7xl px-4 py-8">
       <nav className="mb-6 text-sm text-gray-500">

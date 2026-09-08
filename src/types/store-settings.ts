@@ -127,6 +127,27 @@ export interface CheckoutConfig {
   delivery: DeliverySettings;
 }
 
+/**
+ * Which of the optional catalog features this shop offers.
+ *
+ * Shop-wide, not per-product: a business either compares products or it does
+ * not. Each is independent — a wholesale catalogue may want comparison and no
+ * wishlist. All three default to `true` wherever they are absent, so a store
+ * that has never configured them, and a settings read that fails, both leave
+ * every feature offered. Withdrawing a feature is a presentation decision only;
+ * it never deletes what a shopper has already saved under it.
+ */
+export interface CatalogConfig {
+  showWishlist: boolean;
+  showCompare: boolean;
+  /**
+   * Off, a product with variants goes to its own page from a listing rather
+   * than opening a preview over it. A product without variants is unaffected
+   * and still adds to the cart directly.
+   */
+  showQuickView: boolean;
+}
+
 export interface ThemeFont {
   family: string;
   /**
@@ -201,6 +222,7 @@ export interface StoreSettings {
   announcementBar: AnnouncementBar;
   newsletter: Newsletter;
   checkoutConfig: CheckoutConfig;
+  catalogConfig: CatalogConfig;
   theme: Theme;
   /**
    * Whether the storefront ROOT serves the shop or a campaign landing page.

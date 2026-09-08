@@ -129,6 +129,19 @@ const FALLBACK_SETTINGS: StoreSettings = {
     delivery: { offersPickup: false, options: [] },
   },
   /*
+   * Everything offered, which is the only safe direction to fail in. A settings
+   * outage that withdrew the wishlist and comparison would silently strip
+   * working features from a shop that pays for them — and unlike a missing
+   * announcement bar, nobody would read it as an outage. Mirrors the backend's
+   * DEFAULT_CATALOG_CONFIG, which reproduces the storefront as it was before
+   * these were configurable.
+   */
+  catalogConfig: {
+    showWishlist: true,
+    showCompare: true,
+    showQuickView: true,
+  },
+  /*
    * Mirrors the backend's DEFAULT_THEME, which mirrors globals.css. These are
    * the same values the stylesheet already carries, so a failed settings read
    * paints the site exactly as the stylesheet alone would.
@@ -209,6 +222,16 @@ export async function getStoreSettings(): Promise<StoreSettings> {
           ...FALLBACK_SETTINGS.checkoutConfig.delivery,
           ...(data.checkoutConfig?.delivery ?? {}),
         },
+      },
+      /*
+       * Per-key, like `checkoutConfig` above and for the same reason — an API
+       * that predates one flag must report that flag as offered rather than as
+       * `undefined`, which is falsy and would withdraw the feature by accident.
+       * A whole-block `??` would do exactly that the day a fourth flag is added.
+       */
+      catalogConfig: {
+        ...FALLBACK_SETTINGS.catalogConfig,
+        ...(data.catalogConfig ?? {}),
       },
       theme: {
         ...FALLBACK_SETTINGS.theme,

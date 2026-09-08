@@ -67,6 +67,22 @@ describe("getStoreSettings", () => {
     expect(settings.contact).toBeDefined();
   });
 
+  /*
+   * The property every catalog-feature gate rests on. A backend that predates
+   * `catalogConfig` — which is every deployment until the server change ships —
+   * omits it, and `undefined` is falsy, so getting this wrong would withdraw the
+   * wishlist, comparison and quick view from every store at once.
+   */
+  it("offers every catalog feature when the API omits catalogConfig", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(envelope({ storeName: "Acme" })));
+
+    expect((await getStoreSettings()).catalogConfig).toEqual({
+      showWishlist: true,
+      showCompare: true,
+      showQuickView: true,
+    });
+  });
+
   it("preserves an intentionally empty list rather than treating it as missing", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(envelope({ footerColumns: [] })));
 

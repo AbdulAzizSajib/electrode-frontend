@@ -5,7 +5,7 @@ import Link from "next/link";
 import { ArrowRight, Loader2, Minus, Plus } from "lucide-react";
 import type { Product, ProductImage } from "@/types/product";
 import { discountPercent, formatPrice } from "@/lib/format";
-import { variantIdForImage, visibleImages } from "@/lib/variant-gallery";
+import { firstImageForVariant, variantIdForImage } from "@/lib/variant-gallery";
 import {
   choicesForVariant,
   defaultVariant,
@@ -19,8 +19,11 @@ import { useAppDispatch } from "@/store/hooks";
 import { openCart } from "@/store/uiSlice";
 import Modal from "@/components/ui/Modal";
 import ProductGallery from "@/components/product/ProductGallery";
+import RichText from "@/components/product/RichText";
+import { isBlankHtml } from "@/lib/sanitize-html";
 import OptionSelector from "@/components/product/OptionSelector";
 import CompareButton from "@/components/product/CompareButton";
+import { getCatalogFeatures } from "@/lib/catalog-features";
 
 interface ProductQuickViewProps {
   /** The card's product — carries name, image and price, but never variants. */
@@ -38,6 +41,8 @@ export default function ProductQuickView({
   const titleId = useId();
   const [addItem, { isLoading: isAdding }] = useAddItemMutation();
 
+  const { showCompare } = getCatalogFeatures();
+
   // A closed quick view holds no subscription; the cache entry is keyed by slug
   // so a response arriving after the shopper moved on cannot be shown here.
   const {
@@ -51,7 +56,7 @@ export default function ProductQuickView({
   // which also means it cannot briefly render as unselected, and does not have
   // to wait for `detailed` to arrive before seeding.
   const [chosenValues, setChosenValues] = useState<OptionChoices | null>(null);
-  /** Displayed image url; `undefined` means "the first visible one". */
+  /** Displayed image url; `undefined` means "follow the selection". */
   const [activeImageUrl, setActiveImageUrl] = useState<string | undefined>(undefined);
   const [quantity, setQuantity] = useState(1);
   const [addError, setAddError] = useState("");
@@ -103,8 +108,8 @@ export default function ProductQuickView({
 
   /**
    * Selecting a thumbnail sets the image and the selection in one transition, so
-   * the "first image of the new selection" rule cannot displace the photo just
-   * clicked. Same reasoning as ProductDetail.
+   * the "follow the selection" fallback cannot displace the photo just clicked.
+   * Same reasoning as ProductDetail.
    */
   function selectImage(image: ProductImage) {
     setActiveImageUrl(image.url);
@@ -139,11 +144,14 @@ export default function ProductQuickView({
   const images: ProductImage[] =
     base.images.length > 0 ? base.images : [{ url: base.image, variantId: null }];
 
-  // Every image, ordered so the selected option's photos lead. Derived, not
-  // stored, and never filtered — same rule as the detail page.
-  const galleryImages = visibleImages(images, selectedVariantId);
+  // The strip is every image in its authored order — never filtered and never
+  // reordered by the selection, which would freeze the highlight ring on the
+  // first thumbnail. The displayed photo resolves the same way as the detail
+  // page: explicit pick, else the selected variant's own photo, else primary.
   const activeImage =
-    galleryImages.find((img) => img.url === activeImageUrl) ?? galleryImages[0];
+    images.find((img) => img.url === activeImageUrl) ??
+    firstImageForVariant(images, selectedVariantId) ??
+    images[0];
 
   // Nothing may be added until the real choices are known — the card's props
   // cannot tell us whether an option is still unanswered.
@@ -199,7 +207,7 @@ export default function ProductQuickView({
       ) : (
         <div className="grid grid-cols-1 gap-8 p-6 sm:p-8 md:grid-cols-2">
           <ProductGallery
-            images={galleryImages}
+            images={images}
             activeUrl={activeImage?.url}
             onSelect={selectImage}
             title={base.name}
@@ -231,8 +239,11 @@ export default function ProductQuickView({
               )}
             </div>
 
-            {base.shortDescription && (
-              <p className="mt-4 text-sm text-gray-600">{base.shortDescription}</p>
+            {/* Merchant-authored markup, not plain text. Printed raw it showed
+                the shopper literal `<p><strong>…` — the detail page has always
+                run it through the sanitiser and this panel must match. */}
+            {!isBlankHtml(base.shortDescription) && (
+              <RichText html={base.shortDescription as string} className="mt-4" />
             )}
 
             {isFetching ? (
@@ -313,11 +324,13 @@ export default function ProductQuickView({
                 View Full Product Details <ArrowRight size={16} />
               </Link>
 
-              <CompareButton
-                slug={base.slug}
-                withLabel
-                className="justify-center py-1 text-sm text-gray-500 hover:text-brand"
-              />
+              {showCompare && (
+                <CompareButton
+                  slug={base.slug}
+                  withLabel
+                  className="justify-center py-1 text-sm text-gray-500 hover:text-brand"
+                />
+              )}
             </div>
           </div>
         </div>

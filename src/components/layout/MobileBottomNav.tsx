@@ -13,6 +13,7 @@ import {
   selectCompareCount,
   selectIsCompareHydrated,
 } from "@/store/compareSlice";
+import { getCatalogFeatures } from "@/lib/catalog-features";
 
 /**
  * Thumb-reach navigation for small screens, hidden from `md` up where the
@@ -37,6 +38,8 @@ export default function MobileBottomNav({
   const itemCount = cart.itemCount;
   const compareCount = useAppSelector(selectCompareCount);
   const isCompareHydrated = useAppSelector(selectIsCompareHydrated);
+  // Only `showCompare` is read here: this bar carries no wishlist entry to gate.
+  const { showCompare } = getCatalogFeatures();
 
   const itemClass = (active: boolean) =>
     clsx(
@@ -105,7 +108,7 @@ export default function MobileBottomNav({
         {/* Only while something is being compared. The row already carries five
             items at phone width, and a sixth that is empty most of the time
             would crowd the four that are always useful. */}
-        {isCompareHydrated && compareCount > 0 && (
+        {showCompare && isCompareHydrated && compareCount > 0 && (
           <Link href="/compare" className={itemClass(pathname === "/compare")}>
             <span className="relative">
               <Repeat size={20} strokeWidth={1.75} />

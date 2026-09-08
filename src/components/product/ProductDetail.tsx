@@ -8,7 +8,7 @@ import { Eye, Gift, Loader2, Minus, Plus, RotateCcw, ShieldCheck, XCircle } from
 import type { PaginationMeta, Product, ProductImage } from "@/types/product";
 import type { RatingBreakdown, Review } from "@/types/review";
 import { discountPercent, formatCount, formatPrice } from "@/lib/format";
-import { variantIdForImage, visibleImages } from "@/lib/variant-gallery";
+import { firstImageForVariant, variantIdForImage } from "@/lib/variant-gallery";
 import {
   choicesForVariant,
   defaultVariant,
@@ -30,6 +30,7 @@ import ProductReviews from "@/components/product/ProductReviews";
 import WishlistButton from "@/components/product/WishlistButton";
 import CompareButton from "@/components/product/CompareButton";
 import StarRating from "@/components/ui/StarRating";
+import { getCatalogFeatures } from "@/lib/catalog-features";
 
 /** The tab strip is a literal list, not data — adding a panel means widening this. */
 type ProductTab = "description" | "shipping" | "reviews";
@@ -61,6 +62,8 @@ export default function ProductDetail({
   const dispatch = useAppDispatch();
   const [addItem, { isLoading }] = useAddItemMutation();
 
+  const { showWishlist, showCompare } = getCatalogFeatures();
+
   const images: ProductImage[] =
     product.images.length > 0
       ? product.images
@@ -82,15 +85,15 @@ export default function ProductDetail({
   const selectedVariant = selection.variant;
   const selectedVariantId = selectedVariant?.id ?? null;
 
-  // Every image, ordered so the selected option's photos lead. Derived rather
-  // than stored — there is no second piece of state to fall out of step when the
-  // variant changes. Nothing is ever filtered out: the selection decides which
-  // image leads, not which images exist.
-  const galleryImages = visibleImages(images, selectedVariantId);
+  // `images` goes to the gallery as-is. Nothing is filtered out — the selection
+  // decides which image leads, not which images exist — and nothing is
+  // reordered either: a strip that puts the selected photo first can never show
+  // the highlight ring moving, because the selected thumbnail is always the
+  // first one.
 
-  // The displayed image, as a url. `undefined` means "the first one in order",
-  // which is what makes selecting an option move to that option's photo without
-  // an effect.
+  // The displayed image, as a url. `undefined` means "follow the selection",
+  // which is what makes picking an option move to that option's photo without
+  // an effect and without a second piece of state to fall out of step.
   const [activeImageUrl, setActiveImageUrl] = useState<string | undefined>(undefined);
   const [quantity, setQuantity] = useState(1);
 
@@ -98,11 +101,11 @@ export default function ProductDetail({
    * Picking a value on one option control.
    *
    * The gallery moves to the newly-resolved variant's first image by clearing
-   * the explicit image choice, so the display falls through to the head of the
-   * reordered list. When the resolution has no photo of its own — including
-   * while the selection is still incomplete — there is nothing to move to, and
-   * clearing would displace whatever the shopper was looking at with an
-   * unrelated photo, so the current image is pinned instead.
+   * the explicit image choice, so the display falls through to whatever the
+   * selection points at. When the resolution has no photo of its own —
+   * including while the selection is still incomplete — there is nothing to
+   * move to, and clearing would displace whatever the shopper was looking at
+   * with an unrelated photo, so the current image is pinned instead.
    *
    * `activeImage` is declared below; this only reads it on click, long after
    * render has initialised it.
@@ -123,10 +126,9 @@ export default function ProductDetail({
    * Selecting a thumbnail. One transition, setting the image AND the selection
    * together.
    *
-   * Doing it in two steps looks equivalent and is not: changing the selection
-   * reorders the gallery, and the "show the first image of the new selection"
-   * rule then displaces the very photo just clicked. Setting the url here means
-   * that rule only ever applies to changes coming from an option control.
+   * Doing it in two steps looks equivalent and is not: an explicit url is what
+   * stops the "follow the selection" fallback from swapping the very photo just
+   * clicked for the variant's primary one, on a variant with several photos.
    */
   function selectImage(image: ProductImage) {
     setActiveImageUrl(image.url);
@@ -147,10 +149,15 @@ export default function ProductDetail({
     document.getElementById("product-tabs")?.scrollIntoView({ behavior: "smooth" });
   }
 
-  // The image actually on screen — the gallery resolves an unknown url to the
-  // first visible image, so this mirrors that rule rather than guessing.
+  // The image actually on screen, resolved in the order the shopper's intent
+  // runs: the photo they explicitly picked, else the selected variant's own
+  // photo, else the product's primary. The middle rung is what the gallery's
+  // reordering used to provide, moved here where it belongs — it is a fact
+  // about the selection, not about how a strip is laid out.
   const activeImage =
-    galleryImages.find((img) => img.url === activeImageUrl) ?? galleryImages[0];
+    images.find((img) => img.url === activeImageUrl) ??
+    firstImageForVariant(images, selectedVariantId) ??
+    images[0];
 
   // What the shopper actually pays: the chosen variant's price when there is
   // one, the product's base price otherwise.
@@ -224,7 +231,7 @@ export default function ProductDetail({
       <div className="grid grid-cols-1 gap-10 lg:grid-cols-2">
         <div>
           <ProductGallery
-            images={galleryImages}
+            images={images}
             activeUrl={activeImage?.url}
             onSelect={selectImage}
             title={product.name}
@@ -433,16 +440,29 @@ export default function ProductDetail({
             </button>
           </div>
 
-          <div className="mt-4 flex gap-6 text-sm text-gray-500">
-            <WishlistButton
-              productId={product.id}
-              size={16}
-              withLabel
-              standalone
-              className="hover:text-brand"
-            />
-            <CompareButton slug={product.slug} size={16} withLabel className="hover:text-brand" />
-          </div>
+          {/* The row goes entirely when neither feature is offered, rather than
+              leaving an empty flex container and its top margin behind. */}
+          {(showWishlist || showCompare) && (
+            <div className="mt-4 flex gap-6 text-sm text-gray-500">
+              {showWishlist && (
+                <WishlistButton
+                  productId={product.id}
+                  size={16}
+                  withLabel
+                  standalone
+                  className="hover:text-brand"
+                />
+              )}
+              {showCompare && (
+                <CompareButton
+                  slug={product.slug}
+                  size={16}
+                  withLabel
+                  className="hover:text-brand"
+                />
+              )}
+            </div>
+          )}
 
           <div className="mt-6 space-y-1 border-t border-gray-100 pt-4 text-sm text-gray-500">
             <p>SKU: {selectedVariant?.sku ?? product.sku}</p>

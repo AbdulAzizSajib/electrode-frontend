@@ -11,6 +11,7 @@ import {
 } from "@/store/compareSlice";
 import { useGetProductBySlugQuery } from "@/store/productApi";
 import { COMPARE_LIMIT } from "@/lib/compare-storage";
+import { getCatalogFeatures } from "@/lib/catalog-features";
 
 /**
  * A persistent reminder of what is currently being compared.
@@ -26,8 +27,15 @@ export default function CompareBar() {
   const slugs = useAppSelector(selectCompareSlugs);
   const isHydrated = useAppSelector(selectIsCompareHydrated);
   const dispatch = useAppDispatch();
+  const { showCompare } = getCatalogFeatures();
 
-  if (!isHydrated || slugs.length === 0) return null;
+  /*
+   * The stored list is left alone when the feature is withdrawn — it is the
+   * shopper's, it costs nothing sitting in `localStorage`, and clearing it would
+   * make a presentation toggle quietly destructive. It simply goes unread until
+   * the merchant offers comparison again.
+   */
+  if (!showCompare || !isHydrated || slugs.length === 0) return null;
 
   return (
     <div className="fixed inset-x-0 bottom-0 z-40 border-t border-gray-200 bg-white/95 shadow-[0_-2px_12px_rgba(0,0,0,0.08)] backdrop-blur md:bottom-0">

@@ -1,54 +1,45 @@
 import type { ProductImage } from "@/types/product";
 
 /**
- * How a product's images are ordered for a selected variant, and which variant a
- * chosen image depicts. Pure and shared, because the product page and the
- * in-listing quick view must answer both questions identically.
+ * How a product's images relate to its variants: which photo a selection leads
+ * to, and which variant a chosen photo depicts. Pure and shared, because the
+ * product page and the in-listing quick view must answer both questions
+ * identically.
  */
 
 /**
- * The product's images ordered for `selectedVariantId`:
+ * The first image depicting `variantId`, or `undefined` when that variant has
+ * no photo of its own — including when nothing is selected yet.
  *
- *   1. the selected variant's images
- *   2. the shared images
- *   3. everything else, in the order given
+ * This is the photo a variant change moves the main image to. `undefined` is
+ * what makes "a variant with no photo of its own leaves the shopper's view
+ * alone" fall out of the ordinary path rather than needing a special case at
+ * the call site. A shared image (`variantId: null`) depicts no variant, so it
+ * is never the answer.
  *
- * Every image is always returned. Ordering, not filtering, is what the
- * variant-to-image link drives.
+ * "First" is first in the order given, which is `pickImages`'
+ * primary-then-`sortOrder` sequence — so it is the variant's primary photo.
  *
- * This deliberately replaces an earlier rule that showed only the selected
- * variant's images plus the shared ones. The common way a small catalogue is
- * photographed — one photo per variant, no packaging shots — left that rule
- * returning a single image, and `ProductGallery` hides its thumbnail strip when
- * there is only one image, so a four-photo product showed one photo and no way
- * to reach the other three. Nothing is hidden now: the selection decides which
- * image leads, not which images exist.
+ * This replaces `visibleImages`, which returned the whole image list reordered
+ * so the selected variant's photos led. That reordering was introduced to keep
+ * the selected photo out of the middle of a long strip, but it moved the
+ * *strip* on every selection instead of moving the highlight: the selected
+ * image was always reordered into position one, so the ring sat permanently on
+ * the first thumbnail while the photos shuffled underneath it. A shopper reads
+ * that as a selector that does not respond. The strip now keeps its authored
+ * order, the ring moves, and `ProductGallery` scrolls the selected thumbnail
+ * into view — which is what the ordering was actually reaching for.
  *
- * Order within each group is the order given, which is `pickImages`'
- * primary-then-sortOrder sequence. With no selection, or on a product whose
- * images carry no variant at all, the result is the input unchanged.
+ * The reason `visibleImages` existed at all — that the gallery must never hide
+ * an image — is unaffected: both call sites now hand `ProductGallery` the full
+ * list directly, which is strictly less filtering than before.
  */
-export function visibleImages(
+export function firstImageForVariant(
   images: ProductImage[],
-  selectedVariantId: string | null,
-): ProductImage[] {
-  if (selectedVariantId === null) return images;
-
-  const own: ProductImage[] = [];
-  const shared: ProductImage[] = [];
-  const rest: ProductImage[] = [];
-
-  for (const image of images) {
-    if (image.variantId === selectedVariantId) own.push(image);
-    else if (image.variantId === null) shared.push(image);
-    else rest.push(image);
-  }
-
-  // Nothing to reorder when the selection matches no image and none are shared,
-  // which is every product whose images predate variant assignment.
-  if (own.length === 0 && shared.length === 0) return images;
-
-  return [...own, ...shared, ...rest];
+  variantId: string | null,
+): ProductImage | undefined {
+  if (variantId === null) return undefined;
+  return images.find((image) => image.variantId === variantId);
 }
 
 /**

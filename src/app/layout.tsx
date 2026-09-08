@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import CurrencyFormatProvider from "@/components/providers/CurrencyFormatProvider";
+import CatalogFeaturesProvider from "@/components/providers/CatalogFeaturesProvider";
 import { setCurrencyFormat } from "@/lib/format";
+import { setCatalogFeatures } from "@/lib/catalog-features";
 import { getStoreSettings } from "@/services/store-settings";
 import { resolveFontHref, themeStyle } from "@/lib/theme";
 
@@ -99,6 +101,18 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
   };
   setCurrencyFormat(currencyFormat);
 
+  /*
+   * Which catalog features this shop offers, applied on both sides of the boundary for the same
+   * reason the currency format is — see `lib/catalog-features.ts`, which inherits `lib/format.ts`'s
+   * reasoning wholesale.
+   *
+   * In the ROOT layout rather than `(shop)`'s even though a landing page renders no product card:
+   * these belong beside the currency format, and setting them once here means no future surface has
+   * to work out which layout it sits under before it can ask.
+   */
+  const catalogFeatures = settings.catalogConfig;
+  setCatalogFeatures(catalogFeatures);
+
   return (
     /*
      * The merchant's theme rides on an inline style attribute rather than a
@@ -124,8 +138,11 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
       */}
       {fontHref && <link rel="stylesheet" href={fontHref} precedence="default" />}
       <body className="flex min-h-full flex-col">
-        {/* Outermost, so the format is in place before anything beneath it renders a price. */}
-        <CurrencyFormatProvider format={currencyFormat}>{children}</CurrencyFormatProvider>
+        {/* Outermost, so the format and the feature flags are both in place before anything
+            beneath them renders a price or a product card. */}
+        <CurrencyFormatProvider format={currencyFormat}>
+          <CatalogFeaturesProvider features={catalogFeatures}>{children}</CatalogFeaturesProvider>
+        </CurrencyFormatProvider>
       </body>
     </html>
   );
