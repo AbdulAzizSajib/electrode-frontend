@@ -30,6 +30,7 @@ import { openCart } from "@/store/uiSlice";
 import type { AuthUser } from "@/types/auth";
 import type { CategoryNode } from "@/types/category";
 import { filterNavForFeatures } from "@/lib/catalog-features";
+import { resolveBrandSlot } from "@/lib/brand-slot";
 
 /**
  * Focus treatment for controls sitting on the brand bar.
@@ -76,6 +77,14 @@ export default function Header({
 }) {
   const { announcementBar, contact, catalogConfig } = settings;
   const { showWishlist, showCompare } = catalogConfig;
+
+  /*
+   * Whether this slot shows the wordmark or the merchant's artwork. Resolved
+   * through the shared helper rather than read off `settings` directly, so the
+   * header and the footer cannot come to disagree about the fallback order —
+   * and so "logo mode with no image" degrades to the wordmark in both.
+   */
+  const brand = resolveBrandSlot(settings, "header");
 
   /*
    * Merchant-authored navigation, minus any entry leading to a feature this
@@ -268,6 +277,12 @@ export default function Header({
               wordmark push past a narrow (320px) viewport instead of shrinking
               between the two icons, so the row is allowed to compress it there.
             */}
+            {/*
+              The brand slot — a logo or the wordmark, whichever the merchant
+              chose. The link, its position in the row and its focus ring are
+              the same either way; only what sits inside it changes, so
+              switching modes never costs a shopper the route home.
+            */}
             <Link
               href="/"
               className={clsx(
@@ -275,9 +290,32 @@ export default function Header({
                 FOCUS_ON_BRAND,
               )}
             >
-              {settings.storeName}
-              {settings.siteNameAccent && (
-                <span className="text-accent ml-2">{settings.siteNameAccent}</span>
+              {brand.kind === "logo" ? (
+                /*
+                  A plain <img>, not next/image: the height is the merchant's
+                  and the width follows the artwork, so there are no intrinsic
+                  dimensions to hand it — see design.md Decision 3.
+
+                  `height` is set as a style rather than a class because it is a
+                  runtime value; `w-auto` keeps the aspect ratio, and `max-w-full`
+                  is what stops a very wide logo pushing the mobile menu and
+                  account buttons out of the row at 320px. The box is sized
+                  before the image loads, so nothing shifts when it arrives.
+                */
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={brand.src}
+                  alt={brand.alt}
+                  style={{ height: brand.height }}
+                  className="max-w-full w-auto object-contain max-md:mx-auto"
+                />
+              ) : (
+                <>
+                  {settings.storeName}
+                  {settings.siteNameAccent && (
+                    <span className="text-accent ml-2">{settings.siteNameAccent}</span>
+                  )}
+                </>
               )}
             </Link>
 

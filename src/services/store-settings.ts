@@ -44,6 +44,17 @@ const FALLBACK_SETTINGS: StoreSettings = {
   siteNameAccent: "Mart",
   logoUrl: null,
   footerLogoUrl: null,
+  /*
+   * Mirrors the backend's `DEFAULT_PUBLIC_SETTINGS`. TEXT for both is what the
+   * storefront rendered before these existed, so a settings outage degrades the
+   * brand slots to the wordmark — which is always truthful, and is exactly what
+   * a store that has never configured branding shows anyway.
+   */
+  headerBrandMode: "TEXT",
+  footerBrandMode: "TEXT",
+  /* Mirrors the backend's column defaults; bounded 24-96 there. */
+  headerLogoHeight: 40,
+  footerLogoHeight: 36,
   aboutText:
     "Welcome to our store, where we pride ourselves on providing exceptional products and unparalleled customer service, style and innovation.",
   copyrightText: "Gadgets Mart - Electronics Store. Built with Next.js.",
@@ -226,6 +237,17 @@ const FALLBACK_SETTINGS: StoreSettings = {
       family: "Outfit",
       url: "https://fonts.googleapis.com/css2?family=Outfit:wght@100..900&display=swap",
     },
+    /*
+     * The admin panel's typeface. Present so the mapper can repair the key like
+     * any other, never read by this app — see `adminFont` in
+     * src/types/store-settings.ts. Roboto rather than Outfit because that is
+     * what the admin panel defaults to, and this constant must mirror the
+     * backend's DEFAULT_THEME rather than invent a value of its own.
+     */
+    adminFont: {
+      family: "Roboto",
+      url: "https://fonts.googleapis.com/css2?family=Roboto:wght@100..900&display=swap",
+    },
   },
 };
 
@@ -262,6 +284,25 @@ export async function getStoreSettings(): Promise<StoreSettings> {
         typeof data.currencyDecimals === "number"
           ? data.currencyDecimals
           : FALLBACK_SETTINGS.currencyDecimals,
+      /*
+       * Repaired per key for the same reason, and it matters more here than it
+       * looks: an API predating these fields sends nothing, and the spread
+       * above would leave both modes `undefined`. `undefined` is not `"LOGO"`,
+       * so the slot would render text either way — but an explicit `null` from
+       * a cleared column would flow straight through into the height, and a
+       * `null` height is interpolated into a style attribute. Backfilling both
+       * keeps a partial payload renderable rather than merely lucky.
+       */
+      headerBrandMode: data.headerBrandMode ?? FALLBACK_SETTINGS.headerBrandMode,
+      footerBrandMode: data.footerBrandMode ?? FALLBACK_SETTINGS.footerBrandMode,
+      headerLogoHeight:
+        typeof data.headerLogoHeight === "number"
+          ? data.headerLogoHeight
+          : FALLBACK_SETTINGS.headerLogoHeight,
+      footerLogoHeight:
+        typeof data.footerLogoHeight === "number"
+          ? data.footerLogoHeight
+          : FALLBACK_SETTINGS.footerLogoHeight,
       contact: { ...FALLBACK_SETTINGS.contact, ...(data.contact ?? {}) },
       announcementBar: data.announcementBar ?? FALLBACK_SETTINGS.announcementBar,
       newsletter: data.newsletter ?? FALLBACK_SETTINGS.newsletter,
@@ -293,10 +334,25 @@ export async function getStoreSettings(): Promise<StoreSettings> {
         ...FALLBACK_SETTINGS.catalogConfig,
         ...(data.catalogConfig ?? {}),
       },
+      /*
+       * Both fonts repaired per key, not just merged in whole.
+       *
+       * A theme stored before `adminFont` existed arrives without it, and a
+       * `font` written by a hand-edited row can carry a family with no url. In
+       * either case the nested spread fills the missing half from the fallback,
+       * so a reader never has to defend against a half-written font. `adminFont`
+       * is repaired despite this app never rendering it — it is carried through
+       * to whoever does, and dropping it here would be an outage the admin could
+       * not explain.
+       */
       theme: {
         ...FALLBACK_SETTINGS.theme,
         ...(data.theme ?? {}),
         font: { ...FALLBACK_SETTINGS.theme.font, ...(data.theme?.font ?? {}) },
+        adminFont: {
+          ...FALLBACK_SETTINGS.theme.adminFont,
+          ...(data.theme?.adminFont ?? {}),
+        },
       },
       /*
        * Repaired level by level, like `checkoutConfig` above — but three levels

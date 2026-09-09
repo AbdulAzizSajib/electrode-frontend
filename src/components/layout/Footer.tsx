@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Mail, MapPin, Phone } from "lucide-react";
 import NewsletterForm from "@/components/layout/NewsletterForm";
+import { resolveBrandSlot } from "@/lib/brand-slot";
 import {
   FacebookIcon,
   InstagramIcon,
@@ -49,6 +50,13 @@ export default function Footer({ settings }: { settings: StoreSettings }) {
   const brandName = [storeName, siteNameAccent].filter(Boolean).join(" ");
   const hasContact = Boolean(contact.address || contact.email || contact.phone);
 
+  /*
+   * Whether this slot shows the wordmark or artwork, and — in logo mode — which
+   * image: the footer's own, or the header's when the footer has none of its
+   * own. Shared with the header so the two cannot drift; see `lib/brand-slot`.
+   */
+  const brand = resolveBrandSlot(settings, "footer");
+
   return (
     <footer className="bg-brand text-white">
       {newsletter.heading && (
@@ -82,7 +90,34 @@ export default function Footer({ settings }: { settings: StoreSettings }) {
       */}
       <div className="container-px site-container flex flex-col gap-10 py-12 lg:flex-row lg:gap-x-10">
         <div className="lg:w-1/4 lg:shrink-0">
-          <h4 className="text-2xl font-bold">{brandName}</h4>
+          {/*
+            The brand slot. Still an <h4> in both modes — it heads this block,
+            and a logo does not stop it being the heading — but its content is
+            now whichever of the two the merchant chose, and it links home like
+            the header's does. In logo mode the accessible name comes from the
+            image's alt, which is this same wordmark.
+          */}
+          <h4 className="text-2xl font-bold">
+            <Link href="/" className="inline-block hover:text-accent">
+              {brand.kind === "logo" ? (
+                /*
+                  Sized by the reserved height with the width left to the
+                  artwork, exactly as in the header — see design.md Decision 3.
+                  `max-w-full` keeps a wide logo inside the narrow brand column
+                  rather than letting it stretch the footer's first track.
+                */
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={brand.src}
+                  alt={brand.alt}
+                  style={{ height: brand.height }}
+                  className="max-w-full w-auto object-contain"
+                />
+              ) : (
+                brandName
+              )}
+            </Link>
+          </h4>
           {aboutText && <p className="mt-3 text-sm text-white/80">{aboutText}</p>}
         </div>
 

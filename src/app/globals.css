@@ -1,4 +1,16 @@
-@import url("https://fonts.googleapis.com/css2?family=Outfit:wght@100..900&display=swap");
+/*
+ * No @import for a webfont here.
+ *
+ * This file used to open by unconditionally fetching Outfit's stylesheet, left
+ * over from when Outfit was hardcoded rather than configurable. It stayed after
+ * the typeface became a setting, so every page load fetched Outfit even when
+ * the merchant had chosen something else — a wasted request for a font nothing
+ * rendered in.
+ *
+ * The merchant's font is loaded by the <link> in app/layout.tsx, built from
+ * theme.font.url. The "Outfit" still named in --font-sans below is only the
+ * head of the FALLBACK stack, for the frame before that stylesheet arrives.
+ */
 @import "tailwindcss";
 
 /*

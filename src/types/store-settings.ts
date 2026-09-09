@@ -11,6 +11,17 @@
 /** Which of the two things the storefront root serves. */
 export type SiteMode = "WEBSITE" | "LANDING_PAGE";
 
+/**
+ * How one brand slot — the header or the footer — presents the shop.
+ *
+ * THE MODE DECIDES, not whether a logo happens to be uploaded. A slot set to
+ * `"TEXT"` renders the wordmark even with artwork on file, which is what lets a
+ * shop show its logo on the brand-colour header and its wordmark on the dark
+ * footer without deleting either image. Mirrors the backend's
+ * `BrandDisplayMode`.
+ */
+export type BrandDisplayMode = "TEXT" | "LOGO";
+
 /** Enough of the live campaign page to route the root at it. */
 export interface ActiveLandingPage {
   slug: string;
@@ -246,7 +257,19 @@ export interface Theme {
   sale: string;
   /** Pixels, or `"full"` for an unconstrained content width. */
   maxWidth: number | "full";
+  /** The storefront's typeface — the one this app renders in. */
   font: ThemeFont;
+  /**
+   * The ADMIN PANEL's typeface.
+   *
+   * Carried, never applied. It travels in the same theme blob and is typed
+   * here so the mapper can repair it like every other key, but nothing in the
+   * storefront reads it — the admin is a separate deployment that reads this
+   * same payload for itself. Deliberately not stripped from the type: a value
+   * the storefront silently dropped would be one the admin could not explain
+   * the absence of.
+   */
+  adminFont: ThemeFont;
 }
 
 /** Mirrors the backend's `CurrencyPosition` enum. */
@@ -269,9 +292,30 @@ export interface StoreSettings {
   storeName: string;
   /** The second, accent-coloured half of the wordmark. */
   siteNameAccent: string;
+  /** Artwork for the header slot. Shown only when `headerBrandMode` is `"LOGO"`. */
   logoUrl: string | null;
   /** Null falls back to `logoUrl`, then to the text wordmark. */
   footerLogoUrl: string | null;
+  /**
+   * Which of the two things each brand slot shows, decided independently.
+   *
+   * A slot in `"LOGO"` mode whose artwork cannot be resolved renders the
+   * wordmark rather than an empty box — the brand block is on every page, so a
+   * blank one is worse than the text it replaced. `resolveBrandSlot` in
+   * `src/lib/brand-slot.ts` applies that, and both the header and the footer go
+   * through it so the two cannot drift apart.
+   */
+  headerBrandMode: BrandDisplayMode;
+  footerBrandMode: BrandDisplayMode;
+  /**
+   * Displayed logo height in pixels; width follows the image's proportions.
+   *
+   * Reserved before the image loads, which is what stops a late logo shifting
+   * the page. Bounded 24-96 by the backend — mirrored in the admin, not here,
+   * since the storefront only ever renders what was already validated.
+   */
+  headerLogoHeight: number;
+  footerLogoHeight: number;
   aboutText: string;
   copyrightText: string;
   /** Canonical origin for absolute metadata URLs. Null leaves them relative. */
