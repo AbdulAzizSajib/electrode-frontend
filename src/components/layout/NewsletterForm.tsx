@@ -28,9 +28,9 @@ export default function NewsletterForm({
         type="email"
         placeholder={placeholder || "Email"}
         aria-label="Email address"
-        className="w-full rounded-l bg-white px-4 py-3 text-sm text-gray-900 outline-none"
+        className="w-full rounded-l border border-gray-300 bg-white px-4 py-3 text-sm text-gray-900 outline-none placeholder:text-gray-400 focus:border-brand"
       />
-      <button className="whitespace-nowrap rounded-r bg-accent px-5 py-3 text-sm font-semibold text-white">
+      <button className="whitespace-nowrap rounded-r bg-accent px-5 py-3 text-sm font-semibold text-black focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-dark">
         {buttonLabel || "Subscribe"}
       </button>
     </form>

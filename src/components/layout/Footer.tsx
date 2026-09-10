@@ -35,6 +35,15 @@ const SOCIAL_ICONS: Record<
   pinterest: PinterestIcon,
 };
 
+/*
+ * Focus treatment for every interactive element sitting on the brand bar —
+ * the same rule the header applies to its on-brand controls. The browser's
+ * own ring is blue, which is the one colour that vanishes against `bg-brand`,
+ * so the accent carries it here too.
+ */
+const FOCUS_ON_BRAND =
+  "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent";
+
 export default function Footer({ settings }: { settings: StoreSettings }) {
   const {
     storeName,
@@ -98,7 +107,7 @@ export default function Footer({ settings }: { settings: StoreSettings }) {
             image's alt, which is this same wordmark.
           */}
           <h4 className="text-2xl font-bold">
-            <Link href="/" className="inline-block hover:text-accent">
+            <Link href="/" className={`inline-block hover:text-accent ${FOCUS_ON_BRAND}`}>
               {brand.kind === "logo" ? (
                 /*
                   Sized by the reserved height with the width left to the
@@ -135,7 +144,7 @@ export default function Footer({ settings }: { settings: StoreSettings }) {
                   <li key={`${link.label}-${link.href}`}>
                     {/* A real target, not `href="#"`. Footer links pointing
                         nowhere is the bug this whole change removes. */}
-                    <Link href={link.href} className="hover:text-accent">
+                    <Link href={link.href} className={`hover:text-accent ${FOCUS_ON_BRAND}`}>
                       {link.label}
                     </Link>
                   </li>
@@ -156,10 +165,10 @@ export default function Footer({ settings }: { settings: StoreSettings }) {
                 )}
                 {contact.email && (
                   <li className="flex items-center gap-2">
-                    <Mail size={16} className="shrink-0" />
+                    <Mail size={18} className="shrink-0" />
                     <a
                       href={`mailto:${contact.email}`}
-                      className="break-all hover:text-accent"
+                      className={`break-all hover:text-accent ${FOCUS_ON_BRAND}`}
                     >
                       {contact.email}
                     </a>
@@ -167,8 +176,8 @@ export default function Footer({ settings }: { settings: StoreSettings }) {
                 )}
                 {contact.phone && (
                   <li className="flex items-center gap-2">
-                    <Phone size={16} className="shrink-0" />
-                    <a href={`tel:${contact.phone}`} className="hover:text-accent">
+                    <Phone size={18} className="shrink-0" />
+                    <a href={`tel:${contact.phone}`} className={`hover:text-accent ${FOCUS_ON_BRAND}`}>
                       {contact.phone}
                     </a>
                   </li>
@@ -194,7 +203,7 @@ export default function Footer({ settings }: { settings: StoreSettings }) {
                 target="_blank"
                 rel="noopener noreferrer"
                 aria-label={social.platform}
-                className="hover:text-accent"
+                className={`hover:text-accent ${FOCUS_ON_BRAND}`}
               >
                 <IconComponent size={18} />
               </a>

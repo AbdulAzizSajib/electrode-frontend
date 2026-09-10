@@ -71,7 +71,7 @@ export default function ProductCard({ product }: { product: Product }) {
 
   return (
     <div className="group relative flex flex-col">
-      <div className="relative aspect-square overflow-hidden rounded-lg bg-gray-100">
+      <div className={`relative aspect-square overflow-hidden rounded-lg bg-gray-100${product.inStock ? "" : " opacity-60"}`}>
         {/* The discount is the stronger claim, so it keeps the corner. A badge
             is the merchant's own label and sits below when both apply — and a
             product with no badge shows nothing rather than an empty chip. */}
@@ -147,7 +147,7 @@ export default function ProductCard({ product }: { product: Product }) {
         )}
         <div className="mt-1.5 flex items-center gap-2">
           {product.sellingPrice && (
-            <span className="text-sm text-gray-400 line-through">
+            <span className="text-sm text-gray-500 line-through">
               {formatPrice(product.sellingPrice)}
             </span>
           )}
@@ -160,7 +160,7 @@ export default function ProductCard({ product }: { product: Product }) {
             showing its action while a sibling hides one. The slot keeps its
             footprint in both states — only opacity and transform animate — so
             revealing never reflows the grid. */}
-        <div className="mt-3 transition-[opacity,transform] duration-200 ease-out motion-reduce:transition-none hover-capable:invisible hover-capable:translate-y-1 hover-capable:opacity-0 hover-capable:group-focus-within:visible hover-capable:group-focus-within:translate-y-0 hover-capable:group-focus-within:opacity-100 hover-capable:group-hover:visible hover-capable:group-hover:translate-y-0 hover-capable:group-hover:opacity-100">
+        <div className="mt-3 transition-[opacity,transform] duration-200 ease-out motion-reduce:transition-none hover-capable:pointer-events-none hover-capable:translate-y-1 hover-capable:opacity-0 hover-capable:group-hover:pointer-events-auto hover-capable:group-hover:visible hover-capable:group-hover:translate-y-0 hover-capable:group-hover:opacity-100 hover-capable:group-focus-within:pointer-events-auto hover-capable:group-focus-within:visible hover-capable:group-focus-within:translate-y-0 hover-capable:group-focus-within:opacity-100">
           {/* Every product reads `Add to cart` — the label names what the
               shopper wants rather than the mechanism behind it, so a variable
               product cannot look less purchasable than the simple one beside
