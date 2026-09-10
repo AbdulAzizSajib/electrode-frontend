@@ -1,7 +1,7 @@
 "use client";
 import { Icon } from "@iconify/react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ChevronDown,
@@ -58,6 +58,18 @@ const FOCUS_IN_PANEL =
  */
 const BADGE =
   "absolute -right-2 -top-2 flex h-4 min-w-4 items-center justify-center rounded-full bg-sale px-1 text-[10px] font-bold text-white";
+
+/**
+ * Query params that distinguish one nav entry from a sibling on the same path.
+ *
+ * `mainNav` ships three entries pointing at `/products`, separated only by
+ * `?sort=` — see `FALLBACK_SETTINGS` in `src/services/store-settings.ts`. When
+ * one of these is set, the bare `/products` link must go dark so a single entry
+ * reads as active; every other param (`page`, category filters) is incidental
+ * and leaves the active entry alone. Add a param here only when a nav entry is
+ * actually built on it.
+ */
+const SORTED_NAV_PARAMS = ["sort"];
 
 /** The desktop icon-plus-label actions, so the four cannot drift apart. */
 const HEADER_ACTION = clsx(
@@ -121,6 +133,7 @@ export default function Header({
   const compareCount = useAppSelector(selectCompareCount);
   const isCompareHydrated = useAppSelector(selectIsCompareHydrated);
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [openMenu, setOpenMenu] = useState<string | null>(null);
   const [openCategory, setOpenCategory] = useState<string | null>(null);
@@ -163,17 +176,48 @@ export default function Header({
   /**
    * Whether a nav destination is the page being read.
    *
-   * Compares the path alone, as the feature filter does — a stored href may
-   * carry a query, and `/products?sort=new` still marks `/products`. A child
-   * route counts as its parent so `/products/anker-321` keeps Shop lit.
+   * The query is part of the identity, not noise to strip. Three default nav
+   * entries share one path and differ only by sort — `/products`,
+   * `/products?sort=best`, `/products?sort=new` — so matching on the path
+   * alone lit all three at once, on the listing and on every product detail
+   * page under it. A link's query params must therefore all match the current
+   * URL, and a link that omits a param only matches when the URL omits it too;
+   * otherwise plain Shop would stay lit while Best Selling is the active view.
+   *
+   * Extra params the link never mentions are ignored, so paging and filtering
+   * (`?sort=new&page=2`) keeps New Arrivals lit rather than clearing the nav.
+   *
+   * A child route still counts as its parent, so `/products/anker-321` keeps
+   * Shop — and only Shop — lit.
    */
   const isCurrent = useCallback(
     (href: string) => {
-      const path = href.split("?")[0].split("#")[0].replace(/\/+$/, "") || "/";
-      if (path === "/") return pathname === "/";
-      return pathname === path || pathname.startsWith(`${path}/`);
+      const [rawPath, rawQuery = ""] = href.split("#")[0].split("?");
+      const path = rawPath.replace(/\/+$/, "") || "/";
+
+      const pathMatches =
+        path === "/"
+          ? pathname === "/"
+          : pathname === path || pathname.startsWith(`${path}/`);
+      if (!pathMatches) return false;
+
+      // A detail page carries none of the listing's sort params, so only the
+      // bare link (no query) should match it.
+      const isChildRoute = pathname !== path;
+      const linkParams = new URLSearchParams(rawQuery);
+
+      if (isChildRoute) return rawQuery === "";
+
+      for (const [key, value] of linkParams) {
+        if (searchParams.get(key) !== value) return false;
+      }
+      // The bare link loses to whichever sibling declares the active param.
+      if (rawQuery === "") {
+        return SORTED_NAV_PARAMS.every((key) => !searchParams.has(key));
+      }
+      return true;
     },
-    [pathname],
+    [pathname, searchParams],
   );
 
   /*

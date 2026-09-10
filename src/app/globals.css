@@ -76,6 +76,20 @@
  */
 @custom-variant hover-capable (@media (hover: hover) and (pointer: fine));
 
+/*
+ * Text selection, drawn from the merchant's brand rather than the browser's
+ * default blue — one of the few painted surfaces a site does not author and
+ * therefore the one most likely to contradict its palette.
+ *
+ * `color-mix` rather than a fixed tint: --color-brand is whatever the merchant
+ * stored, so the highlight has to be derived from it at paint time. 18% keeps
+ * selected text readable against any brand hue, dark or light, instead of
+ * betting on a foreground colour that only works for some of them.
+ */
+::selection {
+  background-color: color-mix(in srgb, var(--color-brand) 18%, transparent);
+}
+
 body {
   background: var(--background);
   color: var(--foreground);
@@ -213,6 +227,28 @@ body {
 ::-webkit-scrollbar-thumb {
   background: #cbd5e1;
   border-radius: 9999px;
+}
+
+/*
+ * A scroller that scrolls without showing a bar.
+ *
+ * The rule above paints scrollbars in nested scrollers on purpose — inside a
+ * cart drawer or a menu, the bar is the only thing saying the list runs past
+ * the fold. A tab strip is the opposite case: it is one row of three short
+ * words that only overflows on a narrow phone, so on every wider screen the
+ * scroll container reserved an 8px gutter and drew a thumb in the empty space
+ * beside the last tab — a control pointing at nothing.
+ *
+ * Opting out per-element rather than narrowing the rule above, so the drawers
+ * and menus that want a visible bar keep it untouched.
+ */
+.tabs-scroller {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* legacy Edge */
+}
+.tabs-scroller::-webkit-scrollbar {
+  width: 0;
+  height: 0;
 }
 
 /*

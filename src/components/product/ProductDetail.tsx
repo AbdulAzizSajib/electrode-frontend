@@ -1,10 +1,20 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import clsx from "clsx";
-import { Eye, Gift, Loader2, Minus, Plus, RotateCcw, ShieldCheck, XCircle } from "lucide-react";
+import {
+  Eye,
+  Gift,
+  Loader2,
+  Minus,
+  Plus,
+  RotateCcw,
+  ShieldCheck,
+  ShoppingCart,
+  XCircle,
+} from "lucide-react";
 import type { PaginationMeta, Product, ProductImage } from "@/types/product";
 import type { RatingBreakdown, Review } from "@/types/review";
 import { discountPercent, formatCount, formatPrice } from "@/lib/format";
@@ -40,6 +50,42 @@ const TABS: { id: ProductTab; label: string }[] = [
   { id: "shipping", label: "Shipping & Returns" },
   { id: "reviews", label: "Reviews" },
 ];
+
+/**
+ * The most a shopper may put in the box in one go.
+ *
+ * Stock is the real ceiling and is applied first; this only covers the case
+ * where stock is high enough that the stepper stops being a stepper. Nobody
+ * reaches 99 by clicking, so the cap costs a genuine buyer nothing while
+ * keeping a held-down key from sending a four-digit quantity to checkout.
+ */
+const MAX_QUANTITY = 99;
+
+/**
+ * Focus ring for every control on this page.
+ *
+ * The page shipped with none, so each of the quantity stepper, the tabs, the
+ * rating jump and both CTAs fell back to the browser's default outline — which
+ * belongs to no design system and differs per engine. Drawn from the brand
+ * token, offset so it reads as a ring around the control rather than a border
+ * on it, and `focus-visible` so a mouse click never paints one.
+ */
+const FOCUS_RING =
+  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2";
+
+/**
+ * Everything the two buy buttons share.
+ *
+ * They are a matched pair and must stay the same size, weight and rhythm — only
+ * their fill differs. Previously each carried its own full class string in a
+ * different idiom, which is how one of them ended up without a transition.
+ *
+ * `h-12` rather than `py-3`: the primary has no icon and the secondary does, so
+ * padding alone left the two a few pixels apart in height whenever the spinner
+ * appeared.
+ */
+const BUY_BUTTON_BASE =
+  "flex h-12 flex-1 items-center justify-center gap-2 rounded-md px-4 text-sm font-semibold uppercase tracking-wide transition-colors disabled:cursor-not-allowed";
 
 export default function ProductDetail({
   product,
@@ -143,10 +189,49 @@ export default function ProductDetail({
   const [tab, setTab] = useState<ProductTab>("description");
   const [error, setError] = useState("");
 
-  /** Jumps from the rating row under the title down to the reviews panel. */
+  /**
+   * The tab buttons, so the strip can move focus itself.
+   *
+   * A tablist is a single tab stop: arrow keys move between tabs, and Tab
+   * leaves for the panel. That requires focusing a sibling programmatically,
+   * which needs a handle on the elements.
+   */
+  const tabRefs = useRef<Partial<Record<ProductTab, HTMLButtonElement | null>>>({});
+
+  /**
+   * Jumps from the rating row under the title down to the reviews panel.
+   *
+   * Focus follows the scroll rather than staying behind on the rating link. A
+   * keyboard or screen-reader user who activates this would otherwise be
+   * looking at reviews with their focus still twelve hundred pixels up the
+   * page, and their next Tab would walk them back through the buy controls.
+   */
   function showReviews() {
     setTab("reviews");
     document.getElementById("product-tabs")?.scrollIntoView({ behavior: "smooth" });
+    tabRefs.current.reviews?.focus({ preventScroll: true });
+  }
+
+  /**
+   * Arrow-key movement across the tab strip, per the tabs pattern: Left/Right
+   * wrap around the ends, Home/End jump to them. Selection follows focus, which
+   * is the correct choice here because every panel is already rendered — moving
+   * to one costs nothing, so there is no reason to make the shopper confirm.
+   */
+  function handleTabKeyDown(event: React.KeyboardEvent<HTMLButtonElement>) {
+    const index = TABS.findIndex((t) => t.id === tab);
+    let next = index;
+
+    if (event.key === "ArrowRight") next = (index + 1) % TABS.length;
+    else if (event.key === "ArrowLeft") next = (index - 1 + TABS.length) % TABS.length;
+    else if (event.key === "Home") next = 0;
+    else if (event.key === "End") next = TABS.length - 1;
+    else return;
+
+    event.preventDefault();
+    const nextTab = TABS[next].id;
+    setTab(nextTab);
+    tabRefs.current[nextTab]?.focus();
   }
 
   // The image actually on screen, resolved in the order the shopper's intent
@@ -168,6 +253,23 @@ export default function ProductDetail({
   const availableStock = selectedVariant
     ? selectedVariant.stockQuantity
     : product.stockQuantity;
+
+  /*
+   * The quantity box used to climb without limit — `q + 1` on every click, with
+   * nothing reading stock. A shopper could ask for forty of a three-in-stock
+   * item and only find out at the server, after entering an address.
+   *
+   * The ceiling is the stock actually available for the current selection, so
+   * it moves when the shopper picks a different variant. `selectOptionValue`
+   * already resets the quantity to 1 on that change, so the displayed value can
+   * never be left above a newly-lower ceiling.
+   */
+  const maxQuantity = Math.max(1, Math.min(availableStock, MAX_QUANTITY));
+  const atMaxQuantity = quantity >= maxQuantity;
+
+  function changeQuantity(next: number) {
+    setQuantity(Math.max(1, Math.min(next, maxQuantity)));
+  }
 
   // Nothing may be added until every option is answered — an incomplete
   // selection does not name a product to buy. `selection.isComplete` covers a
@@ -221,12 +323,55 @@ export default function ProductDetail({
 
   return (
     <div className="container-px site-container py-8">
-      <p className="mb-6 text-sm text-gray-500">
-        <Link href="/" className="hover:text-brand">
-          Home
-        </Link>{" "}
-        / {product.name}
-      </p>
+      {/* A real trail, not two labels: the middle rung is what a shopper who
+          arrived from search uses to reach the category they never visited.
+          Marked up as a nav so it is skippable and announced as one thing, and
+          the current page carries `aria-current` rather than relying on being
+          the unlinked item. */}
+      <nav aria-label="Breadcrumb" className="mb-6">
+        <ol className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-sm text-gray-500">
+          <li>
+            <Link href="/" className={clsx("rounded-sm hover:text-brand", FOCUS_RING)}>
+              Home
+            </Link>
+          </li>
+          <li aria-hidden className="text-gray-300">
+            /
+          </li>
+          {/* Gated on the SLUG, not the name: `/products` resolves the
+              `category` param as a slug, so linking the display name would
+              produce a filter that silently matches nothing. A product whose
+              category has a name but no slug shows no rung rather than a
+              broken one. */}
+          {product.category && product.categorySlug && (
+            <>
+              <li>
+                <Link
+                  href={`/products?category=${encodeURIComponent(product.categorySlug)}`}
+                  className={clsx("rounded-sm hover:text-brand", FOCUS_RING)}
+                >
+                  {product.category}
+                </Link>
+              </li>
+              <li aria-hidden className="text-gray-300">
+                /
+              </li>
+            </>
+          )}
+          {/* Truncated rather than allowed to wrap the trail onto three lines —
+              a long product name is the common case, not the edge one. The full
+              name is the <h1> directly below, so nothing is lost. */}
+          <li className="min-w-0 max-w-full">
+            <span
+              aria-current="page"
+              className="block truncate text-gray-700"
+              title={product.name}
+            >
+              {product.name}
+            </span>
+          </li>
+        </ol>
+      </nav>
 
       <div className="grid grid-cols-1 gap-10 lg:grid-cols-2">
         <div>
@@ -273,23 +418,39 @@ export default function ProductDetail({
               <button
                 type="button"
                 onClick={showReviews}
-                className="text-sm text-brand underline-offset-2 hover:underline"
+                className={clsx(
+                  "rounded-sm text-sm text-brand underline-offset-2 hover:underline",
+                  FOCUS_RING,
+                )}
               >
                 {product.reviewCount} review{product.reviewCount === 1 ? "" : "s"}
               </button>
             </div>
           )}
 
-          <div className="mt-3 flex items-center gap-3">
+          {/*
+            `tabular-nums` on every price here. Prices change in place when a
+            variant is picked, and proportional digits make the number jitter
+            horizontally as it does — the one place on a product page where
+            fixed-width digits are worth asking for.
+          */}
+          <div className="mt-3 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+            <span className="text-2xl font-bold tabular-nums text-sale">
+              {formatPrice(activePrice)}
+            </span>
             {activeCompareAt && activeCompareAt > activePrice && (
-              <span className="text-lg text-gray-400 line-through">
+              // Read aloud as what it is. A bare struck-through number is
+              // announced as a second price with no indication it is the old
+              // one, which is the opposite of what the strike conveys visually.
+              <span className="text-lg tabular-nums text-gray-400 line-through">
+                <span className="sr-only">Regular price: </span>
                 {formatPrice(activeCompareAt)}
               </span>
             )}
-            <span className="text-2xl font-bold text-sale">{formatPrice(activePrice)}</span>
             {discount && (
-              <span className="rounded bg-brand px-2 py-1 text-xs font-semibold text-white">
-                -{discount}%
+              <span className="rounded bg-brand px-2 py-1 text-xs font-semibold tabular-nums text-white">
+                <span className="sr-only">Save </span>
+                {discount}%<span className="sr-only"> off</span>
               </span>
             )}
           </div>
@@ -313,28 +474,32 @@ export default function ProductDetail({
             assert a returns policy on their behalf.
           */}
           {(product.isRefundable !== undefined || product.hasWarranty !== undefined) && (
-            <div className="mt-4 flex flex-wrap gap-4 text-sm">
+            // Given a surface of their own rather than sitting as loose text in
+            // the run of the page. These are the two reassurances a shopper
+            // looks for right before committing, and as bare gray body copy
+            // they read as another specification line.
+            <ul className="mt-4 flex flex-wrap gap-x-6 gap-y-2 rounded-lg bg-gray-50 px-4 py-3 text-sm">
               {product.isRefundable !== undefined && (
-                <span className="inline-flex items-center gap-1.5 text-gray-600">
+                <li className="inline-flex items-center gap-2 text-gray-700">
                   {product.isRefundable ? (
-                    <RotateCcw size={15} className="text-green-600" />
+                    <RotateCcw size={15} className="shrink-0 text-green-700" aria-hidden />
                   ) : (
-                    <XCircle size={15} className="text-gray-400" />
+                    <XCircle size={15} className="shrink-0 text-gray-400" aria-hidden />
                   )}
                   {product.isRefundable ? "Refundable" : "Not refundable"}
-                </span>
+                </li>
               )}
               {product.hasWarranty !== undefined && (
-                <span className="inline-flex items-center gap-1.5 text-gray-600">
+                <li className="inline-flex items-center gap-2 text-gray-700">
                   {product.hasWarranty ? (
-                    <ShieldCheck size={15} className="text-green-600" />
+                    <ShieldCheck size={15} className="shrink-0 text-green-700" aria-hidden />
                   ) : (
-                    <XCircle size={15} className="text-gray-400" />
+                    <XCircle size={15} className="shrink-0 text-gray-400" aria-hidden />
                   )}
                   {product.hasWarranty ? "Warranty included" : "No warranty"}
-                </span>
+                </li>
               )}
-            </div>
+            </ul>
           )}
 
           {/*
@@ -368,12 +533,29 @@ export default function ProductDetail({
             </p>
           )}
 
-          <p className="mt-3 text-sm">
+          {/*
+            Availability is the one line on this page that changes as the
+            shopper picks options, so it announces itself — without this, a
+            screen-reader user selecting a sold-out colour gets no indication
+            anything happened until they reach the disabled button.
+
+            `polite` rather than `assertive`: it is worth hearing at the next
+            pause, not worth interrupting mid-word.
+          */}
+          <p className="mt-3 text-sm" aria-live="polite">
             <span className="font-semibold text-gray-700">Availability: </span>
             {availableStock > 0 ? (
-              <span className="text-green-600">{availableStock} in stock</span>
+              // Low stock is stated plainly rather than dressed as urgency.
+              // The count is real, so it can carry weight honestly; the page
+              // deliberately removed a fabricated countdown for the same
+              // reason, and this must not reintroduce that voice.
+              <span className={availableStock <= 5 ? "font-medium text-amber-700" : "text-green-700"}>
+                {availableStock <= 5
+                  ? `Only ${availableStock} left`
+                  : `${availableStock} in stock`}
+              </span>
             ) : (
-              <span className="text-sale">Sold out</span>
+              <span className="font-medium text-sale">Sold out</span>
             )}
           </p>
 
@@ -391,66 +573,163 @@ export default function ProductDetail({
             </p>
           )}
 
-          <div className="mt-6">
-            <p className="mb-2 text-sm font-semibold text-gray-700">Quantity</p>
-            <div className="flex items-center gap-4">
-              <div className="flex items-center rounded border border-gray-300">
-                <button
-                  className="p-3"
-                  onClick={() => setQuantity((q) => Math.max(1, q - 1))}
-                  aria-label="Decrease quantity"
+          {/*
+            The stepper is hidden entirely when there is nothing to buy —
+            choosing a quantity of a sold-out product is a control that cannot
+            lead anywhere.
+          */}
+          {availableStock > 0 && (
+            <div className="mt-6">
+              <p id="quantity-label" className="mb-2 text-sm font-semibold text-gray-700">
+                Quantity
+              </p>
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+                {/*
+                  Both ends are now bounded. The increment used to be a bare
+                  `q + 1` with nothing reading stock, so the box would climb to
+                  any number and the shopper learned the truth at the server.
+
+                  Marked up as a spinbutton so the value, its range and its
+                  changes are all announced — three unrelated elements (two
+                  buttons and a span) conveyed none of that.
+                */}
+                <div
+                  className="flex items-center overflow-hidden rounded-md border border-gray-300 focus-within:border-brand focus-within:ring-2 focus-within:ring-brand/20"
+                  role="spinbutton"
+                  aria-labelledby="quantity-label"
+                  aria-valuenow={quantity}
+                  aria-valuemin={1}
+                  aria-valuemax={maxQuantity}
                 >
-                  <Minus size={16} />
-                </button>
-                <span className="w-8 text-center text-sm">{quantity}</span>
-                <button
-                  className="p-3"
-                  onClick={() => setQuantity((q) => q + 1)}
-                  aria-label="Increase quantity"
-                >
-                  <Plus size={16} />
-                </button>
+                  <button
+                    type="button"
+                    className={clsx(
+                      "flex h-11 w-11 items-center justify-center text-gray-600 transition-colors",
+                      "hover:bg-gray-50 hover:text-gray-900",
+                      "disabled:cursor-not-allowed disabled:text-gray-300 disabled:hover:bg-transparent",
+                      FOCUS_RING,
+                      "focus-visible:ring-offset-0",
+                    )}
+                    onClick={() => changeQuantity(quantity - 1)}
+                    disabled={quantity <= 1}
+                    aria-label="Decrease quantity"
+                  >
+                    <Minus size={16} />
+                  </button>
+                  <span
+                    aria-hidden
+                    className="w-10 text-center text-sm font-medium tabular-nums text-gray-900"
+                  >
+                    {quantity}
+                  </span>
+                  <button
+                    type="button"
+                    className={clsx(
+                      "flex h-11 w-11 items-center justify-center text-gray-600 transition-colors",
+                      "hover:bg-gray-50 hover:text-gray-900",
+                      "disabled:cursor-not-allowed disabled:text-gray-300 disabled:hover:bg-transparent",
+                      FOCUS_RING,
+                      "focus-visible:ring-offset-0",
+                    )}
+                    onClick={() => changeQuantity(quantity + 1)}
+                    disabled={atMaxQuantity}
+                    aria-label="Increase quantity"
+                  >
+                    <Plus size={16} />
+                  </button>
+                </div>
+
+                {/* Says why the plus stopped responding. A control that goes
+                    dead without explanation reads as broken. */}
+                {atMaxQuantity && availableStock <= MAX_QUANTITY && (
+                  <p className="text-sm text-gray-500">
+                    All {availableStock} in stock
+                  </p>
+                )}
               </div>
             </div>
-          </div>
+          )}
 
-          {error && <p className="mt-4 text-sm text-red-600">{error}</p>}
+          {/* `role="alert"` so a failed add is heard, not only seen — this is
+              the only feedback that the action did not happen. */}
+          {error && (
+            <p role="alert" className="mt-4 text-sm font-medium text-red-700">
+              {error}
+            </p>
+          )}
 
+          {/*
+            Both buttons are now expressed the same way — shared base, one
+            variant class each. They had drifted apart into two idioms: the
+            first used `disabled:` variants, the second a `clsx` ternary that
+            reimplemented the same states and reached a different answer (no
+            transition, and a grey fill instead of a muted outline).
+
+            The labels match `ProductCard`'s "Add to cart" exactly. Title case
+            here against sentence case there was the same action spelled two
+            ways on two screens a shopper sees in the same minute.
+          */}
           <div className="mt-6 flex flex-col gap-3 sm:flex-row">
             <button
+              type="button"
               onClick={handleAddToCart}
               disabled={!canAdd || isLoading}
-              className="flex flex-1 items-center justify-center gap-2 rounded border border-brand py-3 text-sm font-semibold uppercase text-brand hover:bg-gray-50 disabled:cursor-not-allowed disabled:border-gray-300 disabled:text-gray-400"
+              className={clsx(
+                BUY_BUTTON_BASE,
+                "border border-brand text-brand hover:bg-brand hover:text-white",
+                "disabled:border-gray-300 disabled:bg-transparent disabled:text-gray-400 disabled:hover:bg-transparent disabled:hover:text-gray-400",
+                FOCUS_RING,
+              )}
             >
-              {isLoading && <Loader2 size={16} className="animate-spin" />}
-              {isLoading ? "Adding..." : "Add to Cart"}
+              {isLoading ? (
+                <Loader2 size={16} className="animate-spin" />
+              ) : (
+                <ShoppingCart size={16} />
+              )}
+              {isLoading ? "Adding..." : "Add to cart"}
             </button>
             <button
               type="button"
               onClick={handleBuyItNow}
               disabled={!canAdd || isLoading}
               className={clsx(
-                "flex-1 rounded py-3 text-center text-sm font-semibold uppercase text-white",
-                canAdd && !isLoading
-                  ? "bg-brand hover:bg-brand-dark"
-                  : "cursor-not-allowed bg-gray-300",
+                BUY_BUTTON_BASE,
+                "border border-brand bg-brand text-white hover:border-brand-dark hover:bg-brand-dark",
+                "disabled:border-gray-200 disabled:bg-gray-200 disabled:text-gray-400",
+                FOCUS_RING,
               )}
             >
-              Buy It Now
+              Buy it now
             </button>
           </div>
+
+          {/* Sold out is an outcome, not just two grey buttons. Naming it below
+              the controls is what stops the disabled pair from reading as a
+              page that failed to load. */}
+          {availableStock === 0 && (
+            <p className="mt-3 text-sm text-gray-500">
+              This item is out of stock.{" "}
+              {product.variants.length > 0
+                ? "Try another option above."
+                : "Check back soon."}
+            </p>
+          )}
 
           {/* The row goes entirely when neither feature is offered, rather than
               leaving an empty flex container and its top margin behind. */}
           {(showWishlist || showCompare) && (
-            <div className="mt-4 flex gap-6 text-sm text-gray-500">
+            // `gap-x-6` with a row gap, so the two wrap cleanly on a narrow
+            // viewport instead of being pushed off the edge. Both get the
+            // page's focus ring and a target tall enough to hit on touch —
+            // as bare text links they had neither.
+            <div className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-2 text-sm text-gray-500">
               {showWishlist && (
                 <WishlistButton
                   productId={product.id}
                   size={16}
                   withLabel
                   standalone
-                  className="hover:text-brand"
+                  className={clsx("min-h-11 rounded-sm hover:text-brand", FOCUS_RING)}
                 />
               )}
               {showCompare && (
@@ -458,26 +737,48 @@ export default function ProductDetail({
                   slug={product.slug}
                   size={16}
                   withLabel
-                  className="hover:text-brand"
+                  className={clsx("min-h-11 rounded-sm hover:text-brand", FOCUS_RING)}
                 />
               )}
             </div>
           )}
 
-          <div className="mt-6 space-y-1 border-t border-gray-100 pt-4 text-sm text-gray-500">
-            <p>SKU: {selectedVariant?.sku ?? product.sku}</p>
-            {product.brand && <p>Brand: {product.brand}</p>}
-            {product.category && <p>Category: {product.category}</p>}
-          </div>
+          {/* A definition list, because that is what it is — three label/value
+              pairs previously written as sentences with a colon in them, which
+              a screen reader reads as prose and no assistive tool can navigate
+              as a table of facts. The same shape as Specifications below, so
+              the two blocks stop being two idioms for one thing. */}
+          <dl className="mt-6 space-y-2 border-t border-gray-100 pt-4 text-sm">
+            <div className="flex gap-3">
+              <dt className="w-40 shrink-0 text-gray-500">SKU</dt>
+              {/* Wraps rather than overflowing: a variant SKU can be long, and
+                  it is the one value here with no natural break points. */}
+              <dd className="wrap-break-word text-gray-800">
+                {selectedVariant?.sku ?? product.sku}
+              </dd>
+            </div>
+            {product.brand && (
+              <div className="flex gap-3">
+                <dt className="w-40 shrink-0 text-gray-500">Brand</dt>
+                <dd className="text-gray-800">{product.brand}</dd>
+              </div>
+            )}
+            {product.category && (
+              <div className="flex gap-3">
+                <dt className="w-40 shrink-0 text-gray-500">Category</dt>
+                <dd className="text-gray-800">{product.category}</dd>
+              </div>
+            )}
+          </dl>
 
           {product.attributes.length > 0 && (
             <div className="mt-6 border-t border-gray-100 pt-4">
-              <p className="mb-3 text-sm font-semibold text-gray-700">Specifications</p>
+              <h2 className="mb-3 text-sm font-semibold text-gray-700">Specifications</h2>
               <dl className="space-y-2 text-sm">
                 {product.attributes.map((attr) => (
                   <div key={`${attr.name}-${attr.value}`} className="flex gap-3">
                     <dt className="w-40 shrink-0 text-gray-500">{attr.name}</dt>
-                    <dd className="text-gray-800">{attr.value}</dd>
+                    <dd className="wrap-break-word text-gray-800">{attr.value}</dd>
                   </div>
                 ))}
               </dl>
@@ -486,59 +787,136 @@ export default function ProductDetail({
         </div>
       </div>
 
+      {/*
+        A real tablist. These were three plain buttons with no roles, no
+        `aria-selected` and no relationship to the content below, so the panel
+        that appeared on click was — to a screen reader — unannounced content
+        arriving from nowhere.
+
+        The strip is one tab stop: `tabIndex` is 0 only on the selected tab, and
+        `handleTabKeyDown` moves between them with the arrow keys.
+      */}
       <div id="product-tabs" className="mt-12 border-t border-gray-100 pt-8">
-        <div className="mb-6 flex gap-8 border-b border-gray-100">
-          {TABS.map(({ id, label }) => (
-            <button
-              key={id}
-              onClick={() => setTab(id)}
-              className={clsx(
-                "border-b-2 pb-3 text-sm font-semibold",
-                tab === id ? "border-brand text-brand" : "border-transparent text-gray-500",
-              )}
-            >
-              {label}
-              {id === "reviews" && product.reviewCount > 0 && ` (${product.reviewCount})`}
-            </button>
-          ))}
+        <div
+          role="tablist"
+          aria-label="Product information"
+          /*
+           * Horizontally scrollable rather than wrapped or squeezed: three tabs
+           * with a review count do not fit a 320px viewport, and a wrapped tab
+           * strip loses the underline's meaning as a single row.
+           *
+           * `tabs-scroller` hides the bar itself. This storefront deliberately
+           * PAINTS scrollbars inside nested scrollers (globals.css) so a panel
+           * that runs past the fold says so — correct for the cart drawer and
+           * the mobile menu, wrong here. A tab strip is three words wide; on
+           * desktop it never overflows, yet the scroll container still reserved
+           * an 8px gutter and drew a thumb in the empty space to the right of
+           * "Reviews". The scrolling is kept for narrow viewports; only the
+           * painted bar goes.
+           */
+          className="tabs-scroller mb-6 flex gap-8 overflow-x-auto border-b border-gray-100"
+        >
+          {TABS.map(({ id, label }) => {
+            const isSelected = tab === id;
+            return (
+              <button
+                key={id}
+                ref={(node) => {
+                  tabRefs.current[id] = node;
+                }}
+                type="button"
+                role="tab"
+                id={`product-tab-${id}`}
+                aria-selected={isSelected}
+                aria-controls={`product-panel-${id}`}
+                tabIndex={isSelected ? 0 : -1}
+                onClick={() => setTab(id)}
+                onKeyDown={handleTabKeyDown}
+                className={clsx(
+                  "-mb-px shrink-0 whitespace-nowrap border-b-2 pb-3 text-sm font-semibold transition-colors",
+                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2",
+                  isSelected
+                    ? "border-brand text-brand"
+                    : "border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-900",
+                )}
+              >
+                {label}
+                {id === "reviews" && product.reviewCount > 0 && (
+                  <span className="tabular-nums"> ({product.reviewCount})</span>
+                )}
+              </button>
+            );
+          })}
         </div>
-        {tab === "description" &&
-          (isBlankHtml(product.description) ? (
+
+        {/*
+          Each panel is labelled by its tab.
+
+          Deliberately NOT `tabIndex={0}`. The tabs pattern only asks for a
+          focusable panel when the panel holds nothing focusable of its own —
+          and it always does here: the description renders merchant links, and
+          the reviews panel is a whole form. Making it a tab stop anyway had
+          two visible costs. The browser treats a focusable div as a scrollable
+          region, so it drew a scrollbar down the right edge of the panel (the
+          storefront paints nested scrollbars by design, see globals.css); and
+          a focus ring on a full-width container sat far to the right of the
+          `max-w-3xl` text it was supposed to indicate.
+
+          Hidden panels are unmounted rather than hidden with a class: the
+          reviews panel fetches and holds its own state, and keeping all three
+          mounted would run that work for a shopper who never opens it.
+        */}
+        <div
+          role="tabpanel"
+          id={`product-panel-${tab}`}
+          aria-labelledby={`product-tab-${tab}`}
+        >
+          {tab === "description" &&
+            (isBlankHtml(product.description) ? (
+              <p className="max-w-3xl text-sm leading-relaxed text-gray-600">
+                No description available for this product yet.
+              </p>
+            ) : (
+              /* Merchant-authored markup. `RichText` sanitises it here, where it
+                 meets the browser — never trusting what was stored. */
+              <RichText html={product.description as string} className="max-w-3xl" />
+            ))}
+          {tab === "shipping" && (
             <p className="max-w-3xl text-sm leading-relaxed text-gray-600">
-              No description available for this product yet.
+              Items can be returned or exchanged within 30 days of delivery in original
+              condition. Contact support to start a return.
             </p>
-          ) : (
-            /* Merchant-authored markup. `RichText` sanitises it here, where it
-               meets the browser — never trusting what was stored. */
-            <RichText html={product.description as string} className="max-w-3xl" />
-          ))}
-        {tab === "shipping" && (
-          <p className="max-w-3xl text-sm leading-relaxed text-gray-600">
-            Free shipping on orders over ৳130. Items can be returned or exchanged within 30 days of
-            delivery in original condition. Contact support to start a return.
-          </p>
-        )}
-        {tab === "reviews" && (
-          <ProductReviews
-            productId={product.id}
-            initialReviews={initialReviews}
-            initialBreakdown={initialBreakdown}
-            initialMeta={initialReviewMeta}
-            initialError={reviewsUnavailable}
-            isSignedIn={isSignedIn}
-          />
-        )}
+          )}
+          {tab === "reviews" && (
+            <ProductReviews
+              productId={product.id}
+              initialReviews={initialReviews}
+              initialBreakdown={initialBreakdown}
+              initialMeta={initialReviewMeta}
+              initialError={reviewsUnavailable}
+              isSignedIn={isSignedIn}
+            />
+          )}
+        </div>
       </div>
 
       {related.length > 0 && (
-        <div className="mt-12">
-          <h2 className="mb-6 text-xl font-bold text-gray-900">You May Also Like</h2>
+        // A landmark with its own name, so this is reachable as a region and
+        // not read as a continuation of the tab panel above it.
+        <section aria-labelledby="related-heading" className="mt-16">
+          {/* Sentence case, matching the transactional surfaces a shopper
+              reaches from here (checkout, orders). The marketing sections on
+              the homepage still use Title Case; unifying the two is a
+              copy decision for the whole storefront, not this page. */}
+          <h2 id="related-heading" className="mb-6 text-xl font-bold text-gray-900">
+            You may also like
+          </h2>
           <div className="grid grid-cols-2 gap-x-5 gap-y-8 sm:grid-cols-3 lg:grid-cols-6">
             {related.map((p) => (
               <ProductCard key={p.id} product={p} />
             ))}
           </div>
-        </div>
+        </section>
       )}
     </div>
   );

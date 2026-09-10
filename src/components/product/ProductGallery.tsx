@@ -65,7 +65,8 @@ export default function ProductGallery({
                 // it needs a non-visual equivalent too.
                 aria-pressed={isActive}
                 className={clsx(
-                  "relative h-16 w-16 shrink-0 overflow-hidden rounded border-2 transition-colors",
+                  "relative h-16 w-16 shrink-0 overflow-hidden rounded border-2 bg-gray-100 transition-colors",
+                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2",
                   isActive ? "border-brand" : "border-transparent hover:border-gray-300"
                 )}
               >
@@ -73,19 +74,32 @@ export default function ProductGallery({
                   src={img.url}
                   alt={img.altText ?? `${title} thumbnail ${i + 1}`}
                   fill
-                  className="object-cover"
+                  sizes="64px"
+                  className="object-contain"
                 />
               </button>
             );
           })}
         </div>
       )}
+      {/*
+        `object-contain`, not `object-cover`. This is the shopper's one full
+        look at the thing they are buying, and cover crops it to the square —
+        which silently removes the edges of anything not photographed square,
+        exactly where a product's shape is. `ProductCard` reached this same
+        answer; the two now agree, so a photo cannot change shape between the
+        listing and the page it links to.
+
+        `sizes` is what stops `fill` from serving a full-viewport-width image
+        into a half-width column on desktop.
+      */}
       <div className="relative aspect-square flex-1 overflow-hidden rounded-xl bg-gray-100">
         <Image
           src={active.url}
           alt={active.altText ?? title}
           fill
-          className="object-cover"
+          sizes="(min-width: 1024px) 45vw, (min-width: 640px) 60vw, 100vw"
+          className="object-contain"
           priority
         />
       </div>
