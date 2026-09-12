@@ -330,7 +330,7 @@ export default function Header({
             <Link
               href="/"
               className={clsx(
-                "whitespace-nowrap text-center text-3xl font-semibold tracking-tight max-md:flex-1 sm:text-4xl md:shrink-0 md:text-left",
+                "whitespace-nowrap text-center text-3xl font-bold tracking-tight max-md:flex-1 sm:text-4xl md:shrink-0 md:text-left",
                 FOCUS_ON_BRAND,
               )}
             >
