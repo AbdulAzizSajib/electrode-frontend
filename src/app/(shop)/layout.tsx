@@ -9,6 +9,8 @@ import SmoothScrollProvider from "@/components/providers/SmoothScrollProvider";
 import { getCurrentUser } from "@/services/auth";
 import { getCategoryTree } from "@/services/category";
 import { getStoreSettings } from "@/services/store-settings";
+import FacebookPixel from "@/components/landing/FacebookPixel";
+import { resolveShopPixelId } from "@/lib/facebook-pixel";
 
 /**
  * The storefront shell: everything a shopper browses with.
@@ -41,8 +43,21 @@ export default async function ShopLayout({ children }: LayoutProps<"/">) {
     getStoreSettings(),
   ]);
 
+  /*
+   * The shop-wide pixel, resolved once for every route under this layout.
+   *
+   * Here rather than per page because a PageView has to fire on all of them, and
+   * because the settings payload this layout already fetches carries it — so
+   * measurement costs no extra request. `(landing)` does NOT nest inside this
+   * layout, so a campaign page is unaffected and keeps its own precedence rule.
+   */
+  const shopPixelId = resolveShopPixelId(settings.facebookPixel);
+
   return (
     <StoreProvider isSignedIn={Boolean(user)}>
+      {/* Nothing is emitted when no pixel is configured or it is switched off —
+          not an empty bootstrap, not a tracking request. */}
+      {shopPixelId && <FacebookPixel pixelId={shopPixelId} />}
       {/* Inside StoreProvider so the drawers can read both the cart state and
           the scroll authority that locks the page behind them. */}
       <SmoothScrollProvider>

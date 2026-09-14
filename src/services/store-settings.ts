@@ -153,6 +153,36 @@ const FALLBACK_SETTINGS: StoreSettings = {
     showQuickView: true,
   },
   /*
+   * Every section enabled, in the order the homepage renders them — mirrors the
+   * backend's DEFAULT_HOME_CONFIG and HOME_SECTION_KEYS, and must be kept in
+   * step with server/ by hand.
+   *
+   * The same safe direction as `catalogConfig` above, and for a sharper reason:
+   * this list decides whether the homepage has any content at all. Falling back
+   * to an empty list would serve a blank page during a settings outage, and a
+   * shopper cannot tell a blank homepage caused by an outage from one the
+   * merchant chose — so the failure would look exactly like a deliberate design
+   * and go unreported. Falling back to everything-on degrades to the homepage
+   * the storefront had before any of this was configurable.
+   *
+   * Only ever reached when the settings read FAILS. A reachable backend always
+   * sends a complete, reconciled list, so this is not the path a normal
+   * unconfigured store takes — that one is handled server-side.
+   */
+  homeConfig: [
+    { key: "HERO", enabled: true },
+    { key: "BRAND_BAR", enabled: true },
+    { key: "FEATURED_CATEGORIES", enabled: true },
+    { key: "BEST_SELLING", enabled: true },
+    { key: "MID_BANNERS", enabled: true },
+    { key: "FEATURED_PRODUCTS", enabled: true },
+    { key: "PERKS_BAR", enabled: true },
+    { key: "DEAL_OF_WEEK", enabled: true },
+    { key: "NEW_ARRIVALS", enabled: true },
+    { key: "TESTIMONIALS", enabled: true },
+    { key: "BLOG", enabled: true },
+  ],
+  /*
    * Mirrors the backend's DEFAULT_THEME, which mirrors globals.css. These are
    * the same values the stylesheet already carries, so a failed settings read
    * paints the site exactly as the stylesheet alone would.
@@ -178,6 +208,20 @@ const FALLBACK_SETTINGS: StoreSettings = {
    * settings read that fell back to `true` would deindex a live shop, and nobody
    * would notice until the traffic went.
    */
+  /*
+   * No pixel, disabled.
+   *
+   * Failing towards OFF is the only safe direction here, for the same shape of
+   * reason `globalNoindex: false` above is: a settings read that fell back to an
+   * enabled pixel would fire tracking on a shop that never opted into it, and a
+   * fallback ID would attribute one shop's conversions to another. The cost of
+   * failing off is measurement missing for one render, which is invisible and
+   * harmless.
+   */
+  facebookPixel: {
+    enabled: false,
+    pixelId: "",
+  },
   seoConfig: {
     titleTemplate: "",
     defaultMetaTitle: "",
@@ -335,6 +379,33 @@ export async function getStoreSettings(): Promise<StoreSettings> {
         ...(data.catalogConfig ?? {}),
       },
       /*
+       * Taken WHOLE, unlike every block around it — and only when it really is a
+       * non-empty array.
+       *
+       * The per-key repair those use exists to fill in a key an older API never
+       * sent. That has no analogue here: this value is an ordered array whose
+       * order is the data, so there is no key to fill and merging two lists
+       * positionally would invent an order neither side asked for. The backend
+       * already reconciles the stored list against its own registry before
+       * serving it, which is where a missing section is restored — doing it
+       * again here would be a second, divergent implementation of the rule.
+       *
+       * The array check is what makes an API that predates this field degrade to
+       * the full homepage instead of `undefined`, which would render nothing. It
+       * is deliberately NOT `data.homeConfig ?? fallback`: an empty array is a
+       * legitimate saved state ("every section off"), but it is indistinguishable
+       * from an API that sent nothing meaningful — and since only a REACHABLE
+       * backend can send the empty list, and a reachable backend always sends a
+       * complete reconciled list, an empty array arriving here means the payload
+       * is malformed rather than that the merchant chose a blank page. The
+       * all-off homepage is served by a list of eleven disabled sections, which
+       * passes this check untouched.
+       */
+      homeConfig:
+        Array.isArray(data.homeConfig) && data.homeConfig.length > 0
+          ? data.homeConfig
+          : FALLBACK_SETTINGS.homeConfig,
+      /*
        * Both fonts repaired per key, not just merged in whole.
        *
        * A theme stored before `adminFont` existed arrives without it, and a
@@ -395,6 +466,16 @@ export async function getStoreSettings(): Promise<StoreSettings> {
           ...FALLBACK_SETTINGS.seoConfig.verification,
           ...(data.seoConfig?.verification ?? {}),
         },
+      },
+      /*
+       * Repaired per key, like every blob above. An API predating this field
+       * reports nothing, and a missing `enabled` would read as `undefined` —
+       * falsy, so nothing fires, which is the right outcome but reached by
+       * accident. Saying `false` explicitly makes it the decision it is.
+       */
+      facebookPixel: {
+        ...FALLBACK_SETTINGS.facebookPixel,
+        ...(data.facebookPixel ?? {}),
       },
       /*
        * Backfilled together and defensively. An older API that predates these

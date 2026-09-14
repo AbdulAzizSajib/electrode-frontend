@@ -160,6 +160,57 @@ export interface CatalogConfig {
 }
 
 /**
+ * Every section the homepage can be composed from.
+ *
+ * A CLOSED set mirroring HOME_SECTION_KEYS in the backend's
+ * store-setting.constant.ts, which is the authority — these keys are what a
+ * stored merchant configuration names, so the two must be kept in step by hand.
+ * Adding a section means adding it in all five places: there, here, in
+ * `FALLBACK_SETTINGS.homeConfig` (services/store-settings.ts), in the admin's
+ * SECTION_REGISTRY, and in the homepage's render map — a key missing from the
+ * last of those is a section the storefront cannot map to a component.
+ *
+ * Only the HOMEPAGE. Header, footer, announcement bar, cart drawer and mobile
+ * nav are rendered by the `(shop)` layout on every route and are deliberately
+ * not addressable — see openspec/changes/add-homepage-section-toggles.
+ */
+export type HomeSectionKey =
+  | "HERO"
+  | "BRAND_BAR"
+  | "FEATURED_CATEGORIES"
+  | "BEST_SELLING"
+  | "MID_BANNERS"
+  | "FEATURED_PRODUCTS"
+  | "PERKS_BAR"
+  | "DEAL_OF_WEEK"
+  | "NEW_ARRIVALS"
+  | "TESTIMONIALS"
+  | "BLOG";
+
+/**
+ * One homepage section's placement and visibility.
+ *
+ * `enabled` is the merchant's decision and NOT a promise that the section has
+ * anything to show — an enabled section whose data comes back empty still
+ * renders nothing. The two conditions are independent; see the homepage route.
+ */
+export interface HomeSection {
+  key: HomeSectionKey;
+  enabled: boolean;
+}
+
+/**
+ * The homepage's sections in render order. ORDER IS THE DATA: position in this
+ * array is the order the storefront lays the sections out in.
+ *
+ * Always complete and always current — the backend reconciles the stored value
+ * against its registry before serving it, so every key appears exactly once and
+ * a section added in a later release arrives enabled rather than missing. The
+ * storefront therefore never has to defend against a gap here.
+ */
+export type HomeConfig = HomeSection[];
+
+/**
  * The route groups a page can belong to, for per-group robots directives.
  *
  * A CLOSED set mirroring SEO_ROUTE_GROUPS in the backend's
@@ -207,6 +258,23 @@ export interface SeoOrganization {
  * falls through to its next fallback, so a merchant clearing a field gets the
  * default back rather than an empty tag.
  */
+/**
+ * The shop-wide Meta pixel, as the public settings endpoint reports it.
+ *
+ * `enabled` is independent of whether an id is set: a merchant can switch
+ * tracking off without discarding the id they would have to find again. BOTH are
+ * required before anything fires — see `resolvePixelId`.
+ *
+ * `pixelId` is digits only, bounded 5–20 by the backend. That bound is what makes
+ * interpolating it into the pixel bootstrap safe, so it must hold at both ends;
+ * mirrors `integrationConfigSchema` in the backend's store-setting.validation.ts.
+ */
+export interface FacebookPixel {
+  enabled: boolean;
+  /** `""` means unset. */
+  pixelId: string;
+}
+
 export interface SeoConfig {
   /** `%s` is replaced by the page's resolved title. `""` means no template. */
   titleTemplate: string;
@@ -346,6 +414,14 @@ export interface StoreSettings {
   newsletter: Newsletter;
   checkoutConfig: CheckoutConfig;
   catalogConfig: CatalogConfig;
+  /**
+   * Which sections the HOMEPAGE is composed of, and in what order.
+   *
+   * Governs `/` and nothing else — the header, footer, announcement bar, cart
+   * drawer and mobile nav are rendered by the shop layout on every route and
+   * are deliberately not addressable here.
+   */
+  homeConfig: HomeConfig;
   theme: Theme;
   /**
    * Everything the SEO menu controls. Always complete — the backend merges it
@@ -353,6 +429,20 @@ export interface StoreSettings {
    * the resolver never has to null-check a nested SEO field.
    */
   seoConfig: SeoConfig;
+  /**
+   * The shop-wide Meta pixel.
+   *
+   * ONLY THE PIXEL. The backend's `integrationConfig` column also carries the
+   * Conversions API settings, and the CAPI access token is not on that row at
+   * all — it is encrypted in the credential store. The public endpoint projects
+   * this one named object rather than the whole column, which is what keeps that
+   * an allow-list: a field added there later stays private until someone opts it
+   * in.
+   *
+   * A campaign landing page carrying its own pixel uses that one instead; see
+   * `resolvePixelId`.
+   */
+  facebookPixel: FacebookPixel;
   /**
    * Whether the storefront ROOT serves the shop or a campaign landing page.
    *

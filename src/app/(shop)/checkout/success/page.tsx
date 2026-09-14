@@ -2,9 +2,11 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { CheckCircle2, PackageX } from "lucide-react";
 import GuestOrderConfirmation from "@/components/checkout/GuestOrderConfirmation";
+import PurchaseTracker from "@/components/checkout/PurchaseTracker";
 import OrderSummaryCard from "@/components/order/OrderSummaryCard";
 import { getOrderById } from "@/services/order";
 import { getStoreSettings } from "@/services/store-settings";
+import { resolveShopPixelId } from "@/lib/facebook-pixel";
 import { resolveMetadata } from "@/lib/seo/resolve-metadata";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -37,7 +39,12 @@ export default async function CheckoutSuccessPage({
   // through the client, so this page survives a reload and shows what was
   // actually recorded. The endpoint is customer-scoped, so someone else's id
   // yields null rather than leaking their order.
-  const order = id ? await getOrderById(id) : null;
+  // Fetched alongside the order rather than after it: both are needed to render
+  // and neither depends on the other, so they should not be sequential.
+  const [order, settings] = await Promise.all([
+    id ? getOrderById(id) : Promise.resolve(null),
+    getStoreSettings(),
+  ]);
 
   // Never claim an order exists when we cannot show one.
   if (!order) {
@@ -71,6 +78,19 @@ export default async function CheckoutSuccessPage({
 
   return (
     <div className="container-px mx-auto max-w-3xl py-16">
+      {/*
+        * Fires the browser half of Purchase measurement. The server already
+        * reported the same order to the Conversions API under this same id, and
+        * Meta deduplicates on it — so this adds the browser signal without
+        * adding a second conversion. Renders nothing.
+        */}
+      <PurchaseTracker
+        pixelId={resolveShopPixelId(settings.facebookPixel)}
+        orderId={order.id}
+        value={Number(order.totalAmount)}
+        currency={settings.currency}
+      />
+
       <div className="flex flex-col items-center text-center">
         <CheckCircle2 size={52} className="mb-4 text-green-500" />
         <h1 className="mb-2 text-2xl font-bold text-gray-900">Thank you for your order</h1>

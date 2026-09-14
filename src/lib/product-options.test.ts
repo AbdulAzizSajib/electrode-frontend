@@ -59,8 +59,7 @@ const product = (
     variants,
     attributes: [],
     // Present because `Product` requires them, and empty because option
-    // resolution has nothing to do with either.
-    collections: [],
+    // resolution has nothing to do with them.
     tags: [],
   }) as Product;
 

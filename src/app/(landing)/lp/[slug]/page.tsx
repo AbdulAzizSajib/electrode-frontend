@@ -81,5 +81,16 @@ export default async function LandingPageRoute({ params }: PageProps<"/lp/[slug]
    */
   if (!page) notFound();
 
-  return <LandingPageView page={page} currency={settings.currency} />;
+  /*
+   * The shop-wide pixel travels with the settings this page already fetches, so
+   * the fallback costs nothing. It applies only when this campaign has no pixel
+   * of its own — see `lib/facebook-pixel.ts`.
+   */
+  return (
+    <LandingPageView
+      page={page}
+      currency={settings.currency}
+      shopPixel={settings.facebookPixel}
+    />
+  );
 }

@@ -169,7 +169,6 @@ export function toProduct(product: ApiProduct): Product {
           freeQuantity: product.bundleDeal.freeQuantity,
         }
       : undefined,
-    collections: (product.collections ?? []).map((row) => row.collection),
     tags: (product.tags ?? []).map((row) => row.tag.name),
 
     rating,

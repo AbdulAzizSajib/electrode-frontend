@@ -4,10 +4,14 @@ import type { ApiProduct, ApiProductVariant } from "@/types/product";
  * Cart types mirroring the backend's cart endpoints
  * (electrode-server: src/app/module/cart).
  *
- * IMPORTANT: cart responses carry NO monetary fields — no unit price, no line
- * total, no subtotal. Only the nested `product` and `variant` objects hold
- * prices. Every total shown to the shopper is derived on this side, pricing a
- * line from its `variant` when one is set and from the product otherwise.
+ * Cart responses carry no line total and no subtotal — those are still derived
+ * on this side. They DO carry one price per line: `effectiveUnitPrice`, what
+ * that unit will actually be charged.
+ *
+ * That field exists because deriving the price here from `offerPrice` was
+ * wrong the moment campaigns could discount a product: the cart quoted a
+ * subtotal the order then undercut. The charged figure is resolved server side
+ * by `CampaignService`, so it is read, never recomputed.
  */
 
 export interface ApiCartItem {
@@ -21,6 +25,17 @@ export interface ApiCartItem {
   updatedAt: string;
   product: ApiProduct;
   variant: ApiProductVariant | null;
+  /**
+   * What this unit is charged — the variant's price (or the product's), less
+   * any active campaign discount. Always present; prefer it over reaching into
+   * `product`/`variant` for a price.
+   */
+  effectiveUnitPrice: number;
+  /**
+   * Set only while a campaign is cutting this line's price, so the cart can
+   * strike through the undiscounted figure. Null means no campaign applies.
+   */
+  campaignUnitPrice: number | null;
 }
 
 export interface ApiCart {
@@ -51,8 +66,13 @@ export interface CartLine {
   /** Variant name (e.g. "Pro Edition") when the line has one. */
   variantName?: string;
   image: string;
-  /** Variant price when a variant is selected, else the product's base price. */
+  /** What this unit is charged, campaign discount included. */
   unitPrice: number;
+  /**
+   * The undiscounted price to strike through, set only when a campaign is
+   * cutting this line. Undefined means `unitPrice` is the only price to show.
+   */
+  compareAtPrice?: number;
   lineTotal: number;
   stockQuantity: number;
 }

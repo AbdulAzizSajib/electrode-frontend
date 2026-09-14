@@ -31,13 +31,32 @@ export const EMPTY_CART: CartSummary = {
 };
 
 /**
- * Prices a line from the variant the shopper actually chose, falling back to
- * the product's base price only when no variant is selected.
+ * Prices a line from `effectiveUnitPrice` — the server's figure, campaign
+ * discount already applied.
+ *
+ * This used to price the line here, from the chosen variant's `offerPrice`
+ * falling back to the product's. That is exactly the catalogue price a
+ * campaign overrides, so the cart showed a subtotal higher than the order
+ * charged. The fallback chain survives only for carts served by a backend that
+ * predates the field; it is not the intended path.
  */
 function toCartLine(item: ApiCartItem): CartLine {
   const unitPrice = roundMoney(
+    Number(
+      item.effectiveUnitPrice ??
+        item.variant?.offerPrice ??
+        item.product?.offerPrice ??
+        0,
+    ),
+  );
+
+  // Only when a campaign is actually cutting this line — otherwise there is
+  // nothing to strike through and showing one would invent a saving.
+  const listPrice = roundMoney(
     Number(item.variant?.offerPrice ?? item.product?.offerPrice ?? 0),
   );
+  const compareAtPrice =
+    item.campaignUnitPrice != null && listPrice > unitPrice ? listPrice : undefined;
 
   const primaryImage =
     item.variant?.image ??
@@ -56,6 +75,7 @@ function toCartLine(item: ApiCartItem): CartLine {
     variantName: item.variant?.name,
     image: primaryImage,
     unitPrice,
+    compareAtPrice,
     lineTotal: roundMoney(unitPrice * item.quantity),
     stockQuantity: item.variant?.stockQuantity ?? item.product?.stockQuantity ?? 0,
   };

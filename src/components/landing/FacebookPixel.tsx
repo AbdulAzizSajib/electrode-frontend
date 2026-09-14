@@ -63,11 +63,28 @@ fbq('track', 'PageView');`}
  * A no-op when the merchant has set no pixel id, and a no-op when the script
  * has not loaded — an ad blocker or a slow network must never turn a successful
  * order into a thrown error on the confirmation the shopper is reading.
+ *
+ * ─────────────────────────────────────────────────────────────────────────────
+ * `eventId` IS THE ORDER'S ID, AND IT IS NOT OPTIONAL IN PRACTICE.
+ *
+ * The server reports the same purchase to Meta's Conversions API under the same
+ * id, and Meta collapses the pair into ONE conversion. Without it the two paths
+ * are additive: every sale is counted roughly twice, and a merchant reading
+ * doubled conversions raises ad spend against revenue that does not exist.
+ *
+ * It is the order id rather than a value minted here precisely so the two sides
+ * cannot disagree — the server does not have to be told what the browser chose.
+ * See server/src/app/module/integration/facebook-capi.ts.
+ *
+ * Typed as optional only because an order number is not always in hand at the
+ * call site; passing nothing degrades to the old double-counting behaviour, so
+ * pass it wherever the order is known.
  */
 export function trackLandingPagePurchase(
   pixelId: string | null,
   value: number,
   currency: string,
+  eventId?: string,
 ) {
   if (!pixelId) return;
 
@@ -75,7 +92,13 @@ export function trackLandingPagePurchase(
   if (typeof fbq !== "function") return;
 
   try {
-    fbq("track", "Purchase", { value, currency });
+    fbq(
+      "track",
+      "Purchase",
+      { value, currency },
+      // fbq reads the dedup key from a fourth argument, not from the event data.
+      eventId ? { eventID: eventId } : undefined,
+    );
   } catch {
     // Measurement is never worth breaking the confirmation over.
   }

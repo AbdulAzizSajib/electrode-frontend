@@ -10,9 +10,11 @@ import {
   LandingTrustBadges,
 } from "@/components/landing/LandingSections";
 import { discountPercent, galleryOf } from "@/lib/landing-page-content";
+import { resolveLandingPixelId } from "@/lib/facebook-pixel";
 import { formatPrice } from "@/lib/format";
 import { isBlankHtml } from "@/lib/sanitize-html";
 import type { LandingPage } from "@/types/landing-page";
+import type { FacebookPixel as FacebookPixelSettings } from "@/types/store-settings";
 
 /**
  * The campaign page itself: hero and order form together, then everything that
@@ -31,18 +33,34 @@ import type { LandingPage } from "@/types/landing-page";
 export default function LandingPageView({
   page,
   currency,
+  shopPixel,
 }: {
   page: LandingPage;
   /** The shop's currency code, for the pixel's purchase event. */
   currency: string;
+  /**
+   * The shop-wide pixel, used only when this campaign has none of its own.
+   *
+   * A campaign that set its own id keeps it — moving those conversions into the
+   * shop-wide pixel would silently misattribute the traffic the merchant is
+   * paying for. See `lib/facebook-pixel.ts`.
+   */
+  shopPixel?: FacebookPixelSettings | null;
 }) {
   const { productSnapshot: product } = page;
+
+  /*
+   * Resolved ONCE, here, and passed to both the script and the order form. If
+   * each decided for itself, a page could render one pixel and report its
+   * purchase to another.
+   */
+  const pixelId = resolveLandingPixelId(page.facebookPixelId, shopPixel);
   const gallery = galleryOf(page);
   const discount = discountPercent(product.unitPrice, product.sellingPrice);
 
   return (
     <div className="bg-white pb-24 md:pb-0">
-      {page.facebookPixelId && <FacebookPixel pixelId={page.facebookPixelId} />}
+      {pixelId && <FacebookPixel pixelId={pixelId} />}
 
       <div className="container-px mx-auto max-w-5xl py-6 md:py-10">
         <div className="grid gap-8 md:grid-cols-2 md:gap-10">
@@ -96,7 +114,7 @@ export default function LandingPageView({
             <LandingTrustBadges items={page.trustBadges} />
 
             <div className="mt-6">
-              <LandingOrderForm page={page} currency={currency} />
+              <LandingOrderForm page={page} currency={currency} pixelId={pixelId} />
             </div>
           </div>
         </div>

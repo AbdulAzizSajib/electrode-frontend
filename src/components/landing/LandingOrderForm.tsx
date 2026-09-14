@@ -36,9 +36,19 @@ type SubmitState =
 export default function LandingOrderForm({
   page,
   currency,
+  pixelId,
 }: {
   page: LandingPage;
   currency: string;
+  /**
+   * The pixel this page reports to, already resolved — the page's own if it has
+   * one, otherwise the shop-wide one, otherwise null.
+   *
+   * Passed in rather than read off `page` here, so the precedence decision lives
+   * in exactly one place (`lib/facebook-pixel.ts`) and the view and the purchase
+   * event cannot disagree about which pixel this page belongs to.
+   */
+  pixelId: string | null;
 }) {
   const { orderForm, deliveryZones, productSnapshot } = page;
 
@@ -192,7 +202,12 @@ export default function LandingOrderForm({
         total,
       });
 
-      trackLandingPagePurchase(page.facebookPixelId, total, currency);
+      /*
+       * The order's id is the deduplication key: the server reports this same
+       * purchase to the Conversions API under it, and Meta collapses the pair
+       * into one conversion. Omitting it double-counts every sale.
+       */
+      trackLandingPagePurchase(pixelId, total, currency, order?.id);
     } catch {
       setSubmit({
         status: "failed",

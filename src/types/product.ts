@@ -154,8 +154,6 @@ export interface ApiProduct {
 
   /** The offer this product carries, when it carries one. */
   bundleDeal?: { id: string; name: string; buyQuantity: number; freeQuantity: number } | null;
-  /** Visible collections only — the backend filters hidden ones out. */
-  collections?: { collection: { id: string; name: string; slug: string } }[];
   tags?: { tag: { id: string; name: string } }[];
 
   createdAt: string;
@@ -319,8 +317,6 @@ export interface Product {
   videoThumbnail?: string;
   /** "Buy N, get M free", when this product carries an offer. */
   bundleDeal?: { name: string; buyQuantity: number; freeQuantity: number };
-  /** Visible collections this product belongs to. */
-  collections: { id: string; name: string; slug: string }[];
   tags: string[];
 
   /**

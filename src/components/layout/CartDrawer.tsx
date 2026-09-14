@@ -239,7 +239,14 @@ export default function CartDrawer() {
                       <p className="mt-0.5 text-xs text-gray-500">{line.variantName}</p>
                     )}
                     <p className="mt-0.5 text-xs text-gray-500">
-                      {formatPrice(line.unitPrice)} each
+                      {formatPrice(line.unitPrice)}
+                      {/* Only set while a campaign is cutting this line's price. */}
+                      {line.compareAtPrice !== undefined && (
+                        <span className="ml-1 text-gray-400 line-through">
+                          {formatPrice(line.compareAtPrice)}
+                        </span>
+                      )}{" "}
+                      each
                     </p>
                     <div className="mt-2 flex items-center justify-between">
                       <CartQuantityControl line={line} />

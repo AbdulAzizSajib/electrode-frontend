@@ -89,7 +89,15 @@ export default function CartView({
                     <CartRemoveButton line={line} withLabel className="mt-2 sm:hidden" />
                   </div>
                 </div>
-                <span className="text-sm text-gray-700">{formatPrice(line.unitPrice)}</span>
+                <span className="text-sm text-gray-700">
+                  {formatPrice(line.unitPrice)}
+                  {/* Only set while a campaign is cutting this line's price. */}
+                  {line.compareAtPrice !== undefined && (
+                    <span className="ml-1.5 text-xs text-gray-400 line-through">
+                      {formatPrice(line.compareAtPrice)}
+                    </span>
+                  )}
+                </span>
                 <CartQuantityControl line={line} size="md" />
                 <div className="flex items-center justify-between sm:justify-end sm:gap-4">
                   <span className="text-sm font-semibold text-sale">
