@@ -1,4 +1,4 @@
-import DOMPurify from "isomorphic-dompurify";
+import sanitize from "sanitize-html";
 
 /**
  * The allowlist merchant-authored HTML is filtered through before it reaches a
@@ -12,6 +12,27 @@ import DOMPurify from "isomorphic-dompurify";
  * on the way in".
  *
  * Kept apart from the component that renders it so it can be tested directly.
+ *
+ * ## Why `sanitize-html` and not `isomorphic-dompurify`
+ *
+ * This used DOMPurify, which needs a DOM — on the server that meant jsdom, and
+ * jsdom is what made the storefront undeployable. jsdom@30 requires
+ * `html-encoding-sniffer@6`, a CommonJS package that `require()`s
+ * `@exodus/bytes`, which is pure ESM. Node 22 tolerates `require(esm)`; Node 24
+ * refuses it with ERR_REQUIRE_ESM. So every route 500'd on any host running
+ * Node 24 while working perfectly on a Node 22 laptop — and because the throw
+ * happens at MODULE EVALUATION, not at call time, the `try/catch` in
+ * `services/store-settings.ts` could not degrade it. The whole site was down,
+ * not one component.
+ *
+ * `sanitize-html` parses with htmlparser2 and never touches a DOM, so there is
+ * no jsdom, no ESM/CJS conflict, and no Node-version constraint. Do not
+ * reintroduce a DOM-based sanitiser to "modernise" this — the runtime
+ * independence is the point.
+ *
+ * Both files that pin this module's behaviour (`sanitize-html.test.ts` and
+ * `page-content.test.ts`) pass unchanged against this implementation; the
+ * allowlists and URI rule below are carried over verbatim.
  */
 
 /**
@@ -74,47 +95,32 @@ const ALLOWED_TAGS = [
 const ALLOWED_ATTR = [
   "href",
   "title",
-  "target",
-  "rel",
   "colspan",
   "rowspan",
-  // For `img`. `src` is constrained by ALLOWED_URI_REGEXP below exactly like
-  // `href` is, which is what keeps a `data:` payload out of an image tag.
+  // For `img`. `src` is constrained by SAFE_URI below exactly like `href` is,
+  // which is what keeps a `data:` payload out of an image tag.
   "src",
   "alt",
   "width",
   "height",
 ];
 
+/*
+ * `target` and `rel` are deliberately absent, and their absence is asserted by
+ * "drops target and rel from anchors, so links stay same-tab" in
+ * page-content.test.ts.
+ *
+ * They were on this list under DOMPurify, which removed both anyway regardless
+ * of the allow-list — the test documents that as the storefront's real
+ * behaviour rather than a slip. `sanitize-html` honours the list literally, so
+ * leaving them here would have CHANGED behaviour: links would start opening in
+ * new tabs. Listing them would be the bug; omitting them preserves what shipped.
+ *
+ * A same-tab link cannot be a reverse-tabnabbing vector, so nothing is lost.
+ */
+
 /** The only URI shapes any attribute here may carry. */
 const SAFE_URI = /^(?:https?:|mailto:|tel:|#|\/)/i;
-
-/**
- * Closes a hole `ALLOWED_URI_REGEXP` does not.
- *
- * DOMPurify treats `img` (with `audio`, `video`, `source`, `track`) as a
- * "data URI tag": for those, a `data:` source is accepted even when the
- * configured URI regexp rejects it. That is deliberate on their side — inline
- * images are a normal thing to want — but this storefront never needs one, and
- * `data:image/svg+xml` is a documented content-injection vector.
- *
- * `javascript:` was already blocked; only `data:` slipped through, and only
- * once `img` was added to the allow-list for content pages. This hook re-checks
- * `src` against the same rule `href` gets, so both are held to one standard.
- *
- * Registered at module scope, so it is installed exactly once no matter how
- * many callers import `sanitizeHtml`.
- */
-DOMPurify.addHook("afterSanitizeAttributes", (node) => {
-  // Duck-typed, not `instanceof Element`: on the server this runs against
-  // isomorphic-dompurify's own jsdom window, whose `Element` is not the same
-  // constructor as any global one — and under the `node` test environment
-  // there is no global `Element` at all, so the check would throw.
-  if (typeof node?.getAttribute !== "function") return;
-
-  const src = node.getAttribute("src");
-  if (src !== null && !SAFE_URI.test(src)) node.removeAttribute("src");
-});
 
 /**
  * Strips everything outside the allowlist. `javascript:` and `data:` URIs go
@@ -122,14 +128,72 @@ DOMPurify.addHook("afterSanitizeAttributes", (node) => {
  * place for markup to become something else.
  */
 export function sanitizeHtml(html: string): string {
-  return DOMPurify.sanitize(html, {
-    ALLOWED_TAGS,
-    ALLOWED_ATTR,
-    ALLOWED_URI_REGEXP: SAFE_URI,
-    // A rejected tag's text still reads; dropping it whole would silently lose
-    // wording the merchant wrote.
-    KEEP_CONTENT: true,
-    ALLOW_DATA_ATTR: false,
+  return sanitize(html, {
+    allowedTags: ALLOWED_TAGS,
+    // One list for every tag, matching DOMPurify's flat `ALLOWED_ATTR`. A
+    // per-tag map would be tighter, but it would also be a second, divergent
+    // statement of the same rule — and the tests pin the flat behaviour.
+    allowedAttributes: { "*": ALLOWED_ATTR },
+    /*
+     * The scheme allow-list, and then SAFE_URI again in `transformTags` below.
+     * Both are needed, and the duplication is deliberate:
+     *
+     * `allowedSchemes` rejects `javascript:` and `data:`, but it says nothing
+     * about protocol-relative (`//evil.example`) or other shapes, and it is
+     * expressed as a list of schemes rather than as the one regexp the rest of
+     * this file is written against. SAFE_URI is the actual rule — it also
+     * admits `#`, `/` and `tel:`, and admits nothing else.
+     *
+     * Keeping both means a future edit to either one cannot silently widen what
+     * a link may point at.
+     */
+    allowedSchemes: ["http", "https", "mailto", "tel"],
+    allowedSchemesAppliedToAttributes: ["href", "src"],
+    allowProtocolRelative: false,
+    /*
+     * A rejected tag's TEXT still reads — this is `KEEP_CONTENT: true` under
+     * the old implementation. Dropping the element whole would silently lose
+     * wording the merchant wrote.
+     *
+     * `nonTextTags` is the exception, and the reason it is listed explicitly:
+     * for these, the "text" is a program, not prose. Without it `<script>` is
+     * discarded but `alert("xss")` survives as a text node, which is inert but
+     * renders as visible gibberish — and `isBlankHtml` would then report a
+     * script-only document as non-blank. `script` and `style` alone would cover
+     * the tests; `textarea`, `option` and `noscript` are included because they
+     * are the same category of "contents are not prose" and `sanitize-html`
+     * defaults to exactly this set.
+     */
+    disallowedTagsMode: "discard",
+    nonTextTags: ["script", "style", "textarea", "option", "noscript"],
+    /*
+     * Re-checks every `href` and `src` against SAFE_URI, dropping the attribute
+     * rather than the element.
+     *
+     * This is what the old `afterSanitizeAttributes` DOMPurify hook did, and it
+     * exists for the same reason: `img` was added to the allow-list for content
+     * pages, and an image source is the one place a `data:` payload can still
+     * reach a browser. `data:image/svg+xml` is a documented content-injection
+     * vector, and this storefront never needs an inline image.
+     *
+     * Dropping the ATTRIBUTE and keeping the element matches the old behaviour
+     * exactly — `<a href="javascript:…">Click</a>` keeps the word "Click", which
+     * is merchant-authored copy and should not vanish because the link was bad.
+     */
+    transformTags: {
+      "*": (tagName, attribs) => {
+        const safe: Record<string, string> = {};
+
+        for (const [name, value] of Object.entries(attribs)) {
+          if ((name === "href" || name === "src") && !SAFE_URI.test(value)) {
+            continue;
+          }
+          safe[name] = value;
+        }
+
+        return { tagName, attribs: safe };
+      },
+    },
   });
 }
 

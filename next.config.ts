@@ -22,7 +22,12 @@ const isMonorepoCheckout = (() => {
 const nextConfig: NextConfig = {
   ...(isMonorepoCheckout ? { turbopack: { root: parentDir } } : {}),
 
-  serverExternalPackages: ["jsdom"],
+  /*
+   * `serverExternalPackages: ["jsdom"]` was here for isomorphic-dompurify's
+   * server-side DOM. Both are gone — `lib/sanitize-html.ts` now uses
+   * `sanitize-html`, which parses with htmlparser2 and needs no DOM. Leaving
+   * the entry would pin a package nothing imports.
+   */
   images: {
 
     unoptimized: true,
