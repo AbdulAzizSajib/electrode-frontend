@@ -20,6 +20,21 @@ import type {
  */
 const PRODUCT_REVALIDATE_SECONDS = 60;
 
+/**
+ * The cache tag the backend invalidates after a product changes.
+ *
+ * Carried by all THREE reads in this file — listings, single product, related.
+ * One resource, one tag: editing any product drops every cached product read,
+ * including the detail pages of products that did not change. That is the
+ * accepted trade (see the change's design.md Decision 1) — a per-item tag would
+ * invalidate less but requires loosening the revalidate route's exact-match
+ * allow-list into prefix matching.
+ *
+ * Also fired by the campaign and review services, because both write values this
+ * payload carries: `campaignPrice` and the aggregate rating.
+ */
+export const PRODUCTS_CACHE_TAG = "products";
+
 const EMPTY_META: PaginationMeta = { page: 1, limit: 0, total: 0, totalPages: 0 };
 
 /**
@@ -201,7 +216,7 @@ export async function getProducts(
   try {
     const response = await apiFetch<ApiProduct[]>(
       `/products${buildQueryString(query)}`,
-      { revalidate: PRODUCT_REVALIDATE_SECONDS },
+      { revalidate: PRODUCT_REVALIDATE_SECONDS, tags: [PRODUCTS_CACHE_TAG] },
     );
 
     const data = Array.isArray(response.data) ? response.data : [];
@@ -265,6 +280,7 @@ export async function getProductBySlug(slug: string): Promise<Product | null> {
   try {
     const { data } = await apiFetch<ApiProduct>(`/products/${slug}`, {
       revalidate: PRODUCT_REVALIDATE_SECONDS,
+      tags: [PRODUCTS_CACHE_TAG],
     });
 
     return data ? toProduct(data) : null;
@@ -294,7 +310,7 @@ export async function getRelatedProducts(
   try {
     const { data } = await apiFetch<ApiProduct[]>(
       `/products/${slug}/related?limit=${limit}`,
-      { revalidate: PRODUCT_REVALIDATE_SECONDS },
+      { revalidate: PRODUCT_REVALIDATE_SECONDS, tags: [PRODUCTS_CACHE_TAG] },
     );
 
     return Array.isArray(data) ? data.map(toProduct) : [];

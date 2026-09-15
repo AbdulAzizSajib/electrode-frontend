@@ -8,6 +8,14 @@ import type { ApiCategory, CategoryNode, CategoryGridItem } from "@/types/catego
  */
 const CATEGORY_REVALIDATE_SECONDS = 300;
 
+/**
+ * The cache tag the backend invalidates after a category is created, edited or
+ * deleted. Carried by BOTH reads below — the tree and the grid hit the same
+ * endpoint, and tagging only one would leave the other serving a menu the rest
+ * of the page had already moved past.
+ */
+export const CATEGORIES_CACHE_TAG = "categories";
+
 /** Ascending by the merchant's assigned display order. */
 const bySortOrder = (a: ApiCategory, b: ApiCategory) => a.sortOrder - b.sortOrder;
 
@@ -43,6 +51,7 @@ export async function getCategoryTree(): Promise<CategoryNode[]> {
   try {
     const { data } = await apiFetch<ApiCategory[]>("/categories", {
       revalidate: CATEGORY_REVALIDATE_SECONDS,
+      tags: [CATEGORIES_CACHE_TAG],
     });
 
     if (!Array.isArray(data)) return [];
@@ -68,6 +77,7 @@ export async function getCategoryGrid(): Promise<CategoryGridItem[]> {
   try {
     const { data } = await apiFetch<ApiCategory[]>("/categories", {
       revalidate: CATEGORY_REVALIDATE_SECONDS,
+      tags: [CATEGORIES_CACHE_TAG],
     });
 
     if (!Array.isArray(data)) return [];

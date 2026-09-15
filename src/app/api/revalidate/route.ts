@@ -4,6 +4,13 @@ import { BLOG_POSTS_CACHE_TAG } from "@/services/blog";
 import { TESTIMONIALS_CACHE_TAG } from "@/services/testimonials";
 import { LANDING_PAGES_CACHE_TAG } from "@/services/landing-page";
 import { SEO_CONFIG_CACHE_TAG } from "@/services/seo";
+import { CAMPAIGNS_CACHE_TAG } from "@/services/campaign";
+import { BANNERS_CACHE_TAG } from "@/services/banner";
+import { BRANDS_CACHE_TAG } from "@/services/brand";
+import { CATEGORIES_CACHE_TAG } from "@/services/category";
+import { PAGES_CACHE_TAG } from "@/services/page";
+import { PRODUCTS_CACHE_TAG } from "@/services/product";
+import { REVIEWS_CACHE_TAG } from "@/services/review";
 
 /**
  * Drops a cached storefront tag on request, so a merchant's save shows up on
@@ -21,7 +28,21 @@ import { SEO_CONFIG_CACHE_TAG } from "@/services/seo";
  * settings.
  */
 
-/** Only tags this route is willing to drop. An allow-list, not free-form input. */
+/**
+ * Only tags this route is willing to drop. An allow-list, not free-form input.
+ *
+ * Covers EVERY merchant-editable storefront resource, not a hand-picked few. It
+ * was the latter for a while, and the seven resources left out of it each
+ * behaved as though saving them did nothing: the write committed, and the
+ * storefront kept serving its cached response until that resource's revalidate
+ * window happened to elapse — five minutes for most of them.
+ *
+ * Deliberately an EXACT-MATCH set, never a prefix test. Membership in a fixed
+ * list is this endpoint's entire security surface; a scheme like
+ * `product-<slug>` would need unbounded tag names and would weaken the check to
+ * "starts with". One tag per resource is the trade that keeps this exact — see
+ * `server/openspec/changes/add-storefront-cache-tags/design.md` Decision 1.
+ */
 const ALLOWED_TAGS = new Set<string>([
   STORE_SETTINGS_CACHE_TAG,
   // The two merchant-managed homepage sections. Both are invalidated by the
@@ -44,6 +65,25 @@ const ALLOWED_TAGS = new Set<string>([
    * for it. The backend fires both on a settings save.
    */
   SEO_CONFIG_CACHE_TAG,
+  /*
+   * The catalog and merchandising resources. Each is dropped by its own module
+   * on create, update and delete — including the paths that are not named after
+   * them: a bulk brand import, a product's category assignment, a review's
+   * moderation status.
+   *
+   * `products` is additionally fired by the campaign and review services,
+   * because both write values the product payload carries (`campaignPrice`, the
+   * aggregate rating). Those two are stated at their call sites rather than
+   * inferred here — this route drops what it is told to drop and knows nothing
+   * about which resource embeds which.
+   */
+  CAMPAIGNS_CACHE_TAG,
+  BANNERS_CACHE_TAG,
+  BRANDS_CACHE_TAG,
+  CATEGORIES_CACHE_TAG,
+  PAGES_CACHE_TAG,
+  PRODUCTS_CACHE_TAG,
+  REVIEWS_CACHE_TAG,
 ]);
 
 export async function POST(request: Request) {

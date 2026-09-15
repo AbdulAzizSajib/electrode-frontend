@@ -10,6 +10,9 @@ import type { ApiPage, ContentPage } from "@/types/page";
  */
 const PAGE_REVALIDATE_SECONDS = 300;
 
+/** The cache tag the backend invalidates after a page is created, edited or deleted. */
+export const PAGES_CACHE_TAG = "pages";
+
 /**
  * A published page by slug, or null.
  *
@@ -27,6 +30,7 @@ export async function getPageBySlug(slug: string): Promise<ContentPage | null> {
   try {
     const { data } = await apiFetch<ApiPage>(`/pages/${encodeURIComponent(slug)}`, {
       revalidate: PAGE_REVALIDATE_SECONDS,
+      tags: [PAGES_CACHE_TAG],
     });
 
     if (!data || typeof data.body !== "string") return null;

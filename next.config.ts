@@ -1,3 +1,4 @@
+import { existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
 import type { NextConfig } from "next";
@@ -15,13 +16,21 @@ import type { NextConfig } from "next";
  * boot warning away and makes the intent legible. `__dirname` is unavailable —
  * this config is loaded as an ES module, where referencing it yields
  * `undefined` and silently sets no root at all.
+ *
+ * ...but ONLY when the monorepo is actually there. This app is also pushed on
+ * its own to a standalone deploy repo (`electrode-frontend`), where this folder
+ * IS the repo root: `..` is then some unrelated parent of the build container,
+ * and pinning Turbopack there makes it try to compile the whole thing. The
+ * pnpm-workspace.yaml one level up is the thing that distinguishes the two —
+ * present in the monorepo checkout, absent in the deploy repo. Absent means
+ * dependencies are installed locally and Turbopack's own inference is correct,
+ * so we say nothing and let it infer.
  */
-const monorepoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const parentDir = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const isMonorepoCheckout = existsSync(resolve(parentDir, "pnpm-workspace.yaml"));
 
 const nextConfig: NextConfig = {
-  turbopack: {
-    root: monorepoRoot,
-  },
+  ...(isMonorepoCheckout ? { turbopack: { root: parentDir } } : {}),
   images: {
     // Product images are served from the local /api/placeholder route (SVG)
     // so the storefront never depends on an external image CDN. Once real

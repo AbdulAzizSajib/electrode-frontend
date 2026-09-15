@@ -23,6 +23,16 @@ import type { PaginationMeta } from "@/types/product";
 /** Reviews move more often than the catalog but not per-request. */
 const REVIEW_REVALIDATE_SECONDS = 30;
 
+/**
+ * The cache tag the backend invalidates after a review is created, moderated,
+ * replied to or deleted.
+ *
+ * Moderation is the path that matters most here: a review's status decides
+ * whether it is publicly visible at all, so an approval that only took effect
+ * when the window elapsed looked to the merchant like the approval had failed.
+ */
+export const REVIEWS_CACHE_TAG = "reviews";
+
 export const REVIEWS_PAGE_SIZE = 5;
 
 export interface ProductReviewsResult {
@@ -50,7 +60,7 @@ export async function getProductReviews(
   try {
     const response = await apiFetch<ApiReview[]>(
       `/products/${productId}/reviews?page=${page}&limit=${limit}`,
-      { revalidate: REVIEW_REVALIDATE_SECONDS },
+      { revalidate: REVIEW_REVALIDATE_SECONDS, tags: [REVIEWS_CACHE_TAG] },
     );
 
     const data = Array.isArray(response.data) ? response.data : [];

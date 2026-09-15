@@ -14,6 +14,17 @@ import type { ApiCampaign, Campaign, CampaignPlacement } from "@/types/campaign"
 const CAMPAIGN_REVALIDATE_SECONDS = 300;
 
 /**
+ * The cache tag the backend invalidates after a campaign is created, edited or
+ * deleted.
+ *
+ * Without this the window above was the ONLY way a campaign change reached the
+ * storefront, and a deleted campaign kept rendering its countdown for up to five
+ * minutes: `DealOfWeek` hides itself when a deadline PASSES, which a deleted
+ * campaign's never does.
+ */
+export const CAMPAIGNS_CACHE_TAG = "campaigns";
+
+/**
  * The campaign occupying a storefront slot, or null when none does.
  *
  * Returns null rather than throwing on failure, like `getProducts` — the
@@ -30,7 +41,7 @@ export async function getCampaignByPlacement(
   try {
     const { data } = await apiFetch<ApiCampaign | null>(
       `/campaigns/active?placement=${placement}`,
-      { revalidate: CAMPAIGN_REVALIDATE_SECONDS },
+      { revalidate: CAMPAIGN_REVALIDATE_SECONDS, tags: [CAMPAIGNS_CACHE_TAG] },
     );
 
     if (!data) return null;

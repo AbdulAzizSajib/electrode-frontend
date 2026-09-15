@@ -9,6 +9,9 @@ import type { ApiBanner, Banner, BannerPlacement } from "@/types/banner";
  */
 const BANNER_REVALIDATE_SECONDS = 300;
 
+/** The cache tag the backend invalidates after a banner is created, edited or deleted. */
+export const BANNERS_CACHE_TAG = "banners";
+
 /** Ascending by the merchant's assigned display order. */
 const bySortOrder = (a: ApiBanner, b: ApiBanner) => a.sortOrder - b.sortOrder;
 
@@ -64,6 +67,7 @@ export async function getBannersByPlacement(): Promise<
   try {
     const { data } = await apiFetch<ApiBanner[]>("/banners", {
       revalidate: BANNER_REVALIDATE_SECONDS,
+      tags: [BANNERS_CACHE_TAG],
     });
 
     if (!Array.isArray(data)) return {};

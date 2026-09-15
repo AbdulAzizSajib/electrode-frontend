@@ -20,10 +20,13 @@ import DOMPurify from "isomorphic-dompurify";
  * page reasonably contains one; a product description never did, which is why
  * `img` arrived only with the page editor that can insert it.
  *
- * The editor and this list are two halves of one switch: a tag Tiptap can emit
- * but this strips disappears silently on the storefront. `page-form-page.tsx`
- * opts into the image extension and nothing else, and a test pins the pair
- * together.
+ * The editor and this list are two halves of one switch: a tag the admin's
+ * editor can emit but this strips disappears silently on the storefront.
+ * `page-form-page.tsx` opts into images and nothing else, and a test pins the
+ * pair together. The editor is Quill (`admin/src/components/forms/
+ * rich-text-editor.tsx`) — its toolbar is deliberately narrower than Quill's
+ * default set for exactly this reason, and `buildToolbar` there says which
+ * controls were left out and why.
  */
 const ALLOWED_TAGS = [
   "p",

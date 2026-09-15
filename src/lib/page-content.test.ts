@@ -7,13 +7,14 @@ import { excerptFromBody } from "@/services/page";
  *
  * These two halves are a single switch: the editor can emit a tag the sanitiser
  * strips, and the merchant would only find out by noticing their formatting had
- * silently vanished on the live site. Adding a Tiptap extension without adding
+ * silently vanished on the live site. Adding a toolbar control without adding
  * its tag here is meant to turn that into a failing test rather than a support
  * ticket.
  *
  * The list below mirrors exactly what `RichTextEditor` is configured with in the
- * admin panel: StarterKit's headings, emphasis, lists and blockquote, the Link
- * extension, and — for content pages only — Image.
+ * admin panel — see `buildToolbar` in `admin/src/components/forms/
+ * rich-text-editor.tsx`: headings, emphasis, lists, blockquote, code blocks,
+ * links, and — for content pages only — images.
  */
 describe("page body survives sanitisation", () => {
   const editorOutputs: Record<string, string> = {
@@ -22,6 +23,7 @@ describe("page body survives sanitisation", () => {
     paragraph: "<p>Returns are accepted within 30 days.</p>",
     bold: "<p><strong>Important</strong></p>",
     italic: "<p><em>within 30 days</em></p>",
+    underline: "<p><u>must</u></p>",
     strike: "<p><s>60 days</s></p>",
     bulletList: "<ul><li>Unused</li><li>Original packaging</li></ul>",
     orderedList: "<ol><li>Contact us</li><li>Ship it back</li></ol>",
@@ -33,6 +35,21 @@ describe("page body survives sanitisation", () => {
       expect(sanitizeHtml(html)).toBe(html);
     });
   }
+
+  it("keeps a code block's text, losing only the editor's own class", () => {
+    /*
+     * The one control whose output is not preserved byte-for-byte, so it
+     * cannot go in the loop above. Quill marks its code blocks with
+     * `class="ql-syntax"`, and `class` is not on the allow-list — deliberately,
+     * since a class can pull in the storefront's own utility styles. The tag
+     * and the code inside it are what have to survive; the styling hook does
+     * not.
+     */
+    const clean = sanitizeHtml(
+      '<pre class="ql-syntax" spellcheck="false">npm install</pre>',
+    );
+    expect(clean).toBe("<pre>npm install</pre>");
+  });
 
   it("keeps a link's destination and text", () => {
     const clean = sanitizeHtml(
