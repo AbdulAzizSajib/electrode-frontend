@@ -60,31 +60,44 @@ export default async function ProductsPage({
   // mechanism with a preset `?sort=`.
   const sort = resolveSort(readParam("sort"));
 
-  // The slider's extremes are a property of the catalog, not of the current
-  // query, so they are fetched independently of the filtered listing below —
-  // narrowing the range must not narrow the track it can be widened back along.
-  const [categories, brands, priceBounds] = await Promise.all([
+  /*
+   * Two waves, not three.
+   *
+   * The slider's extremes are a property of the catalog, not of the current
+   * query, so they are fetched independently of the filtered listing below —
+   * narrowing the range must not narrow the track it can be widened back along.
+   * That independence is also why the listing no longer waits for them: the
+   * bounds start now and are collected alongside the products at the end.
+   *
+   * Links carry slugs and the products API filters on ids, so the categories
+   * and brands have to arrive before the listing can be asked for.
+   * `resolveCategorySlug` reads the same per-request category fetch as
+   * `getCategoryTree` (React `cache`), so it is resolved from the tree already
+   * in hand rather than as a request of its own.
+   */
+  const priceBoundsPromise = getPriceBounds();
+  priceBoundsPromise.catch(() => {});
+
+  const [categories, brands, categoryId] = await Promise.all([
     getCategoryTree(),
     getBrands(),
-    getPriceBounds(),
-  ]);
-
-  // Links carry slugs; the products API filters on ids.
-  const [categoryId, brandId] = await Promise.all([
     resolveCategorySlug(categorySlug),
-    Promise.resolve(brands.find((b) => b.slug === brandSlug)?.id ?? null),
   ]);
+  const brandId = brands.find((b) => b.slug === brandSlug)?.id ?? null;
 
-  const { products, meta } = await getProducts({
-    page,
-    limit: PAGE_SIZE,
-    searchTerm,
-    category: categoryId ?? undefined,
-    brand: brandId ?? undefined,
-    minPrice: minPrice ?? undefined,
-    maxPrice: maxPrice ?? undefined,
-    ...sort.query,
-  });
+  const [{ products, meta }, priceBounds] = await Promise.all([
+    getProducts({
+      page,
+      limit: PAGE_SIZE,
+      searchTerm,
+      category: categoryId ?? undefined,
+      brand: brandId ?? undefined,
+      minPrice: minPrice ?? undefined,
+      maxPrice: maxPrice ?? undefined,
+      ...sort.query,
+    }),
+    priceBoundsPromise,
+  ]);
 
   return (
     <ProductListing

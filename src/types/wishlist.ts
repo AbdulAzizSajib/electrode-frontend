@@ -5,8 +5,8 @@ import type { ApiProductImage } from "@/types/product";
  * Saved products, in the same two-layer shape as `types/product.ts`.
  *
  * Note the nested product is a *narrower* select than the catalog's `ApiProduct`
- * — the backend returns only id/name/slug/price/status/rating/primary image, with
- * no `type`, `variants`, or `sellingPrice`. So this deliberately does NOT reuse
+ * — the backend returns only id/name/slug/offerPrice/status/rating/primary image,
+ * with no `type`, `variants`, or `sellingPrice`. So this deliberately does NOT reuse
  * `toProduct`: feeding it a partial product would fabricate defaults (a base
  * price of 0, `isVariable: false`) that look like real data.
  */
@@ -15,7 +15,7 @@ export interface ApiWishlistProduct {
   id: string;
   name: string;
   slug: string;
-  price: string;
+  offerPrice: string;
   status: string;
   averageRating: string;
   reviewCount: number;
@@ -51,7 +51,7 @@ export interface WishlistItem {
 export function toWishlistItem(item: ApiWishlistItem): WishlistItem {
   const product = item.product;
 
-  const price = Number(product?.price);
+  const price = Number(product?.offerPrice);
   const reviewCount = product?.reviewCount ?? 0;
   const average = Number(product?.averageRating);
 

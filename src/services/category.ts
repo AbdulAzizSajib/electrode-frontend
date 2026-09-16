@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { apiFetch } from "@/lib/api-client";
 import type { ApiCategory, CategoryNode, CategoryGridItem } from "@/types/category";
 
@@ -18,6 +19,22 @@ export const CATEGORIES_CACHE_TAG = "categories";
 
 /** Ascending by the merchant's assigned display order. */
 const bySortOrder = (a: ApiCategory, b: ApiCategory) => a.sortOrder - b.sortOrder;
+
+/**
+ * The one `/categories` read every function below shapes, shared per request.
+ *
+ * The shop layout's menu, the listing page (tree + slug resolution) and the
+ * homepage grid all need this list, and each used to issue its own request.
+ * Next's fetch memoization cannot merge them because `apiFetch` passes an
+ * `AbortSignal` — see `getStoreSettings` for the details. Throws on failure;
+ * the public functions below own the never-throw rule.
+ */
+const fetchCategories = cache(() =>
+  apiFetch<ApiCategory[]>("/categories", {
+    revalidate: CATEGORY_REVALIDATE_SECONDS,
+    tags: [CATEGORIES_CACHE_TAG],
+  }),
+);
 
 /**
  * Trims an API category to what the menu renders, recursing into children.
@@ -49,10 +66,7 @@ function toCategoryNode(category: ApiCategory): CategoryNode {
  */
 export async function getCategoryTree(): Promise<CategoryNode[]> {
   try {
-    const { data } = await apiFetch<ApiCategory[]>("/categories", {
-      revalidate: CATEGORY_REVALIDATE_SECONDS,
-      tags: [CATEGORIES_CACHE_TAG],
-    });
+    const { data } = await fetchCategories();
 
     if (!Array.isArray(data)) return [];
 
@@ -75,10 +89,7 @@ export async function getCategoryTree(): Promise<CategoryNode[]> {
  */
 export async function getCategoryGrid(): Promise<CategoryGridItem[]> {
   try {
-    const { data } = await apiFetch<ApiCategory[]>("/categories", {
-      revalidate: CATEGORY_REVALIDATE_SECONDS,
-      tags: [CATEGORIES_CACHE_TAG],
-    });
+    const { data } = await fetchCategories();
 
     if (!Array.isArray(data)) return [];
 

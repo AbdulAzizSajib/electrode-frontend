@@ -3,7 +3,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Heart, MapPin, Package, ShoppingBag, Star } from "lucide-react";
 import LogoutButton from "@/components/account/LogoutButton";
-import { getCurrentUser } from "@/services/auth";
+import { getCurrentUser } from "@/lib/current-user";
 import { getStoreSettings } from "@/services/store-settings";
 import { resolveMetadata } from "@/lib/seo/resolve-metadata";
 

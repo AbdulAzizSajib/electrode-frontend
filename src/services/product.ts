@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { ApiError, apiFetch } from "@/lib/api-client";
 import { placeholderImage } from "@/lib/placeholder";
 import type {
@@ -276,7 +277,12 @@ export async function getPriceBounds(): Promise<{ min: number; max: number }> {
  * Other failures rethrow, so a backend outage surfaces as an error rather than
  * masquerading as a missing product.
  */
-export async function getProductBySlug(slug: string): Promise<Product | null> {
+export const getProductBySlug = cache(async function getProductBySlug(
+  slug: string,
+): Promise<Product | null> {
+  // Wrapped in React `cache`: the detail page's `generateMetadata` and its body
+  // both read the product, and fetch memoization cannot merge the two (see
+  // `getStoreSettings`), so on a data-cache miss they were two requests.
   try {
     const { data } = await apiFetch<ApiProduct>(`/products/${slug}`, {
       revalidate: PRODUCT_REVALIDATE_SECONDS,
@@ -288,7 +294,7 @@ export async function getProductBySlug(slug: string): Promise<Product | null> {
     if (error instanceof ApiError && error.status === 404) return null;
     throw error;
   }
-}
+});
 
 /**
  * Relevance-ranked "you may also like" for a product.

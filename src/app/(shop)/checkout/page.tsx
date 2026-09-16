@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import CheckoutForm from "@/components/checkout/CheckoutForm";
 import { getMyAddresses } from "@/services/address";
-import { getCurrentUser } from "@/services/auth";
+import { getCurrentUser } from "@/lib/current-user";
 import { getServerCart } from "@/services/cart";
 import { getStoreSettings } from "@/services/store-settings";
 import { resolveMetadata } from "@/lib/seo/resolve-metadata";
@@ -23,14 +23,21 @@ export default async function CheckoutPage() {
   // carrying its own contact and delivery details. The session is still read,
   // but only to decide which form to show: saved addresses for a signed-in
   // shopper, inline fields for a guest.
+  //
+  // The cart and settings do not depend on who is signed in, so they start
+  // before the session is awaited instead of queueing behind it. Only the
+  // addresses wait for it. Both services resolve rather than reject on failure.
+  const cartPromise = getServerCart();
+  const settingsPromise = getStoreSettings();
+
   const user = await getCurrentUser();
   const isSignedIn = Boolean(user);
 
   const [addresses, cart, settings] = await Promise.all([
     // Session-scoped endpoint — it rejects a guest, so it is not called for one.
     isSignedIn ? getMyAddresses() : Promise.resolve([]),
-    getServerCart(),
-    getStoreSettings(),
+    cartPromise,
+    settingsPromise,
   ]);
 
   const checkout = settings.checkoutConfig;

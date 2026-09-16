@@ -5,6 +5,10 @@ import { getCategoryGrid } from "@/services/category";
 export default async function CategoryGrid({ title }: { title: string }) {
   const categories = await getCategoryGrid();
 
+  // No category has an image to show: omit the section rather than print its
+  // heading over an empty grid.
+  if (categories.length === 0) return null;
+
   return (
     <section className="container-px site-container pb-8 ">
         <h2 className="text-xl mb-8  font-bold text-gray-900 sm:text-2xl">{title} </h2>

@@ -1,16 +1,44 @@
 import Marquee from "react-fast-marquee";
 import Image from "next/image";
+import { getBrands } from "@/services/brand";
 
-const brands = ["/brands/b1.webp", "/brands/b2.webp", "/brands/b3.webp", "/brands/b4.webp", "/brands/b5.webp", "/brands/b6.webp", "/brands/b7.webp", "/brands/b8.webp", "/brands/b9.webp", "/brands/b10.webp", "/brands/b11.webp", "/brands/b12.webp",  "/brands/b14.webp", "/brands/b15.webp", "/brands/b16.webp", "/brands/b17.webp", "/brands/b18.webp", "/brands/b19.webp", "/brands/b20.webp", "/brands/b21.webp", "/brands/b22.webp"];
+/**
+ * The homepage's scrolling row of brand logos, from the merchant's own brands.
+ *
+ * Only active brands with a logo appear: a brand without one has nothing to put
+ * in a row of logos, and a blank tile would read as a broken image. With none to
+ * show the section renders nothing at all rather than an empty band.
+ *
+ * Logos are Cloudinary uploads, so the image loader serves each at the tile's
+ * size rather than the original upload.
+ */
+export default async function BrandBar() {
+  const brands = (await getBrands()).filter(
+    (brand): brand is typeof brand & { logo: string } => Boolean(brand.logo),
+  );
 
-export default function BrandBar() {
+  if (brands.length === 0) return null;
+
+  /*
+   * `min-h-40` holds the section's full height — 32px padding above and below,
+   * around a row of 48px logos with 24px of its own on each side — before the
+   * marquee has mounted. The marquee only renders in the browser,
+   * so without it the section collapses in the server HTML and then pushes
+   * the rest of the page down once the logos appear.
+   */
   return (
-    <section className=" container-px site-container py-8">
+    <section className=" container-px site-container min-h-40 py-8">
       <Marquee>
         <div className="flex flex-wrap items-center justify-between gap-6 border-gray-100 py-6">
           {brands.map((brand) => (
-            <div key={brand} className="flex h-12 w-32  items-center justify-center">
-              <Image src={brand} alt="Brand Logo" width={128} height={48} className="h-full w-full object-contain" />
+            <div key={brand.id} className="flex h-12 w-32  items-center justify-center">
+              <Image
+                src={brand.logo}
+                alt={brand.name}
+                width={128}
+                height={48}
+                className="h-full w-full object-contain"
+              />
             </div>
           ))}
         </div>

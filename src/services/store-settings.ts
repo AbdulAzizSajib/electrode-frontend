@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { apiFetch } from "@/lib/api-client";
 import type { StoreSettings } from "@/types/store-settings";
 
@@ -319,8 +320,11 @@ const FALLBACK_SETTINGS: StoreSettings = {
  * Individual fields are backfilled too, not just the whole payload: an older
  * API that predates one of these keys, or a partial response, must not leave a
  * component destructuring `undefined`.
+ *
+ * Wrapped in React `cache` (see the export below) so every caller in one
+ * request shares a single read.
  */
-export async function getStoreSettings(): Promise<StoreSettings> {
+async function fetchStoreSettings(): Promise<StoreSettings> {
   try {
     const { data } = await apiFetch<Partial<StoreSettings>>("/settings/public", {
       revalidate: SETTINGS_REVALIDATE_SECONDS,
@@ -528,6 +532,19 @@ export async function getStoreSettings(): Promise<StoreSettings> {
     return FALLBACK_SETTINGS;
   }
 }
+
+/**
+ * One settings read per request, however many callers ask.
+ *
+ * The root layout's metadata and body, the shop layout, and most pages' own
+ * metadata and body each call this — three to five times per page. Next's
+ * built-in fetch memoization does NOT merge those: `apiFetch` passes an
+ * `AbortSignal` for its timeout, and a fetch carrying a signal opts out of
+ * memoization entirely (next/dist/server/lib/dedupe-fetch.js). So each call was
+ * its own request whenever the data cache missed. React `cache` restores the
+ * sharing at the function level, where the signal is irrelevant.
+ */
+export const getStoreSettings = cache(fetchStoreSettings);
 
 /**
  * Resolves an announcement link against the store's contact details.

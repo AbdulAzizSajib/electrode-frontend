@@ -7,7 +7,6 @@ import {
   buildAuthCookieHeader,
   clearAuthCookies,
   getAccessToken,
-  getRefreshToken,
   setAuthCookies,
 } from "@/lib/session";
 import type {
@@ -171,44 +170,21 @@ export async function logoutAction(): Promise<void> {
 }
 
 /**
- * Exchanges the refresh token for a new token trio. Returns false when the
- * refresh token is missing or itself rejected, i.e. the user must sign in again.
- */
-export async function refreshSession(): Promise<boolean> {
-  const refreshToken = await getRefreshToken();
-  if (!refreshToken || isTokenExpired(refreshToken)) return false;
-
-  try {
-    const cookie = await buildAuthCookieHeader();
-    const { data } = await apiFetch<{
-      accessToken: string;
-      refreshToken: string;
-      sessionToken: string;
-    }>("/auth/refresh-token", { method: "POST", cookie });
-
-    await setAuthCookies({
-      accessToken: data.accessToken,
-      refreshToken: data.refreshToken,
-      token: data.sessionToken,
-    });
-
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-/**
  * Current signed-in customer, or null. Call from Server Components to render
- * account-aware UI; it transparently refreshes an expired access token once.
+ * account-aware UI.
+ *
+ * It does NOT renew an expired session, and must not try. It used to: it asked
+ * the backend for new tokens and then wrote them with `cookies().set()`, which
+ * throws during a Server Component render. The throw was swallowed, so the
+ * backend kept issuing tokens nobody could store and the page rendered signed
+ * out. `proxy.ts` renews the session before the render starts and hands the
+ * fresh cookies to it, so a token read here has already been renewed if it
+ * could be — still expired means renewal was refused or unavailable, and this
+ * request is signed out.
  */
 export async function getCurrentUser(): Promise<AuthUser | null> {
   const accessToken = await getAccessToken();
-  if (!accessToken) return null;
-
-  if (isTokenExpired(accessToken) && !(await refreshSession())) {
-    return null;
-  }
+  if (!accessToken || isTokenExpired(accessToken)) return null;
 
   try {
     const cookie = await buildAuthCookieHeader();

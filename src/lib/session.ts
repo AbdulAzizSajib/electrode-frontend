@@ -1,58 +1,42 @@
 import { cookies } from "next/headers";
-import { getTokenSecondsRemaining } from "@/lib/jwt";
+import {
+  ACCESS_TOKEN_COOKIE,
+  REFRESH_TOKEN_COOKIE,
+  SESSION_TOKEN_COOKIE,
+  authCookieMaxAge,
+  authCookieOptions,
+} from "@/lib/auth-cookies";
 
-export const ACCESS_TOKEN_COOKIE = "accessToken";
-export const REFRESH_TOKEN_COOKIE = "refreshToken";
-export const SESSION_TOKEN_COOKIE = "better-auth.session_token";
-
-const ONE_DAY = 60 * 60 * 24;
-const SEVEN_DAYS = ONE_DAY * 7;
-
-/**
- * `secure` + `SameSite=None` is required when the storefront and the API sit on
- * different sites in production, but a `Secure` cookie is silently dropped over
- * plain http — which would make login appear to succeed and then instantly log
- * you out on localhost. So we only harden in production.
- */
-const isProduction = process.env.NODE_ENV === "production";
-
-const baseCookieOptions = {
-  httpOnly: true,
-  secure: isProduction,
-  sameSite: isProduction ? ("none" as const) : ("lax" as const),
-  path: "/",
-};
+export { ACCESS_TOKEN_COOKIE, REFRESH_TOKEN_COOKIE, SESSION_TOKEN_COOKIE };
 
 /**
- * Persists an auth cookie, preferring the token's own lifetime so our cookie
- * never outlives the credential it carries. `better-auth.session_token` is an
- * opaque string (not a JWT), so it always falls back to `fallbackMaxAge`.
+ * Persists an auth cookie with the lifetime and attributes `auth-cookies.ts`
+ * defines — the same ones `proxy.ts` uses when it refreshes a session, so the
+ * two writers can never disagree about a cookie.
  */
-async function setAuthCookie(
-  name: string,
-  value: string,
-  fallbackMaxAge: number,
-) {
+async function setAuthCookie(name: string, value: string) {
   const cookieStore = await cookies();
-  const maxAge = getTokenSecondsRemaining(value) || fallbackMaxAge;
 
-  cookieStore.set(name, value, { ...baseCookieOptions, maxAge });
+  cookieStore.set(name, value, {
+    ...authCookieOptions,
+    maxAge: authCookieMaxAge(name, value),
+  });
 }
 
-/** Writes the full token trio returned by login / verify-email / refresh. */
+/** Writes the full token trio returned by login / verify-email. */
 export async function setAuthCookies(tokens: {
   accessToken?: string;
   refreshToken?: string;
   token?: string;
 }) {
   if (tokens.accessToken) {
-    await setAuthCookie(ACCESS_TOKEN_COOKIE, tokens.accessToken, ONE_DAY);
+    await setAuthCookie(ACCESS_TOKEN_COOKIE, tokens.accessToken);
   }
   if (tokens.refreshToken) {
-    await setAuthCookie(REFRESH_TOKEN_COOKIE, tokens.refreshToken, SEVEN_DAYS);
+    await setAuthCookie(REFRESH_TOKEN_COOKIE, tokens.refreshToken);
   }
   if (tokens.token) {
-    await setAuthCookie(SESSION_TOKEN_COOKIE, tokens.token, ONE_DAY);
+    await setAuthCookie(SESSION_TOKEN_COOKIE, tokens.token);
   }
 }
 
@@ -65,10 +49,6 @@ export async function clearAuthCookies() {
 
 export async function getAccessToken() {
   return (await cookies()).get(ACCESS_TOKEN_COOKIE)?.value;
-}
-
-export async function getRefreshToken() {
-  return (await cookies()).get(REFRESH_TOKEN_COOKIE)?.value;
 }
 
 /**

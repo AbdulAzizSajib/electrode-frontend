@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { apiFetch } from "@/lib/api-client";
 import type { ApiBanner, Banner, BannerPlacement } from "@/types/banner";
 
@@ -61,7 +62,7 @@ function toBanner(banner: ApiBanner): Banner {
  * would take the page down. On any failure every placement comes back empty and
  * the hero's slots simply render nothing.
  */
-export async function getBannersByPlacement(): Promise<
+async function fetchBannersByPlacement(): Promise<
   Partial<Record<BannerPlacement, Banner[]>>
 > {
   try {
@@ -86,3 +87,11 @@ export async function getBannersByPlacement(): Promise<
     return {};
   }
 }
+
+/**
+ * Shared per request: the homepage's `Hero` and `MidBanners` both call this,
+ * and the page starts it before either renders so the banners load alongside
+ * the product rows instead of after them. See `getStoreSettings` for why fetch
+ * memoization alone does not merge these calls.
+ */
+export const getBannersByPlacement = cache(fetchBannersByPlacement);

@@ -14,6 +14,11 @@ import { getBannersByPlacement } from "@/services/banner";
 export default async function MidBanners() {
   const banners = await getBannersByPlacement();
   const midBanners = banners.MID ?? [];
+
+  // Nothing configured: no section, rather than an empty padded band where the
+  // skeleton just stood.
+  if (midBanners.length === 0) return null;
+
   return (
     <section className="container-px  site-container py-8  ">
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">

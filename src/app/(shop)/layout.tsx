@@ -6,7 +6,7 @@ import MobileBottomNav from "@/components/layout/MobileBottomNav";
 import CompareBar from "@/components/layout/CompareBar";
 import StoreProvider from "@/store/StoreProvider";
 import SmoothScrollProvider from "@/components/providers/SmoothScrollProvider";
-import { getCurrentUser } from "@/services/auth";
+import { getCurrentUser } from "@/lib/current-user";
 import { getCategoryTree } from "@/services/category";
 import { getStoreSettings } from "@/services/store-settings";
 import FacebookPixel from "@/components/landing/FacebookPixel";

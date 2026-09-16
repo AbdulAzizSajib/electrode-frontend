@@ -3,7 +3,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
 import MyReviewsView from "@/app/(shop)/account/reviews/MyReviewsView";
-import { getCurrentUser } from "@/services/auth";
+import { getCurrentUser } from "@/lib/current-user";
 import { getStoreSettings } from "@/services/store-settings";
 import { resolveMetadata } from "@/lib/seo/resolve-metadata";
 

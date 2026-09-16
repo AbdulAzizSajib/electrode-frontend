@@ -28,9 +28,17 @@ const nextConfig: NextConfig = {
    * `sanitize-html`, which parses with htmlparser2 and needs no DOM. Leaving
    * the entry would pin a package nothing imports.
    */
+  /*
+   * Images are sized by Cloudinary, not by Next's `/_next/image` optimizer and
+   * no longer left unoptimized. The loader inserts a resize-and-format
+   * transformation into each Cloudinary URL per `srcset` width and passes
+   * every other source through; see src/lib/image-loader.ts for why Cloudinary
+   * rather than Next does the work. No `remotePatterns` are needed — that list
+   * only gates Next's own optimizer, which a custom loader never calls.
+   */
   images: {
-
-    unoptimized: true,
+    loader: "custom",
+    loaderFile: "./src/lib/image-loader.ts",
   },
 };
 

@@ -1,8 +1,17 @@
 import { NextResponse, type NextRequest } from "next/server";
+import {
+  ACCESS_TOKEN_COOKIE,
+  AUTH_COOKIE_NAMES,
+  REFRESH_TOKEN_COOKIE,
+  SESSION_TOKEN_COOKIE,
+  authCookieMaxAge,
+  authCookieOptions,
+} from "@/lib/auth-cookies";
 import { decodeAccessToken } from "@/lib/jwt";
+import { needsSessionRefresh, requestSessionRefresh } from "@/lib/session-refresh";
 
 /**
- * Route protection for the storefront.
+ * Session renewal and route protection for the storefront.
  *
  * This is a customer-only site (the admin panel is a separate app), so there's
  * no role-based routing here — the only question is "signed in or not".
@@ -11,7 +20,11 @@ import { decodeAccessToken } from "@/lib/jwt";
  * boundary: it only reads the token to decide where to send the browser. Every
  * real check still happens on the backend, which re-validates the token's
  * signature on each request. That's why decoding (not verifying) is enough
- * here — and it keeps this Edge-runtime-safe with no crypto dependency.
+ * here — and it needs no crypto dependency.
+ *
+ * It is ALSO where an expired sign-in is renewed, because it is the one place
+ * that runs before a request is handled and can write cookies. See
+ * `lib/session-refresh.ts` for why that cannot happen during render.
  */
 
 /**
@@ -41,38 +54,120 @@ const isMatch = (pathname: string, routes: string[]) =>
     (route) => pathname === route || pathname.startsWith(`${route}/`),
   );
 
-export function proxy(request: NextRequest) {
+/**
+ * Renews this request's session when its access token has run out, and returns
+ * what the rest of the proxy needs: the access token to judge the request by,
+ * and how to write the outcome onto whichever response is sent.
+ *
+ * The renewed cookies are written to the REQUEST as well as the response. The
+ * response carries them to the browser for next time; the request carries them
+ * to this render — Server Components read `cookies()` and the `/api/*` handlers
+ * forward the raw Cookie header to the backend, and both would otherwise still
+ * see the expired token and treat this very request as signed out.
+ */
+async function renewSession(request: NextRequest) {
+  const accessToken = request.cookies.get(ACCESS_TOKEN_COOKIE)?.value;
+  const refreshToken = request.cookies.get(REFRESH_TOKEN_COOKIE)?.value;
+  const sessionToken = request.cookies.get(SESSION_TOKEN_COOKIE)?.value;
+
+  const unchanged = { accessToken, changed: false, apply: (response: NextResponse) => response };
+
+  if (!needsSessionRefresh({ accessToken, refreshToken, sessionToken })) {
+    return unchanged;
+  }
+
+  const outcome = await requestSessionRefresh(refreshToken!, sessionToken!);
+
+  if (outcome.kind === "refreshed") {
+    const renewed = [
+      [ACCESS_TOKEN_COOKIE, outcome.tokens.accessToken],
+      [REFRESH_TOKEN_COOKIE, outcome.tokens.refreshToken],
+      [SESSION_TOKEN_COOKIE, outcome.tokens.sessionToken],
+    ] as const;
+
+    for (const [name, value] of renewed) request.cookies.set(name, value);
+
+    return {
+      accessToken: outcome.tokens.accessToken,
+      changed: true,
+      apply: (response: NextResponse) => {
+        for (const [name, value] of renewed) {
+          response.cookies.set(name, value, {
+            ...authCookieOptions,
+            maxAge: authCookieMaxAge(name, value),
+          });
+        }
+        return response;
+      },
+    };
+  }
+
+  if (outcome.kind === "rejected") {
+    // The backend has ended this session. Clearing the cookies stops every
+    // later request asking again, only to be refused again.
+    for (const name of AUTH_COOKIE_NAMES) request.cookies.delete(name);
+
+    return {
+      accessToken: undefined,
+      changed: true,
+      apply: (response: NextResponse) => {
+        for (const name of AUTH_COOKIE_NAMES) {
+          response.cookies.delete({ name, path: authCookieOptions.path });
+        }
+        return response;
+      },
+    };
+  }
+
+  // Unavailable: cookies left untouched. This request renders signed out, and
+  // the next one tries again.
+  return unchanged;
+}
+
+export async function proxy(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
 
-  const accessToken = request.cookies.get("accessToken")?.value;
-  const claims = accessToken ? decodeAccessToken(accessToken) : null;
+  const session = await renewSession(request);
 
-  // A token past its `exp` is treated as signed-out here. The session may still
-  // be recoverable via the refresh token, so we don't clear cookies — the
-  // server-side `getCurrentUser()` refreshes it on the next real request.
+  const claims = session.accessToken ? decodeAccessToken(session.accessToken) : null;
   const isSignedIn =
     claims !== null && claims.exp * 1000 > Date.now() && !claims.isDeleted;
 
+  /** Continues to the route, handing it the renewed cookies when there are any. */
+  const next = () =>
+    session.apply(
+      session.changed
+        ? NextResponse.next({ request: { headers: request.headers } })
+        : NextResponse.next(),
+    );
+
   if (isMatch(pathname, AUTH_ROUTES)) {
     if (isSignedIn) {
-      return NextResponse.redirect(new URL("/account", request.url));
+      return session.apply(NextResponse.redirect(new URL("/account", request.url)));
     }
-    return NextResponse.next();
+    return next();
   }
 
   if (isMatch(pathname, PROTECTED_ROUTES) && !isSignedIn) {
     const loginUrl = new URL("/account/login", request.url);
     // Send the user back where they were headed once they sign in.
     loginUrl.searchParams.set("redirect", `${pathname}${search}`);
-    return NextResponse.redirect(loginUrl);
+    return session.apply(NextResponse.redirect(loginUrl));
   }
 
-  return NextResponse.next();
+  return next();
 }
 
 export const config = {
   matcher: [
-    // Skip API routes, Next internals, and anything with a file extension.
+    // Pages: skip API routes, Next internals, and anything with a file extension.
     "/((?!api|_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt|.*\\..*).*)",
+    /*
+     * API routes too, so the cart, wishlist, reviews and checkout calls a page
+     * makes from the browser are renewed the same way. `revalidate` is called
+     * by the backend and `placeholder` serves images; neither carries a
+     * customer's session.
+     */
+    "/api/((?!revalidate|placeholder).*)",
   ],
 };
