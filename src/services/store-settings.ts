@@ -45,6 +45,12 @@ const FALLBACK_SETTINGS: StoreSettings = {
   logoUrl: null,
   footerLogoUrl: null,
   /*
+   * Null, like the two logos: "the merchant chose no icon", which resolves to
+   * the icon this app ships with. A settings outage therefore shows the stock
+   * favicon rather than a broken one, and never somebody else's artwork.
+   */
+  faviconUrl: null,
+  /*
    * Mirrors the backend's `DEFAULT_PUBLIC_SETTINGS`. TEXT for both is what the
    * storefront rendered before these existed, so a settings outage degrades the
    * brand slots to the wordmark — which is always truthful, and is exactly what
@@ -181,6 +187,14 @@ const FALLBACK_SETTINGS: StoreSettings = {
     { key: "NEW_ARRIVALS", enabled: true },
     { key: "TESTIMONIALS", enabled: true },
     { key: "BLOG", enabled: true },
+    /*
+     * Last, matching the backend registry. Easy to forget and invisible when
+     * you do: this list is only reached when the settings read FAILS, so an
+     * omission here would drop the newsletter from the home page during exactly
+     * the incident where the page is already degraded — and nowhere else, so it
+     * would never show up in normal testing.
+     */
+    { key: "NEWSLETTER", enabled: true },
   ],
   /*
    * Mirrors the backend's DEFAULT_THEME, which mirrors globals.css. These are
@@ -339,6 +353,13 @@ export async function getStoreSettings(): Promise<StoreSettings> {
        */
       headerBrandMode: data.headerBrandMode ?? FALLBACK_SETTINGS.headerBrandMode,
       footerBrandMode: data.footerBrandMode ?? FALLBACK_SETTINGS.footerBrandMode,
+      /*
+       * Backfilled so an API predating this field reads as `null` — "no icon
+       * chosen" — rather than `undefined`. Both resolve to the shipped icon, but
+       * the type says `string | null` and `undefined` would be a lie the rest of
+       * the app is entitled to disbelieve.
+       */
+      faviconUrl: data.faviconUrl ?? FALLBACK_SETTINGS.faviconUrl,
       headerLogoHeight:
         typeof data.headerLogoHeight === "number"
           ? data.headerLogoHeight

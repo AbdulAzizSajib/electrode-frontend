@@ -18,6 +18,7 @@ import {
 import type { PaginationMeta, Product, ProductImage } from "@/types/product";
 import type { RatingBreakdown, Review } from "@/types/review";
 import { discountPercent, formatCount, formatPrice } from "@/lib/format";
+import { FOCUS_RING } from "@/lib/focus-ring";
 import { firstImageForVariant, variantIdForImage } from "@/lib/variant-gallery";
 import {
   choicesForVariant,
@@ -60,18 +61,6 @@ const TABS: { id: ProductTab; label: string }[] = [
  * keeping a held-down key from sending a four-digit quantity to checkout.
  */
 const MAX_QUANTITY = 99;
-
-/**
- * Focus ring for every control on this page.
- *
- * The page shipped with none, so each of the quantity stepper, the tabs, the
- * rating jump and both CTAs fell back to the browser's default outline — which
- * belongs to no design system and differs per engine. Drawn from the brand
- * token, offset so it reads as a ring around the control rather than a border
- * on it, and `focus-visible` so a mouse click never paints one.
- */
-const FOCUS_RING =
-  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2";
 
 /**
  * Everything the two buy buttons share.

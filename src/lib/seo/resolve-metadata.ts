@@ -38,9 +38,19 @@ export interface ResolveMetadataInput {
   fallbackTitle?: string;
 }
 
-/** Trimmed, or undefined when absent or blank — `""` means "unset" throughout. */
-const clean = (value: string | null | undefined): string | undefined => {
-  const trimmed = value?.trim();
+/**
+ * Trimmed, or undefined when absent or blank — `""` means "unset" throughout.
+ *
+ * The `typeof` guard is what makes this file's never-throw promise true rather
+ * than merely intended. Every value here comes from `apiFetch`, which types the
+ * settings payload but does not validate it, so a field the API sends as a
+ * number or an object arrives as one — and `value?.trim()` throws on those,
+ * inside `generateMetadata`, which takes the whole page down. Anything that is
+ * not a string is "unset", which is the same answer this already gives for null.
+ */
+const clean = (value: unknown): string | undefined => {
+  if (typeof value !== "string") return undefined;
+  const trimmed = value.trim();
   return trimmed ? trimmed : undefined;
 };
 
@@ -64,6 +74,37 @@ const applyTemplate = (title: string, template: string | undefined): string => {
   // silently ignoring what they typed.
   return template.includes("%s") ? template.replaceAll("%s", title) : template;
 };
+
+/** The icon this app ships with, served from `public/`. Reached when the merchant set none. */
+export const DEFAULT_FAVICON_PATH = "/favicon.ico";
+
+/**
+ * The browser-tab icon, as Next's `Metadata["icons"]`.
+ *
+ * Declared ONCE, by the root layout, and inherited by every route beneath it —
+ * deliberately not folded into `resolveMetadata` below, which ~18 routes call
+ * and which would therefore emit the same icon link eighteen times over.
+ *
+ * `src/app/favicon.ico` was DELETED to make this authoritative. Next's file
+ * convention is not a default that metadata overrides — it prepends its own
+ * link (`metadata.icons.icon.unshift(favicon)` in
+ * `next/dist/lib/metadata/resolve-metadata.js`), with no way to suppress it —
+ * so while that file existed every document carried two competing `rel="icon"`
+ * links and which one won was the browser's business. The same artwork now
+ * lives at `public/favicon.ico`, which serves it at the identical URL, keeps a
+ * bare `GET /favicon.ico` from 404ing, and is the fallback below.
+ *
+ * Never throws, like everything else in this file: it runs inside
+ * `generateMetadata` on every page, so a malformed stored value degrades to the
+ * shipped icon rather than taking the page down. A blank or whitespace-only
+ * value is "unset" — the same rule `clean` applies everywhere else here.
+ *
+ * ONE ICON, not a set. No apple-touch icon, no dark-mode variant, no size
+ * ladder — see the change's proposal.
+ */
+export const resolveIcons = (settings: StoreSettings): Metadata["icons"] => ({
+  icon: [{ url: clean(settings.faviconUrl) ?? DEFAULT_FAVICON_PATH }],
+});
 
 /** `siteUrl` as a URL, or undefined. A malformed stored value is ignored, not thrown on. */
 export const metadataBaseOf = (settings: StoreSettings): URL | undefined => {

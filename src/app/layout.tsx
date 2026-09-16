@@ -6,7 +6,7 @@ import { setCurrencyFormat } from "@/lib/format";
 import { setCatalogFeatures } from "@/lib/catalog-features";
 import { getStoreSettings } from "@/services/store-settings";
 import { resolveFontHref, themeStyle } from "@/lib/theme";
-import { resolveMetadata, storeTitleOf } from "@/lib/seo/resolve-metadata";
+import { resolveIcons, resolveMetadata, storeTitleOf } from "@/lib/seo/resolve-metadata";
 import { buildOrganizationSchema } from "@/lib/seo/schema-builders";
 import JsonLd from "@/components/seo/json-ld";
 
@@ -73,6 +73,16 @@ export async function generateMetadata(): Promise<Metadata> {
     ...(template && template.includes("%s")
       ? { title: { default: rootTitle, template } }
       : {}),
+    /*
+     * The merchant's browser-tab icon, declared HERE and only here.
+     *
+     * This layout is the one thing above both shells — `(shop)` and
+     * `(landing)` — so declaring it once covers the storefront and every
+     * campaign page, and child routes inherit it. `resolveMetadata` above
+     * deliberately does not carry it: eighteen routes call that function, and
+     * each would emit its own duplicate link.
+     */
+    icons: resolveIcons(settings),
   };
 }
 

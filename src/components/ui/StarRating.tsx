@@ -8,7 +8,14 @@ export default function StarRating({
   size?: number;
 }) {
   return (
-    <div className="flex items-center gap-0.5" aria-label={`Rated ${rating} out of 5`}>
+    /*
+     * `role="img"` is what makes the label reachable. `aria-label` on a plain
+     * `div` has no role to attach to, and screen readers are free to ignore it —
+     * most do, which left the rating announced as five unlabelled graphics or as
+     * nothing at all. The role also makes this a leaf, so the five `Star`s inside
+     * are skipped rather than read out one by one.
+     */
+    <div className="flex items-center gap-0.5" role="img" aria-label={`Rated ${rating} out of 5`}>
       {Array.from({ length: 5 }).map((_, i) => (
         <Star
           key={i}

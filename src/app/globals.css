@@ -58,6 +58,19 @@
    * `motion-reduce:animate-none`.
    */
   --animate-menu-in: menu-in 160ms cubic-bezier(0.16, 1, 0.3, 1);
+
+  /*
+   * The tick that confirms an add to cart. It arrives where the spinner it
+   * replaces was already turning, so it needs to read as an answer to that
+   * motion rather than a swap of two static glyphs — it lands from slightly
+   * undersized instead of appearing at rest.
+   *
+   * Overshoots past 1 on the way in: a confirmation is the one moment in a
+   * shopping flow that is allowed a little exuberance. Callers pair it with
+   * `motion-reduce:animate-none`, which leaves the tick itself — the
+   * information — untouched.
+   */
+  --animate-tick-in: tick-in 220ms cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 @keyframes menu-in {
@@ -67,14 +80,12 @@
   }
 }
 
-/*
- * Concealing a card's actions is opt-in per device: only a device that can
- * genuinely hover gets the hidden-at-rest presentation. Everywhere else the
- * actions stay visible, which is both the correct default for touch and what
- * renders if this stylesheet never loads. `pointer: fine` excludes hybrid
- * touch-laptops, where `hover: hover` can be true while the user is touching.
- */
-@custom-variant hover-capable (@media (hover: hover) and (pointer: fine));
+@keyframes tick-in {
+  from {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+}
 
 /*
  * Text selection, drawn from the merchant's brand rather than the browser's

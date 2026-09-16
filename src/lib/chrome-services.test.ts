@@ -31,7 +31,26 @@ describe("getStoreSettings", () => {
     expect(settings.mainNav.length).toBeGreaterThan(0);
     expect(settings.storeName).toBeTruthy();
     expect(settings.announcementBar).toBeDefined();
+    /*
+     * Newsletter copy is no longer part of the chrome — the block left the
+     * footer and is a home page section now — but the fallback still has to
+     * carry it, because the section renders from this same payload. The
+     * assertion holds for a different reason than it used to.
+     */
     expect(settings.newsletter.heading).toBeTruthy();
+
+    /*
+     * The section list this outage path serves. It must be COMPLETE: a shopper
+     * cannot tell a home page stripped by an outage from one the merchant
+     * chose, so the safe direction is to show everything. `NEWSLETTER` is the
+     * newest key and the one most likely to be forgotten here, and forgetting
+     * it would only ever show up during an incident.
+     */
+    expect(settings.homeConfig.map((s) => s.key)).toContain("NEWSLETTER");
+    expect(settings.homeConfig.every((s) => s.enabled)).toBe(true);
+
+    /* No icon invented on a failed read — the app falls back to its own. */
+    expect(settings.faviconUrl).toBeNull();
   });
 
   it("returns defaults on a 500", async () => {
@@ -65,6 +84,12 @@ describe("getStoreSettings", () => {
     // destructures undefined.
     expect(settings.newsletter.heading).toBeTruthy();
     expect(settings.contact).toBeDefined();
+    /*
+     * An API that predates `faviconUrl` omits it entirely. It must read as
+     * `null` — "the merchant chose no icon" — and not `undefined`: the type
+     * promises `string | null`, and `resolveIcons` is entitled to believe it.
+     */
+    expect(settings.faviconUrl).toBeNull();
   });
 
   /*

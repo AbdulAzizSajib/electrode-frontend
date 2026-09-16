@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { resolveMetadata } from "./resolve-metadata";
+import { DEFAULT_FAVICON_PATH, resolveIcons, resolveMetadata } from "./resolve-metadata";
 import type { SeoConfig, StoreSettings } from "@/types/store-settings";
 
 /**
@@ -154,5 +154,57 @@ describe("resolveMetadata robots and canonical", () => {
 
     expect(meta.metadataBase).toBeUndefined();
     expect(meta.alternates?.canonical).toBeUndefined();
+  });
+});
+
+/**
+ * The browser-tab icon.
+ *
+ * Small surface, but every one of these degrades to the shipped icon rather
+ * than to nothing: the root layout declares this on every page of both shells,
+ * and a thrown error inside `generateMetadata` would take the page down with
+ * it. A blank tab is the acceptable failure; a blank page is not.
+ */
+describe("resolveIcons", () => {
+  /** The single declared icon URL, which is the only shape this ever returns. */
+  const iconUrl = (s: Parameters<typeof resolveIcons>[0]) => {
+    const icons = resolveIcons(s);
+    const list = (icons as { icon: { url: string }[] }).icon;
+    expect(list).toHaveLength(1);
+    return list[0].url;
+  };
+
+  it("uses the merchant's icon when they have set one", () => {
+    expect(iconUrl(settings({ faviconUrl: "https://cdn.example.com/icon.png" }))).toBe(
+      "https://cdn.example.com/icon.png",
+    );
+  });
+
+  it("falls back to the shipped icon when the merchant has set none", () => {
+    expect(iconUrl(settings({ faviconUrl: null }))).toBe(DEFAULT_FAVICON_PATH);
+  });
+
+  /*
+   * "" and "   " are both reachable: the admin sends `null` for an empty field,
+   * but a row written by hand or by an older client can carry either, and an
+   * empty `href` resolves to the current page — so the tab would try to render
+   * the HTML document as its icon.
+   */
+  it("treats an empty or whitespace-only value as unset", () => {
+    expect(iconUrl(settings({ faviconUrl: "" }))).toBe(DEFAULT_FAVICON_PATH);
+    expect(iconUrl(settings({ faviconUrl: "   " }))).toBe(DEFAULT_FAVICON_PATH);
+  });
+
+  it("declares exactly one icon, so nothing competes with the merchant's", () => {
+    const icons = resolveIcons(settings({ faviconUrl: "https://cdn.example.com/icon.png" }));
+    expect((icons as { icon: unknown[] }).icon).toHaveLength(1);
+    expect(icons).not.toHaveProperty("apple");
+    expect(icons).not.toHaveProperty("shortcut");
+  });
+
+  it("never throws, whatever the stored value is", () => {
+    for (const value of [undefined, null, "", "not a url", 42, {}] as unknown[]) {
+      expect(() => resolveIcons(settings({ faviconUrl: value as string | null }))).not.toThrow();
+    }
   });
 });

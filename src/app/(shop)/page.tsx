@@ -18,6 +18,7 @@ import DealOfWeek from "@/components/home/DealOfWeek";
 import CategoryGrid from "@/components/home/CategoryGrid";
 import Testimonials from "@/components/home/Testimonials";
 import BlogSection from "@/components/home/BlogSection";
+import Newsletter from "@/components/home/Newsletter";
 
 /** Products per merchandising row, matching the five-across deal layout. */
 const SECTION_SIZE = 6;
@@ -55,6 +56,9 @@ export async function generateMetadata(): Promise<Metadata> {
  * `PERKS_BAR` read local constants; `HERO` and `MID_BANNERS` fetch their own
  * banners internally) contribute nothing to the set — disabling those stops
  * their work by never rendering the component at all.
+ *
+ * Sections that fetch nothing now include `NEWSLETTER`, whose copy travels in
+ * the settings payload this route already holds.
  *
  * The list arrives complete and current: the backend reconciles the stored
  * configuration against its own registry before serving it, so a section added
@@ -178,6 +182,12 @@ export default async function Home() {
        empty grid is worse than a shorter page. */
     TESTIMONIALS: testimonials?.length ? <Testimonials testimonials={testimonials} /> : null,
     BLOG: blogPosts?.length ? <BlogSection posts={blogPosts} /> : null,
+    /* Fetches nothing — its copy rides the settings payload this route already
+       holds — so it adds no query above, exactly like BRAND_BAR and PERKS_BAR.
+       And no emptiness guard: unlike the rows above, its content is the form
+       rather than the heading, so a blank heading shortens the block instead of
+       removing it. See the component. */
+    NEWSLETTER: <Newsletter newsletter={settings.newsletter} />,
   };
 
   /*

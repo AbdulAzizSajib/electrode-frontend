@@ -185,7 +185,14 @@ export type HomeSectionKey =
   | "DEAL_OF_WEEK"
   | "NEW_ARRIVALS"
   | "TESTIMONIALS"
-  | "BLOG";
+  | "BLOG"
+  /**
+   * The email signup band. It was welded into the FOOTER until
+   * add-favicon-and-newsletter-section — on every page, removable only by
+   * emptying its heading. It is a home page section now, so it appears here and
+   * nowhere in the `(shop)` layout.
+   */
+  | "NEWSLETTER";
 
 /**
  * One homepage section's placement and visibility.
@@ -364,6 +371,15 @@ export interface StoreSettings {
   logoUrl: string | null;
   /** Null falls back to `logoUrl`, then to the text wordmark. */
   footerLogoUrl: string | null;
+  /**
+   * The browser-tab icon the merchant chose, or null for "they chose none".
+   *
+   * Null is NOT a blank icon and is deliberately not a copy of the icon this
+   * app ships with — the API answers only what the merchant set, and resolving
+   * the fallback is this app's job because this app owns that asset. See
+   * `resolveIcons` in `lib/seo/resolve-metadata.ts`.
+   */
+  faviconUrl: string | null;
   /**
    * Which of the two things each brand slot shows, decided independently.
    *

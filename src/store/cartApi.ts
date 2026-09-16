@@ -117,9 +117,35 @@ async function seedCartFromResponse(
 ) {
   const { data } = await queryFulfilled;
   const summary = toCartSummary(data?.data);
-  dispatch(
-    cartApi.util.updateQueryData("getCart", undefined, () => summary),
-  );
+  // Upsert rather than update: `updateQueryData` only writes into an entry that
+  // already holds data, so when `GET /cart` had failed it wrote nothing at all
+  // and a successful add never reached the badge. Upsert fills the entry
+  // whatever state it is in, and clears the read's error along with it.
+  await (dispatch(
+    cartApi.util.upsertQueryData("getCart", undefined, summary),
+  ) as Promise<unknown>);
+}
+
+/**
+ * Wraps an optimistic recipe so it only runs against a cart.
+ *
+ * `updateQueryData` does not always hand a recipe a draft: when the cached
+ * value is not draftable it passes `data` itself and takes the return as the
+ * new value. The recipes below all read the cart they are patching, so anything
+ * other than an object reaches them as `draft.itemCount` on nothing — and
+ * because `dispatch` runs the recipe *synchronously*, that throws before the
+ * caller's `try`, skipping the revert and leaving the rejection unhandled.
+ *
+ * Skipping the patch is the right fallback anyway: a mutation that succeeds
+ * reseeds the whole cart from its own response, so the UI lands on the server's
+ * figures either way — a guess is only worth making when there is something on
+ * screen to correct.
+ */
+function onCachedCart(recipe: (draft: CartSummary) => void) {
+  return (draft: CartSummary | undefined) => {
+    if (!draft) return;
+    recipe(draft);
+  };
 }
 
 export const cartApi = createApi({
@@ -140,9 +166,13 @@ export const cartApi = createApi({
       // Add, so bump it immediately; money stays server-derived (design D6).
       async onQueryStarted({ quantity = 1 }, { dispatch, queryFulfilled }) {
         const patch = dispatch(
-          cartApi.util.updateQueryData("getCart", undefined, (draft) => {
-            draft.itemCount += quantity;
-          }),
+          cartApi.util.updateQueryData(
+            "getCart",
+            undefined,
+            onCachedCart((draft) => {
+              draft.itemCount += quantity;
+            }),
+          ),
         );
         try {
           await seedCartFromResponse(queryFulfilled, dispatch);
@@ -174,14 +204,20 @@ export const cartApi = createApi({
       // the response reseed. Reverts if the server refuses.
       async onQueryStarted(itemId, { dispatch, queryFulfilled }) {
         const patch = dispatch(
-          cartApi.util.updateQueryData("getCart", undefined, (draft) => {
-            const line = draft.lines.find((l) => l.id === itemId);
-            if (!line) return;
-            draft.lines = draft.lines.filter((l) => l.id !== itemId);
-            draft.itemCount -= line.quantity;
-            draft.subtotal = roundMoney(draft.subtotal - line.lineTotal);
-            draft.total = roundMoney(Math.max(0, draft.subtotal - draft.discountAmount));
-          }),
+          cartApi.util.updateQueryData(
+            "getCart",
+            undefined,
+            onCachedCart((draft) => {
+              const line = draft.lines.find((l) => l.id === itemId);
+              if (!line) return;
+              draft.lines = draft.lines.filter((l) => l.id !== itemId);
+              draft.itemCount -= line.quantity;
+              draft.subtotal = roundMoney(draft.subtotal - line.lineTotal);
+              draft.total = roundMoney(
+                Math.max(0, draft.subtotal - draft.discountAmount),
+              );
+            }),
+          ),
         );
         try {
           await seedCartFromResponse(queryFulfilled, dispatch);

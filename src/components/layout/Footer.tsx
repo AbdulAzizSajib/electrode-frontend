@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { Mail, MapPin, Phone } from "lucide-react";
-import NewsletterForm from "@/components/layout/NewsletterForm";
 import { resolveBrandSlot } from "@/lib/brand-slot";
 import {
   FacebookIcon,
@@ -14,11 +13,12 @@ import type { SocialPlatform, StoreSettings } from "@/types/store-settings";
 /**
  * The storefront footer, rendered entirely from merchant-managed settings.
  *
- * A server component now: it was `"use client"` only to give the newsletter
- * form its submit handler, which has moved to `NewsletterForm`. That lets the
- * footer take its content as props from the root layout instead of fetching it
- * in the browser, so the real columns are in the first HTML response rather
- * than replacing placeholders a beat later.
+ * A server component: it was `"use client"` only to give the newsletter form
+ * its submit handler, and that form has left the footer altogether — it is the
+ * `NEWSLETTER` home page section now. The footer takes its content as props
+ * from the root layout instead of fetching it in the browser, so the real
+ * columns are in the first HTML response rather than replacing placeholders a
+ * beat later.
  *
  * Every block collapses independently when unset — a store with no social
  * accounts gets no icon row rather than a row of missing images.
@@ -53,7 +53,6 @@ export default function Footer({ settings }: { settings: StoreSettings }) {
     contact,
     footerColumns,
     socialLinks,
-    newsletter,
   } = settings;
 
   const brandName = [storeName, siteNameAccent].filter(Boolean).join(" ");
@@ -68,22 +67,17 @@ export default function Footer({ settings }: { settings: StoreSettings }) {
 
   return (
     <footer className="bg-brand text-white">
-      {newsletter.heading && (
-        <div className="container-px site-container border-b border-white/10 py-10">
-          <div className="flex flex-col items-start justify-between gap-6 md:flex-row md:items-center">
-            <div>
-              <h3 className="text-xl font-semibold">{newsletter.heading}</h3>
-              {newsletter.subtext && (
-                <p className="mt-1 text-sm text-white/80">{newsletter.subtext}</p>
-              )}
-            </div>
-            <NewsletterForm
-              placeholder={newsletter.placeholder}
-              buttonLabel={newsletter.buttonLabel}
-            />
-          </div>
-        </div>
-      )}
+      {/*
+        No newsletter strip here any more.
+
+        It used to sit above these columns, on every page of the site, and the
+        only way a merchant could remove it was to empty its heading. It is a
+        home page section now — `components/home/Newsletter.tsx`, ordered and
+        switched through `homeConfig` — so it appears once, on `/`, and the
+        merchant can move it or turn it off. Do not reintroduce it here: this
+        layout renders on every route, which is the property that made it
+        unremovable in the first place.
+      */}
 
       {/*
         Two grids, not one, below `lg`.
