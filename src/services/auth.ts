@@ -13,8 +13,10 @@ import type {
   ActionResult,
   AuthData,
   AuthUser,
+  ChangePasswordPayload,
   LoginPayload,
   RegisterPayload,
+  ResetPasswordPayload,
   VerifyEmailPayload,
 } from "@/types/auth";
 
@@ -150,6 +152,131 @@ export async function resendVerificationOtpAction(
         error instanceof ApiError
           ? error.message
           : "Could not resend the code. Please try again.",
+    };
+  }
+}
+
+/**
+ * Asks the backend to email a password reset code.
+ *
+ * The backend refuses an unknown, unverified or deactivated account with a
+ * message naming the reason, and that message is passed through rather than
+ * flattened into a generic "check your email" — this storefront is not trying
+ * to hide whether an address is registered, and the backend already does not.
+ */
+export async function forgetPasswordAction(
+  email: string,
+): Promise<ActionResult> {
+  try {
+    await apiFetch("/auth/forget-password", {
+      method: "POST",
+      body: { email: email.trim().toLowerCase() },
+    });
+
+    return { ok: true };
+  } catch (error) {
+    return {
+      ok: false,
+      message:
+        error instanceof ApiError
+          ? error.message
+          : "Could not send the reset code. Please try again.",
+    };
+  }
+}
+
+export async function resendPasswordResetOtpAction(
+  email: string,
+): Promise<ActionResult> {
+  try {
+    await apiFetch("/auth/resend-password-reset-otp", {
+      method: "POST",
+      body: { email: email.trim().toLowerCase() },
+    });
+
+    return { ok: true };
+  } catch (error) {
+    return {
+      ok: false,
+      message:
+        error instanceof ApiError
+          ? error.message
+          : "Could not resend the code. Please try again.",
+    };
+  }
+}
+
+/**
+ * Completes a reset with the emailed code.
+ *
+ * It deliberately does NOT sign the customer in, and must not be "improved" to.
+ * The endpoint returns no tokens, and `AuthService.resetPassword` ends by
+ * deleting every session for the account — a reset is what someone does when
+ * they think their account is compromised, so signing every device back out is
+ * the point. The caller sends them to sign in with the new password.
+ */
+export async function resetPasswordAction(
+  payload: ResetPasswordPayload,
+): Promise<ActionResult> {
+  try {
+    await apiFetch("/auth/reset-password", {
+      method: "POST",
+      body: {
+        email: payload.email.trim().toLowerCase(),
+        otp: payload.otp.trim(),
+        newPassword: payload.newPassword,
+      },
+    });
+
+    return { ok: true };
+  } catch (error) {
+    return {
+      ok: false,
+      message:
+        error instanceof ApiError
+          ? error.message
+          : "Could not reset your password. Please try again.",
+    };
+  }
+}
+
+/**
+ * Changes the password of the signed-in customer.
+ *
+ * Unlike a reset, this one keeps them signed in: the backend reissues the token
+ * trio in the response body, so the new cookies are stored here. Without that,
+ * the session cookie the backend just rotated would no longer match the one we
+ * hold and the very next request would be signed out.
+ */
+export async function changePasswordAction(
+  payload: ChangePasswordPayload,
+): Promise<ActionResult> {
+  try {
+    const cookie = await buildAuthCookieHeader();
+    if (!cookie) {
+      return { ok: false, message: "Your session has expired. Please sign in again." };
+    }
+
+    const { data } = await apiFetch<Partial<AuthData>>("/auth/change-password", {
+      method: "POST",
+      cookie,
+      body: {
+        currentPassword: payload.currentPassword,
+        newPassword: payload.newPassword,
+      },
+    });
+
+    await setAuthCookies(data ?? {});
+    revalidatePath("/", "layout");
+
+    return { ok: true };
+  } catch (error) {
+    return {
+      ok: false,
+      message:
+        error instanceof ApiError
+          ? error.message
+          : "Could not change your password. Please try again.",
     };
   }
 }

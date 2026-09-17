@@ -4,11 +4,15 @@ import Link from "next/link";
 import { useState, useTransition } from "react";
 import { Field, FormAlert, SubmitButton } from "@/components/account/form-controls";
 import VerifyEmailForm from "@/components/account/VerifyEmailForm";
+import GoogleSignInButton, {
+  AuthDivider,
+} from "@/components/account/GoogleSignInButton";
 import { registerAction } from "@/services/auth";
+import {
+  PASSWORD_MIN_LENGTH,
+  validatePasswordLength,
+} from "@/lib/auth-limits";
 import { isBdPhone, isEmail } from "@/lib/validation";
-
-/** Mirrors the backend's minimum (registerUserZodSchema). */
-const MIN_PASSWORD_LENGTH = 8;
 
 export default function RegisterForm({ redirectTo }: { redirectTo: string }) {
   const [pending, startTransition] = useTransition();
@@ -45,10 +49,8 @@ export default function RegisterForm({ redirectTo }: { redirectTo: string }) {
       errors.contactNumber = "Enter a valid number, e.g. 01711000000.";
     }
 
-    if (!values.password) errors.password = "Password is required.";
-    else if (values.password.length < MIN_PASSWORD_LENGTH) {
-      errors.password = `Use at least ${MIN_PASSWORD_LENGTH} characters.`;
-    }
+    const passwordError = validatePasswordLength(values.password);
+    if (passwordError) errors.password = passwordError;
 
     setFieldErrors(errors);
     return Object.keys(errors).length === 0;
@@ -123,7 +125,7 @@ export default function RegisterForm({ redirectTo }: { redirectTo: string }) {
         name="password"
         type="password"
         autoComplete="new-password"
-        placeholder="At least 8 characters"
+        placeholder={`At least ${PASSWORD_MIN_LENGTH} characters`}
         value={values.password}
         error={fieldErrors.password}
         onChange={(e) => update("password", e.target.value)}
@@ -132,6 +134,10 @@ export default function RegisterForm({ redirectTo }: { redirectTo: string }) {
       <SubmitButton pending={pending} pendingText="Creating account...">
         Create Account
       </SubmitButton>
+
+      <AuthDivider />
+
+      <GoogleSignInButton redirectTo={redirectTo} label="Sign up with Google" />
 
       <p className="text-center text-sm text-gray-600">
         Already have an account?{" "}

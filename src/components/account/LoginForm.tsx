@@ -4,11 +4,24 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { Field, FormAlert, SubmitButton } from "@/components/account/form-controls";
+import GoogleSignInButton, {
+  AuthDivider,
+} from "@/components/account/GoogleSignInButton";
 import VerifyEmailForm from "@/components/account/VerifyEmailForm";
 import { loginAction } from "@/services/auth";
 import { isEmail } from "@/lib/validation";
 
-export default function LoginForm({ redirectTo }: { redirectTo: string }) {
+export default function LoginForm({
+  redirectTo,
+  notice,
+  oauthError,
+}: {
+  redirectTo: string;
+  /** Shown above the form, e.g. after a completed password reset. */
+  notice?: string;
+  /** Mapped message for a failed Google handshake — never the raw code. */
+  oauthError?: string;
+}) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
 
@@ -75,6 +88,10 @@ export default function LoginForm({ redirectTo }: { redirectTo: string }) {
 
   return (
     <form onSubmit={handleSubmit} noValidate className="space-y-4">
+      {notice && <FormAlert tone="success">{notice}</FormAlert>}
+      {oauthError && !formError && (
+        <FormAlert tone="error">{oauthError}</FormAlert>
+      )}
       {formError && <FormAlert tone="error">{formError}</FormAlert>}
 
       <Field
@@ -111,6 +128,10 @@ export default function LoginForm({ redirectTo }: { redirectTo: string }) {
       <SubmitButton pending={pending} pendingText="Signing in...">
         Sign In
       </SubmitButton>
+
+      <AuthDivider />
+
+      <GoogleSignInButton redirectTo={redirectTo} />
 
       <p className="text-center text-sm text-gray-600">
         Don&apos;t have an account?{" "}

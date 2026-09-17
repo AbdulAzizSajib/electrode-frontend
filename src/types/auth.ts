@@ -80,6 +80,27 @@ export interface VerifyEmailPayload {
   otp: string;
 }
 
+export interface ForgetPasswordPayload {
+  email: string;
+}
+
+/**
+ * Note there is no token here and none comes back: the reset is authorised by
+ * the emailed OTP alone, and the backend destroys every session for the account
+ * on success (see auth.service.ts `resetPassword`). The customer signs in again
+ * with the new password.
+ */
+export interface ResetPasswordPayload {
+  email: string;
+  otp: string;
+  newPassword: string;
+}
+
+export interface ChangePasswordPayload {
+  currentPassword: string;
+  newPassword: string;
+}
+
 /**
  * Uniform result for every auth server action. Actions never throw across the
  * server/client boundary — they return this so the form can render the error.

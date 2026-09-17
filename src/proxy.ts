@@ -49,6 +49,19 @@ const AUTH_ROUTES = [
   "/account/forgot-password",
 ];
 
+/**
+ * Reached mid-handshake, when the customer is signed in *at the backend* but
+ * not yet here — establishing that is precisely what these routes do. They sit
+ * under `/account`, so without this exemption the protected-prefix match below
+ * would bounce the customer to the sign-in screen at the exact moment the
+ * sign-in was about to succeed, which reads as Google having rejected them.
+ *
+ * They must equally not join AUTH_ROUTES: someone who already holds a
+ * storefront session but is re-authenticating with Google would be sent to
+ * /account before the callback could write the new cookies.
+ */
+const SESSION_HANDOFF_ROUTES = ["/account/oauth"];
+
 const isMatch = (pathname: string, routes: string[]) =>
   routes.some(
     (route) => pathname === route || pathname.startsWith(`${route}/`),
@@ -140,6 +153,11 @@ export async function proxy(request: NextRequest) {
         ? NextResponse.next({ request: { headers: request.headers } })
         : NextResponse.next(),
     );
+
+  // Checked before both lists — it belongs to neither.
+  if (isMatch(pathname, SESSION_HANDOFF_ROUTES)) {
+    return next();
+  }
 
   if (isMatch(pathname, AUTH_ROUTES)) {
     if (isSignedIn) {
