@@ -49,6 +49,23 @@ describe("getStoreSettings", () => {
     expect(settings.homeConfig.map((s) => s.key)).toContain("NEWSLETTER");
     expect(settings.homeConfig.every((s) => s.enabled)).toBe(true);
 
+    /*
+     * Track Order in EXACTLY ONE place.
+     *
+     * It moved out of the announcement bar into the header's main row, and this
+     * fallback had to move with the backend default rather than after it —
+     * otherwise an outage would render it in the old position while every
+     * healthy read rendered it in the new one, a discrepancy visible only while
+     * the site is already degraded. Asserting both halves, because the failure
+     * that matters is the link appearing twice, not merely missing.
+     */
+    const inBar = (settings.announcementBar.links ?? []).filter(
+      (link) => link.href === "/track-order",
+    );
+    const inMiddle = settings.middleBarLinks.filter((link) => link.href === "/track-order");
+    expect(inBar).toHaveLength(0);
+    expect(inMiddle).toHaveLength(1);
+
     /* No icon invented on a failed read — the app falls back to its own. */
     expect(settings.faviconUrl).toBeNull();
   });

@@ -58,6 +58,32 @@ export interface AnnouncementBar {
   links?: AnnouncementLink[];
 }
 
+/**
+ * One link action in the header's MAIN row — the one with the brand, the search
+ * box and the cart — rendered beside Wishlist, Compare, Cart and Account.
+ *
+ * NOT an announcement link, and the difference is the point. The announcement
+ * strip is for contact details and a promotional message: it is hidden below
+ * `md`, and it disappears entirely when the merchant switches it off. An action
+ * a returning shopper comes back to perform — Track Order is the one that moved
+ * — cannot live somewhere that vanishes with a toggle unrelated to it.
+ *
+ * No `source` binding for the same reason: a link bound to the store's phone or
+ * email IS a contact detail, and belongs in the strip above.
+ *
+ * DESKTOP ONLY, inherited rather than declared — these render inside the
+ * header's action group, which is `hidden md:flex`. The mobile bottom nav and
+ * the drawer carry the primary actions on small screens and deliberately do not
+ * render these. See openspec/changes/add-header-middle-bar-links, design.md
+ * Decisions 3 and 4.
+ */
+export interface MiddleBarLink {
+  /** An Iconify name, e.g. `fa-solid:truck`. Optional — a label alone is valid. */
+  icon?: string;
+  label: string;
+  href: string;
+}
+
 export interface FooterColumn {
   title: string;
   /** Objects, never bare strings — a footer link without a target renders dead. */
@@ -427,6 +453,11 @@ export interface StoreSettings {
   footerColumns: FooterColumn[];
   socialLinks: SocialLink[];
   announcementBar: AnnouncementBar;
+  /**
+   * The header main row's merchant-configurable links. Capped at 4 by the
+   * backend — this row runs out of horizontal space before any other.
+   */
+  middleBarLinks: MiddleBarLink[];
   newsletter: Newsletter;
   checkoutConfig: CheckoutConfig;
   catalogConfig: CatalogConfig;

@@ -109,9 +109,22 @@ const FALLBACK_SETTINGS: StoreSettings = {
         href: "mailto:contact@sheisite.com",
         source: "contactEmail",
       },
-      { icon: "fa-solid:truck", label: "Track Order", href: "/track-order" },
     ],
   },
+  /*
+   * Track Order was a third link in the announcement bar above until
+   * add-header-middle-bar-links moved it here, into the header's main row
+   * beside the cart.
+   *
+   * THIS FALLBACK HAD TO MOVE WITH THE BACKEND DEFAULT, not after it. It is
+   * read only when the settings fetch FAILS, so leaving the old arrangement
+   * here would put Track Order in the announcement bar during an outage and in
+   * the main row every other time — a discrepancy that shows up only while the
+   * site is already degraded, which is exactly when nobody can diagnose it.
+   *
+   * Mirrors `DEFAULT_MIDDLE_BAR_LINKS` in the backend's store-setting.constant.ts.
+   */
+  middleBarLinks: [{ icon: "fa-solid:truck", label: "Track Order", href: "/track-order" }],
   newsletter: {
     heading: "Join Our Newsletter For ৳10 Off",
     subtext:
@@ -374,6 +387,22 @@ async function fetchStoreSettings(): Promise<StoreSettings> {
           : FALLBACK_SETTINGS.footerLogoHeight,
       contact: { ...FALLBACK_SETTINGS.contact, ...(data.contact ?? {}) },
       announcementBar: data.announcementBar ?? FALLBACK_SETTINGS.announcementBar,
+      /*
+       * `??`, NOT the `length > 0` guard `homeConfig` below uses, and the
+       * difference is deliberate.
+       *
+       * An EMPTY ARRAY here is a merchant who cleared the row, and it has to
+       * survive: substituting the fallback would put Track Order back on a shop
+       * that deliberately removed it, on every render, with no way to stop it.
+       * An empty homepage is a suspicious enough state to be worth overriding;
+       * an empty action slot is an ordinary one.
+       *
+       * The array check is only against a malformed payload — a non-array here
+       * would have `Header` calling `.map` on a string.
+       */
+      middleBarLinks: Array.isArray(data.middleBarLinks)
+        ? data.middleBarLinks
+        : FALLBACK_SETTINGS.middleBarLinks,
       newsletter: data.newsletter ?? FALLBACK_SETTINGS.newsletter,
       /*
        * Backfilled per-field, not just per-block: an older API that predates one

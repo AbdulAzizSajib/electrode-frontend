@@ -30,6 +30,7 @@ import { openCart } from "@/store/uiSlice";
 import type { AuthUser } from "@/types/auth";
 import type { CategoryNode } from "@/types/category";
 import { filterNavForFeatures } from "@/lib/catalog-features";
+import { filterNavForSections } from "@/lib/nav-sections";
 import { resolveBrandSlot } from "@/lib/brand-slot";
 
 /**
@@ -106,12 +107,28 @@ export default function Header({
    * reason to reach for the module-scope copy the components without a props
    * path use.
    *
-   * Filtered once, here, because the same list is handed to the mobile drawer
-   * below — computing it twice is how the two menus would come to disagree.
+   * Also minus any entry whose destination a switched-off homepage section has
+   * emptied: a merchant who turns off "Recent blog posts" should not be left
+   * advertising "Blog" in their header, and one who turns off "Deal of the
+   * week" should not be pointing shoppers at an offers page with nothing on it.
+   * A second filter rather than an extension of the first, because the two
+   * match differently — `filterNavForFeatures` strips the query string before
+   * comparing while this one must not, since `?sort=new` and `?sort=best` name
+   * different sections. See `lib/nav-sections.ts` and
+   * openspec/changes/align-nav-links-with-home-sections, design.md Decision 1.
+   *
+   * Filtered once, here, because THE MOBILE DRAWER IS HANDED THIS RESULT rather
+   * than `settings.mainNav` — that is what makes the two menus agree by
+   * construction instead of by remembering to filter in both. Passing the raw
+   * list to the drawer below would silently reintroduce every link this drops.
    */
   const mainNav = useMemo(
-    () => filterNavForFeatures(settings.mainNav, catalogConfig),
-    [settings.mainNav, catalogConfig],
+    () =>
+      filterNavForSections(
+        filterNavForFeatures(settings.mainNav, catalogConfig),
+        settings.homeConfig,
+      ),
+    [settings.mainNav, settings.homeConfig, catalogConfig],
   );
 
   const dispatch = useAppDispatch();
@@ -389,6 +406,37 @@ export default function Header({
                 neighbouring controls is the kind of drift nobody names but
                 everybody feels. */}
             <div className="ml-auto hidden items-center gap-5 text-sm md:flex">
+              {/*
+                The merchant's own links — Track Order by default — and the only
+                configurable slot in this row; the four actions below it carry
+                live state (counts, the signed-in name) and are components, not
+                links.
+
+                INSIDE this group rather than beside it, which is what makes
+                them inherit its `ml-auto`, its `gap-5` and its `md:flex`
+                breakpoint instead of restating all three. It is also why an
+                empty list costs nothing: no children rendered into an existing
+                flex container leaves the row exactly as it was.
+
+                DESKTOP ONLY follows from that breakpoint, deliberately. Giving
+                these a mobile home would mean choosing between the bottom nav
+                (five fixed slots, full) and the drawer, which is a separate
+                decision — see design.md Decision 4.
+
+                ONE LINE, not the label-then-value pattern its neighbours use.
+                Those each have a live second line to show ("My Cart / 0 Items");
+                these have none, and a second line invented to match would be
+                filler dressed as information.
+
+                See openspec/changes/add-header-middle-bar-links.
+              */}
+              {settings.middleBarLinks.map((link) => (
+                <Link key={link.href} href={link.href} className={clsx("flex", HEADER_ACTION)}>
+                  {link.icon && <Icon icon={link.icon} width={22} height={22} aria-hidden />}
+                  <span className="whitespace-nowrap font-semibold">{link.label}</span>
+                </Link>
+              ))}
+
               {showWishlist && (
                 <Link href="/wishlist" className={clsx("hidden lg:flex", HEADER_ACTION)}>
                   <span className="relative">
