@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "next dev -p 4000",
     "build": "next build",
+    "build:cpanel": "next build && node scripts/package-standalone.mjs",
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run"

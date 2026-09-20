@@ -3,7 +3,8 @@ import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
 import type { NextConfig } from "next";
 
-const parentDir = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const projectDir = dirname(fileURLToPath(import.meta.url));
+const parentDir = resolve(projectDir, "..");
 const parentManifest = resolve(parentDir, "package.json");
 const isMonorepoCheckout = (() => {
   if (!existsSync(parentManifest)) return false;
@@ -19,8 +20,27 @@ const isMonorepoCheckout = (() => {
   }
 })();
 
+/*
+ * Pinned rather than inferred. The launcher above this app carries its own
+ * package-lock.json without declaring workspaces, and Next would otherwise
+ * take that lockfile's directory as the root — putting the standalone
+ * entrypoint at `.next/standalone/frontend/server.js` instead of
+ * `.next/standalone/server.js`. Turbopack and output tracing must share it.
+ */
+const tracingRoot = isMonorepoCheckout ? parentDir : projectDir;
+
 const nextConfig: NextConfig = {
-  ...(isMonorepoCheckout ? { turbopack: { root: parentDir } } : {}),
+  /*
+   * Self-contained server for hosts that run `node server.js` directly
+   * (cPanel / Passenger): `.next/standalone` carries only the traced
+   * node_modules, so the host never runs `npm install`. Vercel builds its
+   * own output either way.
+   * `scripts/package-standalone.mjs` adds `public/` and `.next/static/`,
+   * which the standalone copy leaves out. See CPANEL-DEPLOY.md.
+   */
+  output: "standalone",
+  outputFileTracingRoot: tracingRoot,
+  turbopack: { root: tracingRoot },
 
   /*
    * `serverExternalPackages: ["jsdom"]` was here for isomorphic-dompurify's

@@ -40,3 +40,6 @@ yarn-error.log*
 next-env.d.ts
 
 .vercel
+
+# cPanel deploy archive (npm run build:cpanel)
+/storefront.tar.gz
