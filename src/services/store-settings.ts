@@ -190,7 +190,18 @@ const FALLBACK_SETTINGS: StoreSettings = {
    * unconfigured store takes — that one is handled server-side.
    */
   homeConfig: [
-    { key: "HERO", enabled: true },
+    /*
+     * THE ONE PLACE THIS STOREFRONT DEFAULTS A LAYOUT ITSELF, and legitimately.
+     *
+     * Everywhere else the backend resolves it on read and the storefront
+     * renders what it is given — a second resolution would be a divergent copy
+     * of that rule. This list is the exception because it stands in for a
+     * settings read that never happened, so there is no server answer to defer
+     * to. It must carry the DEFAULT layout for the same reason the rest of this
+     * list is all-enabled: an outage should serve the hero the store has always
+     * had, not no hero.
+     */
+    { key: "HERO", enabled: true, variant: "SPLIT_THREE" },
     { key: "BRAND_BAR", enabled: true },
     { key: "FEATURED_CATEGORIES", enabled: true },
     { key: "BEST_SELLING", enabled: true },

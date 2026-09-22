@@ -21,10 +21,11 @@ import {
   BrandBarSkeleton,
   CategoryGridSkeleton,
   DealOfWeekSkeleton,
-  HeroSkeleton,
   MidBannersSkeleton,
   ProductSectionSkeleton,
 } from "@/components/home/HomeSkeletons";
+import { HERO_VARIANTS } from "@/components/home/hero/registry";
+import { resolveHeroVariant } from "@/lib/hero-variants";
 
 /** Products per merchandising row, matching the five-across deal layout. */
 const SECTION_SIZE = 6;
@@ -147,10 +148,30 @@ export default async function Home() {
    * Testimonials and the blog sit far below the fold, so they stream in with no
    * placeholder: a skeleton nobody can see would only be extra markup.
    */
+  /*
+   * THE HERO IS BUILT FROM ITS CONFIG ENTRY, not from a fixed element like the
+   * eleven below.
+   *
+   * Its arrangement is a merchant setting now, and the map is keyed by section
+   * key alone — it cannot express "this section, with this layout". Both halves
+   * need the answer, too: the component renders the arrangement, and the
+   * Suspense fallback has to be the placeholder shaped like THAT arrangement,
+   * or the page re-flows the moment the banners land.
+   *
+   * `resolveHeroVariant` is the storefront's only defence, not a second copy of
+   * the backend's rule: the payload always carries a resolved layout, and this
+   * turns one from a newer server — or a `FALLBACK_SETTINGS` standing in for an
+   * outage — into something this build can actually render.
+   */
+  const heroVariant = resolveHeroVariant(
+    settings.homeConfig.find((section) => section.key === "HERO")?.variant,
+  );
+  const { Skeleton: HeroSkeleton } = HERO_VARIANTS[heroVariant];
+
   const rendered: Record<HomeSectionKey, ReactNode> = {
     HERO: (
       <Suspense fallback={<HeroSkeleton />}>
-        <Hero />
+        <Hero variant={heroVariant} />
       </Suspense>
     ),
     BRAND_BAR: (

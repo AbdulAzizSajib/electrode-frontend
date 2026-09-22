@@ -14,8 +14,21 @@ import { ProductCardSkeleton, SkeletonBlock } from "@/components/ui/Skeleton";
  * announces the page, and a dozen grey boxes read aloud would only be noise.
  */
 
-/** Mirrors `Hero`: the slider, then the 43% column of two square tiles over a 43:20 promo. */
-export function HeroSkeleton() {
+/**
+ * ONE SKELETON PER HERO LAYOUT, and they are not interchangeable.
+ *
+ * The hero's arrangement is a merchant setting now, so a single placeholder
+ * would be right for one store and wrong for three: a `SLIDER_STACK` store
+ * shown the default layout's boxes visibly re-flows the moment its banners
+ * arrive — the exact layout shift the ratio-based sizing was introduced to
+ * eliminate, and one that only appears on a slow connection.
+ *
+ * They are paired with their layouts in `hero/registry.ts`, in a record
+ * TypeScript checks for exhaustiveness, so a layout cannot ship without one.
+ */
+
+/** Mirrors `HeroSplitThree`: the slider, then the 43% column of two square tiles over a 43:20 promo. */
+export function HeroSplitThreeSkeleton() {
   return (
     <section aria-hidden className="container-px site-container py-4">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-stretch">
@@ -26,6 +39,45 @@ export function HeroSkeleton() {
             <SkeletonBlock className="aspect-square w-full rounded-sm" />
           </div>
           <SkeletonBlock className="aspect-43/20 w-full rounded-sm" />
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/** Mirrors `HeroSplitOne`: the slider, then one square tile filling the 43% column. */
+export function HeroSplitOneSkeleton() {
+  return (
+    <section aria-hidden className="container-px site-container py-4">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-stretch">
+        <SkeletonBlock className="aspect-4/3 w-full rounded-sm lg:aspect-auto lg:min-w-0 lg:flex-1" />
+        <div className="w-full lg:w-[43%] lg:flex-none">
+          <SkeletonBlock className="aspect-square w-full rounded-sm" />
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/** Mirrors `HeroFullSlider`: one full-width 3:1 panel, 4:3 when stacked. */
+export function HeroFullSliderSkeleton() {
+  return (
+    <section aria-hidden className="container-px site-container py-4">
+      <SkeletonBlock className="aspect-4/3 w-full rounded-sm lg:aspect-3/1" />
+    </section>
+  );
+}
+
+/** Mirrors `HeroSliderStack`: the full-width panel over a row of three 4:3 tiles. */
+export function HeroSliderStackSkeleton() {
+  return (
+    <section aria-hidden className="container-px site-container py-4">
+      <div className="flex flex-col gap-4">
+        <SkeletonBlock className="aspect-4/3 w-full rounded-sm lg:aspect-3/1" />
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+          <SkeletonBlock className="aspect-4/3 w-full rounded-sm" />
+          <SkeletonBlock className="aspect-4/3 w-full rounded-sm" />
+          <SkeletonBlock className="aspect-4/3 w-full rounded-sm" />
         </div>
       </div>
     </section>

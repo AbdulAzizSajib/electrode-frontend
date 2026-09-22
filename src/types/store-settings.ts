@@ -221,6 +221,24 @@ export type HomeSectionKey =
   | "NEWSLETTER";
 
 /**
+ * The hero's LAYOUT — how its artwork is arranged, as distinct from the artwork
+ * itself, which is banners keyed by placement.
+ *
+ *   SPLIT_THREE   slider left | 2 square tiles + 1 wide tile right  (DEFAULT)
+ *   SPLIT_ONE     slider left | 1 large square tile right
+ *   FULL_SLIDER   one wide slider, no tiles
+ *   SLIDER_STACK  full-width slider above a row of 3 tiles
+ *
+ * ANOTHER HAND-MAINTAINED MIRROR, alongside `HomeSectionKey` above: the
+ * authority is `HERO_VARIANTS` in the backend's store-setting.constant.ts, and
+ * the order there is load-bearing because position 0 is the default. Nothing
+ * checks the two agree, so a layout added there and not here renders as
+ * `SPLIT_THREE` — degraded, but not broken. See `resolveHeroVariant` in
+ * `lib/hero-variants.ts`, and openspec/changes/add-hero-section-variants-ui.
+ */
+export type HeroVariant = "SPLIT_THREE" | "SPLIT_ONE" | "FULL_SLIDER" | "SLIDER_STACK";
+
+/**
  * One homepage section's placement and visibility.
  *
  * `enabled` is the merchant's decision and NOT a promise that the section has
@@ -230,6 +248,17 @@ export type HomeSectionKey =
 export interface HomeSection {
   key: HomeSectionKey;
   enabled: boolean;
+  /**
+   * The section's layout, present only on sections that offer a choice — today
+   * that is `HERO` alone.
+   *
+   * OPTIONAL HERE, ALWAYS PRESENT IN PRACTICE. The backend resolves it on every
+   * read, so a real payload carries it on `HERO` even for a store that has
+   * never chosen one. It is optional because the settings API may be older than
+   * this storefront, and because `FALLBACK_SETTINGS` has to be able to express
+   * the same shape.
+   */
+  variant?: HeroVariant;
 }
 
 /**
