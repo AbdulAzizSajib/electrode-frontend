@@ -200,10 +200,14 @@ const FALLBACK_SETTINGS: StoreSettings = {
      * to. It must carry the DEFAULT layout for the same reason the rest of this
      * list is all-enabled: an outage should serve the hero the store has always
      * had, not no hero.
+     *
+     * The same holds for every section that offers a layout — `FEATURED_CATEGORIES`
+     * below carries `GRID` for the same reason `HERO` carries `SPLIT_THREE`.
+     * Position 0 of each tuple in `lib/section-layouts.ts`; keep them in step.
      */
     { key: "HERO", enabled: true, variant: "SPLIT_THREE" },
     { key: "BRAND_BAR", enabled: true },
-    { key: "FEATURED_CATEGORIES", enabled: true },
+    { key: "FEATURED_CATEGORIES", enabled: true, variant: "GRID" },
     { key: "BEST_SELLING", enabled: true },
     { key: "MID_BANNERS", enabled: true },
     { key: "FEATURED_PRODUCTS", enabled: true },

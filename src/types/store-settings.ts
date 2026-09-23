@@ -74,7 +74,7 @@ export interface AnnouncementBar {
  * DESKTOP ONLY, inherited rather than declared — these render inside the
  * header's action group, which is `hidden md:flex`. The mobile bottom nav and
  * the drawer carry the primary actions on small screens and deliberately do not
- * render these. See openspec/changes/add-header-middle-bar-links, design.md
+ * render these. See server/openspec/changes/add-header-middle-bar-links, design.md
  * Decisions 3 and 4.
  */
 export interface MiddleBarLink {
@@ -198,7 +198,7 @@ export interface CatalogConfig {
  *
  * Only the HOMEPAGE. Header, footer, announcement bar, cart drawer and mobile
  * nav are rendered by the `(shop)` layout on every route and are deliberately
- * not addressable — see openspec/changes/add-homepage-section-toggles.
+ * not addressable — see server/openspec/changes/add-homepage-section-toggles.
  */
 export type HomeSectionKey =
   | "HERO"
@@ -225,18 +225,41 @@ export type HomeSectionKey =
  * itself, which is banners keyed by placement.
  *
  *   SPLIT_THREE   slider left | 2 square tiles + 1 wide tile right  (DEFAULT)
- *   SPLIT_ONE     slider left | 1 large square tile right
  *   FULL_SLIDER   one wide slider, no tiles
  *   SLIDER_STACK  full-width slider above a row of 3 tiles
+ *   SPLIT_TALL    slider left (two thirds) | 1 tall tile right
  *
  * ANOTHER HAND-MAINTAINED MIRROR, alongside `HomeSectionKey` above: the
  * authority is `HERO_VARIANTS` in the backend's store-setting.constant.ts, and
  * the order there is load-bearing because position 0 is the default. Nothing
  * checks the two agree, so a layout added there and not here renders as
- * `SPLIT_THREE` — degraded, but not broken. See `resolveHeroVariant` in
- * `lib/hero-variants.ts`, and openspec/changes/add-hero-section-variants-ui.
+ * `SPLIT_THREE` — degraded, but not broken. See `resolveSectionLayout` in
+ * `lib/section-layouts.ts`, and openspec/changes/add-hero-section-variants-ui.
  */
-export type HeroVariant = "SPLIT_THREE" | "SPLIT_ONE" | "FULL_SLIDER" | "SLIDER_STACK";
+export type HeroVariant = "SPLIT_THREE" | "FULL_SLIDER" | "SLIDER_STACK" | "SPLIT_TALL";
+
+/**
+ * The featured-categories section's LAYOUT — how its tiles are arranged, as
+ * distinct from which categories appear, which the category service decides.
+ *
+ *   GRID     the tiles in a wrapping grid, seven across at desktop  (DEFAULT)
+ *   SLIDER   the same tiles in one horizontal row that scrolls
+ *
+ * THE SAME HAND-MAINTAINED MIRROR as `HeroVariant` above: the authority is
+ * `FEATURED_CATEGORIES_VARIANTS` in the backend's store-setting.constant.ts,
+ * position 0 is the default, and nothing checks the two agree. A layout added
+ * there and not here renders as `GRID` — degraded, not broken. See
+ * `resolveSectionLayout` in `lib/section-layouts.ts`, and
+ * server/openspec/changes/add-featured-categories-layout.
+ */
+export type FeaturedCategoriesLayout = "GRID" | "SLIDER";
+
+/**
+ * Every layout any section offers. A section entry carries at most one of
+ * these, and which union it belongs to is decided by the entry's `key` — see
+ * `SECTION_LAYOUTS` in `lib/section-layouts.ts`.
+ */
+export type SectionLayout = HeroVariant | FeaturedCategoriesLayout;
 
 /**
  * One homepage section's placement and visibility.
@@ -249,16 +272,18 @@ export interface HomeSection {
   key: HomeSectionKey;
   enabled: boolean;
   /**
-   * The section's layout, present only on sections that offer a choice — today
-   * that is `HERO` alone.
+   * The section's layout, present only on sections that offer a choice —
+   * `HERO` and `FEATURED_CATEGORIES`. Which values are legal depends on `key`;
+   * the type is the union of every section's layouts because one field serves
+   * every entry, and `resolveSectionLayout` narrows it per section.
    *
    * OPTIONAL HERE, ALWAYS PRESENT IN PRACTICE. The backend resolves it on every
-   * read, so a real payload carries it on `HERO` even for a store that has
-   * never chosen one. It is optional because the settings API may be older than
-   * this storefront, and because `FALLBACK_SETTINGS` has to be able to express
-   * the same shape.
+   * read, so a real payload carries it on those sections even for a store that
+   * has never chosen one. It is optional because the settings API may be older
+   * than this storefront, and because `FALLBACK_SETTINGS` has to be able to
+   * express the same shape.
    */
-  variant?: HeroVariant;
+  variant?: SectionLayout;
 }
 
 /**

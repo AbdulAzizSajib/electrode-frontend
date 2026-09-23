@@ -182,7 +182,7 @@ export default function ProductCard({ product }: { product: Product }) {
          
             sizes="(min-width: 1024px) 320px, (min-width: 640px) 33vw, 50vw"
             className={clsx(
-              "h-full w-full object-cover  transition-transform duration-300",
+              "h-full w-full object-contain  transition-transform duration-300",
            
               "group-hover:scale-105 motion-reduce:transition-none motion-reduce:group-hover:scale-100",
               !product.inStock && "opacity-60",

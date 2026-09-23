@@ -35,7 +35,7 @@ import type { StoreSettings } from "@/types/store-settings";
  *     the site, so an empty one is not a broken component — it is a shop with no
  *     name on it, which is strictly worse than the text the logo replaced.
  *
- * See openspec/changes/add-header-footer-brand-display, design.md Decision 4,
+ * See server/openspec/changes/add-header-footer-brand-display, design.md Decision 4,
  * and the `storefront-branding` spec. The server's
  * `scripts/verify-brand-display.ts` asserts this same matrix against the
  * backend; if one changes, the other must.

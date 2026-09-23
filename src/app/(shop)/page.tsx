@@ -9,7 +9,8 @@ import Hero from "@/components/home/Hero";
 import BrandBar from "@/components/home/BrandBar";
 import MidBanners from "@/components/home/MidBanners";
 import PerksBar from "@/components/home/PerksBar";
-import CategoryGrid from "@/components/home/CategoryGrid";
+import FeaturedCategories from "@/components/home/FeaturedCategories";
+import { FEATURED_CATEGORIES_LAYOUTS } from "@/components/home/categories/registry";
 import Newsletter from "@/components/home/Newsletter";
 import {
   BlogRow,
@@ -19,13 +20,12 @@ import {
 } from "@/components/home/HomeSections";
 import {
   BrandBarSkeleton,
-  CategoryGridSkeleton,
   DealOfWeekSkeleton,
   MidBannersSkeleton,
   ProductSectionSkeleton,
 } from "@/components/home/HomeSkeletons";
 import { HERO_VARIANTS } from "@/components/home/hero/registry";
-import { resolveHeroVariant } from "@/lib/hero-variants";
+import { resolveSectionLayout } from "@/lib/section-layouts";
 
 /** Products per merchandising row, matching the five-across deal layout. */
 const SECTION_SIZE = 6;
@@ -84,7 +84,7 @@ export async function generateMetadata(): Promise<Metadata> {
  * arrives. Nothing on this page repairs it — doing so would be a second,
  * divergent copy of that rule.
  *
- * See openspec/changes/add-homepage-section-toggles, design.md Decisions 4 & 5.
+ * See server/openspec/changes/add-homepage-section-toggles, design.md Decisions 4 & 5.
  */
 export default async function Home() {
   /*
@@ -149,24 +149,32 @@ export default async function Home() {
    * placeholder: a skeleton nobody can see would only be extra markup.
    */
   /*
-   * THE HERO IS BUILT FROM ITS CONFIG ENTRY, not from a fixed element like the
-   * eleven below.
+   * THE HERO AND THE FEATURED CATEGORIES ARE BUILT FROM THEIR CONFIG ENTRIES,
+   * not from fixed elements like the ten below.
    *
-   * Its arrangement is a merchant setting now, and the map is keyed by section
-   * key alone — it cannot express "this section, with this layout". Both halves
-   * need the answer, too: the component renders the arrangement, and the
-   * Suspense fallback has to be the placeholder shaped like THAT arrangement,
-   * or the page re-flows the moment the banners land.
+   * Their arrangement is a merchant setting now, and the map is keyed by
+   * section key alone — it cannot express "this section, with this layout".
+   * Both halves need the answer, too: the component renders the arrangement,
+   * and the Suspense fallback has to be the placeholder shaped like THAT
+   * arrangement, or the page re-flows the moment the content lands — a slider
+   * store shown the grid's two rows of boxes, or the reverse.
    *
-   * `resolveHeroVariant` is the storefront's only defence, not a second copy of
-   * the backend's rule: the payload always carries a resolved layout, and this
-   * turns one from a newer server — or a `FALLBACK_SETTINGS` standing in for an
-   * outage — into something this build can actually render.
+   * `resolveSectionLayout` is the storefront's only defence, not a second copy
+   * of the backend's rule: the payload always carries a resolved layout, and
+   * this turns one from a newer server — or a `FALLBACK_SETTINGS` standing in
+   * for an outage — into something this build can actually render.
    */
-  const heroVariant = resolveHeroVariant(
+  const heroVariant = resolveSectionLayout(
+    "HERO",
     settings.homeConfig.find((section) => section.key === "HERO")?.variant,
   );
   const { Skeleton: HeroSkeleton } = HERO_VARIANTS[heroVariant];
+
+  const categoriesLayout = resolveSectionLayout(
+    "FEATURED_CATEGORIES",
+    settings.homeConfig.find((section) => section.key === "FEATURED_CATEGORIES")?.variant,
+  );
+  const { Skeleton: CategoriesSkeleton } = FEATURED_CATEGORIES_LAYOUTS[categoriesLayout];
 
   const rendered: Record<HomeSectionKey, ReactNode> = {
     HERO: (
@@ -180,8 +188,8 @@ export default async function Home() {
       </Suspense>
     ),
     FEATURED_CATEGORIES: (
-      <Suspense fallback={<CategoryGridSkeleton />}>
-        <CategoryGrid title="Featured Categories" />
+      <Suspense fallback={<CategoriesSkeleton />}>
+        <FeaturedCategories title="Featured Categories" layout={categoriesLayout} />
       </Suspense>
     ),
     BEST_SELLING: (

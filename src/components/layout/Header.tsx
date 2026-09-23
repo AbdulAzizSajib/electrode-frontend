@@ -115,7 +115,7 @@ export default function Header({
    * match differently — `filterNavForFeatures` strips the query string before
    * comparing while this one must not, since `?sort=new` and `?sort=best` name
    * different sections. See `lib/nav-sections.ts` and
-   * openspec/changes/align-nav-links-with-home-sections, design.md Decision 1.
+   * server/openspec/changes/align-nav-links-with-home-sections, design.md Decision 1.
    *
    * Filtered once, here, because THE MOBILE DRAWER IS HANDED THIS RESULT rather
    * than `settings.mainNav` — that is what makes the two menus agree by
@@ -428,7 +428,7 @@ export default function Header({
                 these have none, and a second line invented to match would be
                 filler dressed as information.
 
-                See openspec/changes/add-header-middle-bar-links.
+                See server/openspec/changes/add-header-middle-bar-links.
               */}
               {settings.middleBarLinks.map((link) => (
                 <Link key={link.href} href={link.href} className={clsx("flex", HEADER_ACTION)}>

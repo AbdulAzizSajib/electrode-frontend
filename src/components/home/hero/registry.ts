@@ -2,12 +2,12 @@ import type { ComponentType } from "react";
 import {
   HeroFullSliderSkeleton,
   HeroSliderStackSkeleton,
-  HeroSplitOneSkeleton,
+  HeroSplitTallSkeleton,
   HeroSplitThreeSkeleton,
 } from "@/components/home/HomeSkeletons";
 import HeroFullSlider from "@/components/home/hero/HeroFullSlider";
 import HeroSliderStack from "@/components/home/hero/HeroSliderStack";
-import HeroSplitOne from "@/components/home/hero/HeroSplitOne";
+import HeroSplitTall from "@/components/home/hero/HeroSplitTall";
 import HeroSplitThree from "@/components/home/hero/HeroSplitThree";
 import type { HeroLayoutProps, HeroSlotSizes } from "@/components/home/hero/types";
 import type { HeroVariant } from "@/types/store-settings";
@@ -73,21 +73,6 @@ export const HERO_VARIANTS: Record<HeroVariant, HeroVariantEntry> = {
     },
   },
 
-  /** Same 43% column, but one square tile fills it and the promo goes unread. */
-  SPLIT_ONE: {
-    Component: HeroSplitOne,
-    Skeleton: HeroSplitOneSkeleton,
-    capacity: { slider: null, side: 1, promo: 0 },
-    sizes: {
-      slider: "(min-width: 1024px) 57vw, 100vw",
-      // The whole column now, not half of it.
-      side: "(min-width: 1024px) 43vw, 100vw",
-      // Unused by this layout; stated rather than left blank so the record
-      // stays readable beside the others.
-      promo: "(min-width: 1024px) 43vw, 100vw",
-    },
-  },
-
   /** One panel across the whole content width, at every breakpoint. */
   FULL_SLIDER: {
     Component: HeroFullSlider,
@@ -112,6 +97,23 @@ export const HERO_VARIANTS: Record<HeroVariant, HeroVariantEntry> = {
       slider: "100vw",
       side: "(min-width: 1024px) 31vw, 100vw",
       promo: "(min-width: 1024px) 31vw, 100vw",
+    },
+  },
+
+  /**
+   * Slider beside one tall tile: the tile is a third of the row at 19:24,
+   * which is exactly the shared box's height; the slider takes the other two
+   * thirds less the gap. The side slot is unread.
+   */
+  SPLIT_TALL: {
+    Component: HeroSplitTall,
+    Skeleton: HeroSplitTallSkeleton,
+    capacity: { slider: null, side: 0, promo: 1 },
+    sizes: {
+      slider: "(min-width: 1024px) 67vw, 100vw",
+      // Unused by this layout; stated so the record reads beside the others.
+      side: "100vw",
+      promo: "(min-width: 1024px) 33vw, 100vw",
     },
   },
 };

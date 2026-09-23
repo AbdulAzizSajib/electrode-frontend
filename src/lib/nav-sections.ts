@@ -28,7 +28,7 @@ import type { HomeConfig, HomeSectionKey, NavItem } from "@/types/store-settings
  * The two are composed in `Header`, which is the right place for it — both are pure filters over
  * the same list, so order does not matter.
  *
- * See openspec/changes/align-nav-links-with-home-sections, design.md Decisions 1 and 2.
+ * See server/openspec/changes/align-nav-links-with-home-sections, design.md Decisions 1 and 2.
  */
 
 /**
