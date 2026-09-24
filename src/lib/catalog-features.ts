@@ -35,6 +35,19 @@ const FALLBACK_FEATURES: CatalogConfig = {
   showWishlist: true,
   showCompare: true,
   showQuickView: true,
+  /*
+   * TRUE for the same reason as the three above, and one of its own: with the
+   * drawer suppressed AND the settings unread, a shopper who adds something
+   * would have no drawer and no way to tell whether the add worked at all.
+   */
+  openCartOnAdd: true,
+  /*
+   * FALSE here where the rest are true, and deliberately. The others fail
+   * toward "offered" because withdrawing them strips a working feature; this
+   * one fails toward "not offered" because showing a control the merchant never
+   * switched on is the failure, not hiding it.
+   */
+  cardQuantityControl: false,
 };
 
 let catalogFeatures: CatalogConfig = FALLBACK_FEATURES;

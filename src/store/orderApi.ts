@@ -103,9 +103,24 @@ export const orderApi = createApi({
      * before learning nobody delivers to their address.
      */
     quoteCheckout: builder.query<ApiResponse<CheckoutQuote>, CheckoutQuoteRequest>({
-      query: (body) => ({ url: "/quote", method: "POST", body }),
-      // The quote is a function of the cart as much as of the address, so a
-      // cart change has to invalidate it.
+      /*
+       * `cartKey` is a CACHE KEY, not a request field, and is stripped here.
+       *
+       * The quote is a function of the cart as much as of the chosen option,
+       * but for a cart order the server prices the cart itself — so nothing on
+       * this request moved when the cart did, and RTK Query served the previous
+       * quote. Since checkout can now change a quantity, that meant a subtotal
+       * that updated beside a delivery charge and a total that did not.
+       *
+       * `providesTags` below cannot fix it: `cartApi` is a separate
+       * `createApi` instance and cannot invalidate this api's tags. The tag is
+       * kept for anything inside THIS api that may later need to drop a quote.
+       */
+      query: (arg) => ({
+        url: "/quote",
+        method: "POST",
+        body: { deliveryOptionKey: arg.deliveryOptionKey, items: arg.items },
+      }),
       providesTags: ["CheckoutQuote"],
     }),
   }),

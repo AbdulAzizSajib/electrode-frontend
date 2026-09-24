@@ -3,7 +3,8 @@ import { getCampaignByPlacement } from "@/services/campaign";
 import { getTestimonials } from "@/services/testimonials";
 import { getRecentBlogPosts } from "@/services/blog";
 import type { ProductQuery } from "@/types/product";
-import ProductSection from "@/components/home/ProductSection";
+import { PRODUCT_ROW_LAYOUTS } from "@/components/home/products/registry";
+import type { ProductRowLayout } from "@/types/store-settings";
 import DealOfWeek from "@/components/home/DealOfWeek";
 import Testimonials from "@/components/home/Testimonials";
 import BlogSection from "@/components/home/BlogSection";
@@ -26,20 +27,36 @@ import BlogSection from "@/components/home/BlogSection";
  * that section, not the page.
  */
 
-/** One merchandising row: whatever `query` asks the API for, under `title`. */
+/**
+ * One merchandising row: whatever `query` asks the API for, under `title`, in
+ * whichever arrangement the merchant chose.
+ *
+ * The fetch happens HERE and not in either layout, so switching between them
+ * costs nothing and both render exactly the same products in the same order.
+ * The empty guard is here for the same reason — an enabled row with nothing to
+ * show renders nothing at all, including its heading, in both layouts.
+ *
+ * `layout` is resolved by the caller rather than here, because the caller is
+ * also what picks the matching skeleton and the two must agree.
+ *
+ * See server/openspec/changes/add-product-slider-and-card-quantity.
+ */
 export async function ProductRow({
   title,
   query,
   tabs,
+  layout = "GRID",
 }: {
   title: string;
   query: ProductQuery;
   tabs?: string[];
+  layout?: ProductRowLayout;
 }) {
   const { products } = await getProducts(query);
   if (products.length === 0) return null;
 
-  return <ProductSection title={title} products={products} tabs={tabs} />;
+  const { Component } = PRODUCT_ROW_LAYOUTS[layout];
+  return <Component title={title} products={products} tabs={tabs} />;
 }
 
 /**

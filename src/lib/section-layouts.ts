@@ -2,6 +2,7 @@ import type {
   FeaturedCategoriesLayout,
   HeroVariant,
   HomeSectionKey,
+  ProductRowLayout,
   SectionLayout,
 } from "@/types/store-settings";
 
@@ -61,9 +62,20 @@ import type {
 export const SECTION_LAYOUTS = {
   HERO: ["SPLIT_THREE", "FULL_SLIDER", "SLIDER_STACK", "SPLIT_TALL"],
   FEATURED_CATEGORIES: ["GRID", "SLIDER"],
+  /*
+   * The three product rows, each its own entry although all three offer the
+   * same two layouts — the layout is stored per section, so a merchant may
+   * show one row as a grid and another as a slider.
+   */
+  BEST_SELLING: ["GRID", "SLIDER"],
+  FEATURED_PRODUCTS: ["GRID", "SLIDER"],
+  NEW_ARRIVALS: ["GRID", "SLIDER"],
 } as const satisfies {
   HERO: readonly HeroVariant[];
   FEATURED_CATEGORIES: readonly FeaturedCategoriesLayout[];
+  BEST_SELLING: readonly ProductRowLayout[];
+  FEATURED_PRODUCTS: readonly ProductRowLayout[];
+  NEW_ARRIVALS: readonly ProductRowLayout[];
 };
 
 /** The sections that offer a choice of layout. */

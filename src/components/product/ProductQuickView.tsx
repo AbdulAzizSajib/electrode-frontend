@@ -41,7 +41,7 @@ export default function ProductQuickView({
   const titleId = useId();
   const [addItem, { isLoading: isAdding }] = useAddItemMutation();
 
-  const { showCompare } = getCatalogFeatures();
+  const { showCompare, openCartOnAdd } = getCatalogFeatures();
 
   // A closed quick view holds no subscription; the cache entry is keyed by slug
   // so a response arriving after the shopper moved on cannot be shown here.
@@ -175,7 +175,11 @@ export default function ProductQuickView({
       // leaving this mounted underneath would stack two backdrops and two
       // focus traps. Closing first also hands focus back cleanly.
       handleClose();
-      dispatch(openCart());
+      // Only the AUTOMATIC open is a setting. Every control whose purpose is
+      // to show the cart still opens it — see `catalog-features.ts`. The close
+      // above happens either way: this preview has served its purpose once the
+      // item is in the cart.
+      if (openCartOnAdd) dispatch(openCart());
     } catch {
       setAddError("Could not add this to your cart. Please try again.");
     }

@@ -158,6 +158,15 @@ const FALLBACK_SETTINGS: StoreSettings = {
      * store has not set delivery up.
      */
     delivery: { offersPickup: false, options: [] },
+    /*
+     * OFF, for the same reason the delivery list above is empty: this is the
+     * honest fallback. If a settings outage made checkout demand money up front
+     * — against accounts this fallback cannot know — every shopper would be
+     * asked to send cash to nowhere. Degrading to plain cash-on-delivery is the
+     * behaviour the store had before the feature existed, which is the correct
+     * thing to fail back to.
+     */
+    advancePayment: { enabled: false, mobileAccounts: [], bankAccounts: [] },
   },
   /*
    * Everything offered, which is the only safe direction to fail in. A settings
@@ -171,6 +180,9 @@ const FALLBACK_SETTINGS: StoreSettings = {
     showWishlist: true,
     showCompare: true,
     showQuickView: true,
+    openCartOnAdd: true,
+    // Off, like the backend's default: the card a shop has always shown.
+    cardQuantityControl: false,
   },
   /*
    * Every section enabled, in the order the homepage renders them — mirrors the
@@ -202,18 +214,37 @@ const FALLBACK_SETTINGS: StoreSettings = {
      * had, not no hero.
      *
      * The same holds for every section that offers a layout — `FEATURED_CATEGORIES`
-     * below carries `GRID` for the same reason `HERO` carries `SPLIT_THREE`.
-     * Position 0 of each tuple in `lib/section-layouts.ts`; keep them in step.
+     * and the three product rows below carry `GRID` for the same reason `HERO`
+     * carries `SPLIT_THREE`. Position 0 of each tuple in
+     * `lib/section-layouts.ts`; keep them in step.
      */
     { key: "HERO", enabled: true, variant: "SPLIT_THREE" },
     { key: "BRAND_BAR", enabled: true },
     { key: "FEATURED_CATEGORIES", enabled: true, variant: "GRID" },
-    { key: "BEST_SELLING", enabled: true },
-    { key: "MID_BANNERS", enabled: true },
-    { key: "FEATURED_PRODUCTS", enabled: true },
+    { key: "BEST_SELLING", enabled: true, variant: "GRID" },
+    /*
+     * NO `MID_BANNERS` ENTRY, and its absence is the correct fallback rather
+     * than an omission.
+     *
+     * A promo entry names the group it renders, and this list stands in for a
+     * settings read that FAILED — so there is no group list to name. An entry
+     * here could only be groupless, which renders no strip anyway while still
+     * occupying a slot every consumer has to special-case.
+     *
+     * The degraded page therefore shows no promo strips. That is truthful: the
+     * artwork is unreachable, so showing the band empty would be worse than not
+     * showing it. It matches how the product rows degrade to nothing rather than
+     * to empty grids under populated headings.
+     */
+    { key: "FEATURED_PRODUCTS", enabled: true, variant: "GRID" },
     { key: "PERKS_BAR", enabled: true },
+    /*
+     * No `variant`: DEAL_OF_WEEK offers no choice. Its products share a grid
+     * with a countdown panel, so it is absent from `SECTION_LAYOUTS` and a
+     * layout here would be a value nothing reads.
+     */
     { key: "DEAL_OF_WEEK", enabled: true },
-    { key: "NEW_ARRIVALS", enabled: true },
+    { key: "NEW_ARRIVALS", enabled: true, variant: "GRID" },
     { key: "TESTIMONIALS", enabled: true },
     { key: "BLOG", enabled: true },
     /*
@@ -236,6 +267,16 @@ const FALLBACK_SETTINGS: StoreSettings = {
    * falling back to LANDING_PAGE would replace the home page with a redirect to
    * a page whose slug we do not know. Mirrors the backend's own default.
    */
+  /*
+   * NO PROMO STRIPS when the settings read failed.
+   *
+   * Empty rather than invented: a strip is artwork the merchant uploaded, and
+   * this storefront has no way to guess what that is. An outage renders the
+   * page without them, which is the same direction `homeConfig` above omits
+   * their entries in — the two must agree, or the page would carry entries
+   * naming groups that are not here.
+   */
+  promoBannerGroups: [],
   siteMode: "WEBSITE",
   activeLandingPage: null,
   /*
@@ -436,12 +477,26 @@ async function fetchStoreSettings(): Promise<StoreSettings> {
           ...FALLBACK_SETTINGS.checkoutConfig.delivery,
           ...(data.checkoutConfig?.delivery ?? {}),
         },
+        /*
+         * Per-key like the two above. An API that predates advance payment
+         * omits this block entirely, and a whole-block spread of `undefined`
+         * would leave `enabled` undefined — falsy, so checkout would behave
+         * correctly by luck. Backfilled explicitly instead, so the reason it
+         * reads as off is the fallback rather than an accident of coercion.
+         */
+        advancePayment: {
+          ...FALLBACK_SETTINGS.checkoutConfig.advancePayment,
+          ...(data.checkoutConfig?.advancePayment ?? {}),
+        },
       },
       /*
        * Per-key, like `checkoutConfig` above and for the same reason — an API
        * that predates one flag must report that flag as offered rather than as
        * `undefined`, which is falsy and would withdraw the feature by accident.
-       * A whole-block `??` would do exactly that the day a fourth flag is added.
+       * A whole-block `??` would do exactly that. `openCartOnAdd` was the fourth
+       * flag this anticipated, and it arrived needing no change here — an API
+       * that predates it reports it as `true`, which is the drawer behaving as
+       * it always has.
        */
       catalogConfig: {
         ...FALLBACK_SETTINGS.catalogConfig,
@@ -474,6 +529,24 @@ async function fetchStoreSettings(): Promise<StoreSettings> {
         Array.isArray(data.homeConfig) && data.homeConfig.length > 0
           ? data.homeConfig
           : FALLBACK_SETTINGS.homeConfig,
+      /*
+       * `Array.isArray` alone, WITHOUT the `length > 0` guard `homeConfig`
+       * above carries — and the asymmetry is deliberate.
+       *
+       * An empty list here is an ordinary, reachable state: a shop that has
+       * created no promo strips, or deleted the ones it had. Substituting a
+       * fallback would be substituting `[]` for `[]` anyway, but the guard
+       * would also say that "no strips" is suspicious, and it is not. An empty
+       * HOMEPAGE is suspicious; an empty set of optional promo bands is a
+       * default.
+       *
+       * The array check is what makes a server older than this build degrade to
+       * no strips rather than to `undefined`, which the homepage would call
+       * `.find` on.
+       */
+      promoBannerGroups: Array.isArray(data.promoBannerGroups)
+        ? data.promoBannerGroups
+        : FALLBACK_SETTINGS.promoBannerGroups,
       /*
        * Both fonts repaired per key, not just merged in whole.
        *

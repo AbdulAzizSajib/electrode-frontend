@@ -170,6 +170,25 @@ export interface CheckoutQuoteRequest {
   deliveryOptionKey: string;
   /** Prices these lines instead of the cart, for a direct product order. */
   items?: CheckoutItemInput[];
+  /**
+   * A CACHE KEY, NOT A REQUEST FIELD — `quoteCheckout` strips it before sending.
+   *
+   * For a cart order the server prices the cart itself, so nothing else on this
+   * request changes when the cart does, and RTK Query would hand back the
+   * previous quote: the shopper would see their subtotal move while the
+   * delivery charge and the total on the Place Order button stayed priced for
+   * the quantity they just changed.
+   *
+   * `providesTags: ["CheckoutQuote"]` was meant to cover this and cannot —
+   * `cartApi` is a separate `createApi` instance and has no way to invalidate
+   * another api's tag. Re-keying the query arg is what actually re-runs it.
+   *
+   * Absent for a direct order, which carries its lines in `items` and is
+   * already re-keyed by them.
+   *
+   * See server/openspec/changes/add-product-slider-and-card-quantity, task 7.1.
+   */
+  cartKey?: string;
 }
 
 /**

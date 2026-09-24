@@ -114,6 +114,16 @@ describe("getStoreSettings", () => {
    * `catalogConfig` — which is every deployment until the server change ships —
    * omits it, and `undefined` is falsy, so getting this wrong would withdraw the
    * wishlist, comparison and quick view from every store at once.
+   *
+   * Asserted EXHAUSTIVELY, so a flag added to the block without a fallback fails
+   * here rather than silently arriving as `undefined` at a gate. `openCartOnAdd`
+   * is the fourth and reports `true` for the same reason the others do: an API
+   * that predates it must read as the drawer behaving exactly as it always has.
+   *
+   * `cardQuantityControl` is the fifth and reports FALSE, which is the same rule
+   * reaching the opposite answer: the four above withdraw something that was
+   * always there, so "as it always was" is on; this one adds a control that
+   * never existed, so "as it always was" is off.
    */
   it("offers every catalog feature when the API omits catalogConfig", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(envelope({ storeName: "Acme" })));
@@ -122,6 +132,8 @@ describe("getStoreSettings", () => {
       showWishlist: true,
       showCompare: true,
       showQuickView: true,
+      openCartOnAdd: true,
+      cardQuantityControl: false,
     });
   });
 

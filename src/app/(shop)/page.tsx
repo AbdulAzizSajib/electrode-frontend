@@ -11,6 +11,7 @@ import MidBanners from "@/components/home/MidBanners";
 import PerksBar from "@/components/home/PerksBar";
 import FeaturedCategories from "@/components/home/FeaturedCategories";
 import { FEATURED_CATEGORIES_LAYOUTS } from "@/components/home/categories/registry";
+import { PRODUCT_ROW_LAYOUTS } from "@/components/home/products/registry";
 import Newsletter from "@/components/home/Newsletter";
 import {
   BlogRow,
@@ -22,7 +23,6 @@ import {
   BrandBarSkeleton,
   DealOfWeekSkeleton,
   MidBannersSkeleton,
-  ProductSectionSkeleton,
 } from "@/components/home/HomeSkeletons";
 import { HERO_VARIANTS } from "@/components/home/hero/registry";
 import { resolveSectionLayout } from "@/lib/section-layouts";
@@ -58,7 +58,11 @@ export async function generateMetadata(): Promise<Metadata> {
  *    something should do;
  *  - fixed JSX cannot express ORDER, and ordering is half the feature.
  *
- * So the enabled set is derived first and each section is looked up BY KEY.
+ * So the enabled set is derived first and each section is looked up BY KEY —
+ * with one exception that the key-addressed map below cannot hold. `MID_BANNERS`
+ * appears once per promo banner group the merchant created, so a record keyed by
+ * section key could only ever carry one of them; those entries are resolved by
+ * GROUP ID instead. See `promoStrips` below.
  *
  * ── Why every section loads on its own ────────────────────────────────────
  *
@@ -176,7 +180,50 @@ export default async function Home() {
   );
   const { Skeleton: CategoriesSkeleton } = FEATURED_CATEGORIES_LAYOUTS[categoriesLayout];
 
-  const rendered: Record<HomeSectionKey, ReactNode> = {
+  /*
+   * The same resolution for each of the three product rows.
+   *
+   * A helper rather than three copies: the layout and the skeleton have to come
+   * from the SAME answer, and three hand-written pairs is three chances for one
+   * row to render a slider behind a grid's placeholder.
+   */
+  const productRow = (key: "BEST_SELLING" | "FEATURED_PRODUCTS" | "NEW_ARRIVALS") => {
+    const layout = resolveSectionLayout(
+      key,
+      settings.homeConfig.find((section) => section.key === key)?.variant,
+    );
+    return { layout, Skeleton: PRODUCT_ROW_LAYOUTS[layout].Skeleton };
+  };
+
+  const bestSelling = productRow("BEST_SELLING");
+  const featuredProducts = productRow("FEATURED_PRODUCTS");
+  const newArrivals = productRow("NEW_ARRIVALS");
+
+  /*
+   * THE PROMO STRIPS, BUILT PER ENTRY — not from the map below.
+   *
+   * `rendered` is keyed by section key, and that is exactly the assumption
+   * `MID_BANNERS` breaks: a merchant may have several promo strips, so the key
+   * appears once per group and a key-addressed record can only hold one of
+   * them. Each entry also needs its OWN group's layout, which the key alone
+   * cannot supply.
+   *
+   * So the promo entries are resolved into a map keyed by GROUP id, and the
+   * render loop reaches for that map when it meets a promo entry. A group named
+   * by an entry but absent from `promoBannerGroups` yields nothing rather than
+   * throwing — the backend already drops those entries, so this is a guard
+   * against a payload assembled by an older server, not an expected path.
+   */
+  const promoStrips = new Map<string, ReactNode>(
+    settings.promoBannerGroups.map((group) => [
+      group.id,
+      <Suspense key={group.id} fallback={<MidBannersSkeleton layout={group.layout} />}>
+        <MidBanners groupId={group.id} layout={group.layout} />
+      </Suspense>,
+    ]),
+  );
+
+  const rendered: Record<Exclude<HomeSectionKey, "MID_BANNERS">, ReactNode> = {
     HERO: (
       <Suspense fallback={<HeroSkeleton />}>
         <Hero variant={heroVariant} />
@@ -193,22 +240,22 @@ export default async function Home() {
       </Suspense>
     ),
     BEST_SELLING: (
-      <Suspense fallback={<ProductSectionSkeleton />}>
+      <Suspense fallback={<bestSelling.Skeleton />}>
         <ProductRow
           title="Best Selling Products"
           query={{ limit: SECTION_SIZE, sortBy: "totalSold", sortOrder: "desc" }}
           tabs={categoryTabs}
+          layout={bestSelling.layout}
         />
       </Suspense>
     ),
-    MID_BANNERS: (
-      <Suspense fallback={<MidBannersSkeleton />}>
-        <MidBanners />
-      </Suspense>
-    ),
     FEATURED_PRODUCTS: (
-      <Suspense fallback={<ProductSectionSkeleton />}>
-        <ProductRow title="Featured Products" query={{ limit: SECTION_SIZE, isFeatured: true }} />
+      <Suspense fallback={<featuredProducts.Skeleton />}>
+        <ProductRow
+          title="Featured Products"
+          query={{ limit: SECTION_SIZE, isFeatured: true }}
+          layout={featuredProducts.layout}
+        />
       </Suspense>
     ),
     PERKS_BAR: <PerksBar />,
@@ -218,10 +265,11 @@ export default async function Home() {
       </Suspense>
     ),
     NEW_ARRIVALS: (
-      <Suspense fallback={<ProductSectionSkeleton />}>
+      <Suspense fallback={<newArrivals.Skeleton />}>
         <ProductRow
           title="New Arrivals"
           query={{ limit: SECTION_SIZE, sortBy: "createdAt", sortOrder: "desc" }}
+          layout={newArrivals.layout}
         />
       </Suspense>
     ),
@@ -250,12 +298,30 @@ export default async function Home() {
    */
   return (
     <>
-      {sections.map((section) => (
+      {sections.map((section) => {
+        /*
+         * KEYED BY KEY *AND* GROUP, because `MID_BANNERS` can appear several
+         * times and duplicate React keys in one list are a correctness bug, not
+         * a warning — React reconciles two siblings sharing a key as one, so the
+         * second strip would silently never mount.
+         */
+        const key =
+          section.key === "MID_BANNERS"
+            ? `${section.key}:${section.groupId ?? ""}`
+            : section.key;
+
+        const content =
+          section.key === "MID_BANNERS"
+            ? section.groupId
+              ? promoStrips.get(section.groupId)
+              : null
+            : rendered[section.key];
+
         // A keyed Fragment, not a wrapper element: several sections are
         // full-bleed bands that style themselves, and an extra div in the flow
         // would be a box they did not account for.
-        <Fragment key={section.key}>{rendered[section.key]}</Fragment>
-      ))}
+        return <Fragment key={key}>{content}</Fragment>;
+      })}
     </>
   );
 }

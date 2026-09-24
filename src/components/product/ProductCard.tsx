@@ -7,7 +7,9 @@ import { Check, Loader2, ShoppingCart } from "lucide-react";
 import type { Product } from "@/types/product";
 import { discountPercent, formatPrice } from "@/lib/format";
 import { FOCUS_RING } from "@/lib/focus-ring";
-import { useAddItemMutation } from "@/store/cartApi";
+import { EMPTY_CART, useAddItemMutation, useGetCartQuery } from "@/store/cartApi";
+import CardQuantityControl from "@/components/product/CardQuantityControl";
+import { cartLineForCard } from "@/lib/cart-line-for-card";
 import { useAppDispatch } from "@/store/hooks";
 import { openCart } from "@/store/uiSlice";
 import ProductQuickView from "@/components/product/ProductQuickView";
@@ -71,9 +73,45 @@ export default function ProductCard({ product }: { product: Product }) {
   const discount = discountPercent(product.offerPrice, product.sellingPrice);
 
   
-  const { showWishlist, showCompare, showQuickView } = getCatalogFeatures();
+  const { showWishlist, showCompare, showQuickView, openCartOnAdd, cardQuantityControl } =
+    getCatalogFeatures();
 
   const [quickViewOpen, setQuickViewOpen] = useState(false);
+
+  /*
+   * The cart line this card is offering, if the shopper already has it — and
+   * only while the merchant has switched the card's quantity control on.
+   *
+   * OFF IS THE DEFAULT, and off means the card is exactly what it was before
+   * this existed: one "Add to cart" action, whatever the cart holds. The
+   * subscription below still runs, because `Header` and `CartRail` hold it on
+   * every page regardless; skipping it here would save nothing and would make
+   * the card's behaviour depend on which other components happened to mount.
+   *
+   * COSTS NO REQUEST. `Header` and `CartRail` hold an unconditional
+   * `useGetCartQuery()` subscription on every page, so the cache entry already
+   * exists wherever a listing renders and this joins it.
+   *
+   * DERIVED FROM THE CART, never from "did I add this during this visit". A
+   * local flag would be cheaper and wrong in a way the shopper notices: reload
+   * the page, or arrive with a cart filled yesterday, and the card would offer
+   * "Add to cart" for something already in the cart — and adding again would
+   * silently double a quantity they never saw.
+   *
+   * MATCHED ON product AND variant, because two variants of one product are two
+   * lines. A card whose product has variants therefore steps the variant that
+   * was added. Where the cart holds MORE THAN ONE line for this product, the
+   * card shows its purchase action instead: it cannot say which line a stepper
+   * would govern, and changing the wrong variant is worse than not offering the
+   * control.
+   *
+   * See server/openspec/changes/add-product-slider-and-card-quantity, design.md
+   * Decision 4.
+   */
+  const { data: cart = EMPTY_CART } = useGetCartQuery();
+  // Off, the card never looks at the cart at all and shows the purchase action
+  // it always has, whatever is in it.
+  const cartLine = cardQuantityControl ? cartLineForCard(cart.lines, product.id) : undefined;
 
   const [justAdded, setJustAdded] = useState(false);
   const addedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -111,7 +149,9 @@ export default function ProductCard({ product }: { product: Product }) {
       setJustAdded(true);
       if (addedTimer.current) clearTimeout(addedTimer.current);
       addedTimer.current = setTimeout(() => setJustAdded(false), ADDED_FEEDBACK_MS);
-      dispatch(openCart());
+      // Only the AUTOMATIC open is a setting. Every control whose purpose is
+      // to show the cart still opens it — see `catalog-features.ts`.
+      if (openCartOnAdd) dispatch(openCart());
     } catch {
      
     }
@@ -231,6 +271,18 @@ export default function ProductCard({ product }: { product: Product }) {
               <button type="button" className={clsx(ACTION_BASE, ACTION_DISABLED)} disabled>
                 Sold out
               </button>
+            ) : cartLine ? (
+              /*
+               * Already in the cart: the stepper REPLACES the purchase action
+               * rather than sitting beside it, so the card keeps one action slot
+               * and one height.
+               *
+               * This branch is above the variable/simple split on purpose — once
+               * something is in the cart, how it got there stops mattering, and a
+               * variable product added through the quick view steps here exactly
+               * as a simple one does.
+               */
+              <CardQuantityControl line={cartLine} productName={product.name} />
             ) : !product.isVariable ? (
               <button
                 type="button"

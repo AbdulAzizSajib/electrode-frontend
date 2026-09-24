@@ -153,6 +153,59 @@ export interface DeliverySettings {
   options: DeliveryOption[];
 }
 
+/** Which mobile-money service receives the advance. */
+export type MobileBankingProvider = "BKASH" | "NAGAD" | "ROCKET";
+
+/**
+ * Which slice of the order total the shopper sends before it ships.
+ *
+ * `DELIVERY_CHARGE` sends the delivery option's price and leaves the rest for
+ * the door; `FULL` sends the whole total. Same form, same verification, same
+ * code path — only the amount differs.
+ */
+export type AdvancePaymentChoice = "DELIVERY_CHARGE" | "FULL";
+
+/**
+ * One mobile-banking account the shopper sends the advance to.
+ *
+ * `id` is what the placed order references, so it must be sent back exactly as
+ * received — never reconstructed from the number or the provider, both of which
+ * the merchant can edit.
+ */
+export interface MobileBankingAccount {
+  id: string;
+  provider: MobileBankingProvider;
+  number: string;
+  /** The merchant's own label — "Personal", "Merchant". Display only. */
+  accountType: string;
+}
+
+/** One bank account the shopper deposits the advance into. `id` as above. */
+export interface BankAccount {
+  id: string;
+  bankName: string;
+  accountName: string;
+  accountNumber: string;
+  /** Either may be empty: a same-bank transfer needs neither. */
+  branch: string;
+  routingNumber: string;
+}
+
+/**
+ * Whether this store takes money before it ships, and where it goes.
+ *
+ * Always present on this type even though the backend stores it optionally —
+ * the API normalises an absent value to disabled-with-no-accounts, so the
+ * storefront never has to distinguish "never configured" from "turned off".
+ * Mirrors `advancePaymentSchema` in the backend's store-setting.validation.ts;
+ * see server/openspec/changes/add-advance-payment-checkout.
+ */
+export interface AdvancePaymentConfig {
+  enabled: boolean;
+  mobileAccounts: MobileBankingAccount[];
+  bankAccounts: BankAccount[];
+}
+
 export interface CheckoutConfig {
   fields: Record<CheckoutFieldKey, CheckoutField>;
   /** Governs the coupon box on BOTH the cart and the checkout page. */
@@ -162,6 +215,7 @@ export interface CheckoutConfig {
   /** Rendered above the Place Order button. Empty means render nothing at all. */
   notice: string;
   delivery: DeliverySettings;
+  advancePayment: AdvancePaymentConfig;
 }
 
 /**
@@ -183,6 +237,35 @@ export interface CatalogConfig {
    * and still adds to the cart directly.
    */
   showQuickView: boolean;
+  /**
+   * Whether the cart drawer opens BY ITSELF after a shopper adds something.
+   *
+   * Off, an add leaves the shopper where they were — the card's "Added" state
+   * and the header's cart count are the confirmation. It governs ONLY the
+   * automatic open: the header button, the mobile bar and the floating rail
+   * open the drawer in both positions, which is why the storefront gates the
+   * four post-add call sites rather than `openCart()` itself.
+   *
+   * See server/openspec/changes/add-product-slider-and-card-quantity, design.md
+   * Decision 6.
+   */
+  openCartOnAdd: boolean;
+  /**
+   * Whether a listing's product card offers a quantity stepper for something
+   * already in the cart, in place of its purchase action.
+   *
+   * OFF by default, unlike the flags above: they withdraw something that was
+   * always there, this adds something that never was, so "as the storefront
+   * behaved before the flag" means off. A card then shows "Add to cart" and
+   * nothing else, whatever the cart holds.
+   *
+   * Governs the CARD only — the drawer, the cart page and the checkout summary
+   * are how a cart is edited and are not switchable.
+   *
+   * See server/openspec/changes/add-product-slider-and-card-quantity, design.md
+   * Decision 5c.
+   */
+  cardQuantityControl: boolean;
 }
 
 /**
@@ -255,11 +338,39 @@ export type HeroVariant = "SPLIT_THREE" | "FULL_SLIDER" | "SLIDER_STACK" | "SPLI
 export type FeaturedCategoriesLayout = "GRID" | "SLIDER";
 
 /**
+ * How a homepage row of PRODUCTS is arranged.
+ *
+ *   GRID     the cards in a wrapping grid, six across at desktop  (DEFAULT)
+ *   SLIDER   the same cards in one horizontal row that scrolls
+ *
+ * ONE UNION, THREE SECTIONS. `BEST_SELLING`, `FEATURED_PRODUCTS` and
+ * `NEW_ARRIVALS` all render through the same component and offer the same two
+ * arrangements. They are still three separate entries in `SECTION_LAYOUTS`,
+ * which is what lets a merchant show one row as a grid and another as a
+ * slider.
+ *
+ * Its members coincide with `FeaturedCategoriesLayout`'s today, and the two are
+ * deliberately NOT aliased: they answer for different sections and either could
+ * gain a layout the other never offers. Collapsing them would make a categories
+ * layout type-check on a product row, which `resolveSectionLayout` would then
+ * have to catch at runtime instead.
+ *
+ * THE SAME HAND-MAINTAINED MIRROR as the two above: the authority is
+ * `PRODUCT_ROW_VARIANTS` in the backend's store-setting.constant.ts, position 0
+ * is the default, and nothing checks the two agree. See
+ * server/openspec/changes/add-product-slider-and-card-quantity.
+ */
+export type ProductRowLayout = "GRID" | "SLIDER";
+
+/**
  * Every layout any section offers. A section entry carries at most one of
  * these, and which union it belongs to is decided by the entry's `key` — see
  * `SECTION_LAYOUTS` in `lib/section-layouts.ts`.
  */
-export type SectionLayout = HeroVariant | FeaturedCategoriesLayout;
+export type SectionLayout =
+  | HeroVariant
+  | FeaturedCategoriesLayout
+  | ProductRowLayout;
 
 /**
  * One homepage section's placement and visibility.
@@ -284,6 +395,22 @@ export interface HomeSection {
    * express the same shape.
    */
   variant?: SectionLayout;
+  /**
+   * Which promo banner group this entry renders — `MID_BANNERS` ONLY.
+   *
+   * `MID_BANNERS` IS THE ONE KEY THAT MAY APPEAR MORE THAN ONCE in the config,
+   * once per promo strip the merchant created. Every other key appears exactly
+   * once. That is why the homepage cannot look a section up by key alone any
+   * more — see the `rendered` map in `app/(shop)/page.tsx`.
+   *
+   * Always present on a promo entry in a real payload: the backend drops an
+   * entry whose group is missing or unknown before serving it. Optional in the
+   * type only because the settings API may be older than this storefront.
+   *
+   * MIRRORS the backend's `HomeSectionConfig.groupId`. See
+   * server/openspec/changes/add-promo-banner-groups, design.md Decision 3.
+   */
+  groupId?: string;
 }
 
 /**
@@ -291,11 +418,44 @@ export interface HomeSection {
  * array is the order the storefront lays the sections out in.
  *
  * Always complete and always current — the backend reconciles the stored value
- * against its registry before serving it, so every key appears exactly once and
- * a section added in a later release arrives enabled rather than missing. The
- * storefront therefore never has to defend against a gap here.
+ * against its registry before serving it, so a section added in a later release
+ * arrives enabled rather than missing. The storefront therefore never has to
+ * defend against a gap here.
+ *
+ * EVERY KEY APPEARS EXACTLY ONCE, WITH ONE EXCEPTION: `MID_BANNERS` appears
+ * once per promo banner group, each occurrence carrying its own `groupId`,
+ * `enabled` flag and position. Anything keying off this array must therefore
+ * key off `key` + `groupId`, not `key`.
  */
 export type HomeConfig = HomeSection[];
+
+/**
+ * How many tiles across a promo banner strip renders.
+ *
+ * MIRRORS `PROMO_BANNER_LAYOUTS` in the backend's store-setting.constant.ts and
+ * carries the same obligation every limit mirrored here does: keep it in step.
+ * POSITION 0 IS THE DEFAULT and `THREE` holds it, because three-across is what
+ * this storefront rendered before promo banners were groupable.
+ */
+export type PromoBannerLayout = "THREE" | "TWO" | "ONE";
+
+/**
+ * One promotional strip — what it is, as distinct from where it renders.
+ *
+ * The `homeConfig` entry says WHERE the strip sits and whether it is on; this
+ * says what it IS. They are separate so that a group's layout has exactly one
+ * answer no matter how many entries name it.
+ *
+ * `name` is a merchant-facing label for the admin's section list. THE
+ * STOREFRONT DOES NOT RENDER IT — a heading above the strip is deliberately not
+ * part of this feature.
+ */
+export interface PromoBannerGroup {
+  id: string;
+  name: string;
+  layout: PromoBannerLayout;
+  sortOrder: number;
+}
 
 /**
  * The route groups a page can belong to, for per-group robots directives.
@@ -523,6 +683,14 @@ export interface StoreSettings {
    * are deliberately not addressable here.
    */
   homeConfig: HomeConfig;
+  /**
+   * The promo strips themselves, keyed into by `HomeSection.groupId`.
+   *
+   * Travels on this payload rather than its own endpoint because the shop
+   * layout already fetches these settings on every route, so the homepage pays
+   * no extra round trip to learn what its strips are.
+   */
+  promoBannerGroups: PromoBannerGroup[];
   theme: Theme;
   /**
    * Everything the SEO menu controls. Always complete — the backend merges it

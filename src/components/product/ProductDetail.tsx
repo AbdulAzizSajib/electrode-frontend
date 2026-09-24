@@ -97,7 +97,7 @@ export default function ProductDetail({
   const dispatch = useAppDispatch();
   const [addItem, { isLoading }] = useAddItemMutation();
 
-  const { showWishlist, showCompare } = getCatalogFeatures();
+  const { showWishlist, showCompare, openCartOnAdd } = getCatalogFeatures();
 
   const images: ProductImage[] =
     product.images.length > 0
@@ -275,7 +275,9 @@ export default function ProductDetail({
         variantId: selectedVariantId ?? undefined,
         quantity,
       }).unwrap();
-      dispatch(openCart());
+      // Only the AUTOMATIC open is a setting. Every control whose purpose is
+      // to show the cart still opens it — see `catalog-features.ts`.
+      if (openCartOnAdd) dispatch(openCart());
     } catch {
       setError("Could not add this to your cart. Please try again.");
     }

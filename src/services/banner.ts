@@ -48,6 +48,10 @@ function toBanner(banner: ApiBanner): Banner {
     title: banner.title ?? "",
     href: banner.resolvedLink ?? banner.link ?? productHref ?? "#",
     sortOrder: banner.sortOrder,
+    // `?? null` rather than passing through: a server older than this build
+    // omits the field entirely, and `undefined` would make every strip's filter
+    // below match nothing rather than simply finding no tiles.
+    promoBannerGroupId: banner.promoBannerGroupId ?? null,
   };
 }
 

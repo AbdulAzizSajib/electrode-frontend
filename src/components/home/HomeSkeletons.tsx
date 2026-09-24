@@ -1,4 +1,6 @@
 import { ProductCardSkeleton, SkeletonBlock } from "@/components/ui/Skeleton";
+import { PROMO_LAYOUTS, resolvePromoLayout } from "@/components/home/promo/layouts";
+import type { PromoBannerLayout } from "@/types/store-settings";
 
 /**
  * Placeholders for the homepage sections that load their own data.
@@ -157,13 +159,32 @@ export function CategorySliderSkeleton() {
   );
 }
 
-/** Mirrors `MidBanners`: three 2:1 tiles, stacked on mobile. */
-export function MidBannersSkeleton() {
+/**
+ * Mirrors `MidBanners` — for the layout of the group it stands in for.
+ *
+ * TAKES THE LAYOUT rather than always drawing three 2:1 tiles, because the
+ * strip's shape is a merchant setting now. A one-tile strip behind a
+ * three-tile placeholder re-flows the page the moment its content lands, which
+ * is the same trap the hero and category skeletons already avoid by being
+ * chosen per layout.
+ *
+ * The grid, the ratio and the tile COUNT all come from the same table the
+ * component reads, so the two cannot disagree.
+ */
+export function MidBannersSkeleton({
+  layout = "THREE",
+}: {
+  layout?: PromoBannerLayout;
+}) {
+  const resolved = resolvePromoLayout(layout);
+  const { grid, tile } = PROMO_LAYOUTS[resolved];
+  const tileCount = { ONE: 1, TWO: 2, THREE: 3 }[resolved];
+
   return (
     <section aria-hidden className="container-px site-container py-8">
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        {Array.from({ length: 3 }, (_, index) => (
-          <SkeletonBlock key={index} className="aspect-2/1 w-full rounded-xl" />
+      <div className={`grid gap-4 ${grid}`}>
+        {Array.from({ length: tileCount }, (_, index) => (
+          <SkeletonBlock key={index} className={`w-full rounded-xl ${tile}`} />
         ))}
       </div>
     </section>
@@ -181,6 +202,46 @@ export function ProductSectionSkeleton() {
       <div className="grid grid-cols-2 gap-x-5 gap-y-8 sm:grid-cols-3 lg:grid-cols-6">
         {Array.from({ length: 6 }, (_, index) => (
           <ProductCardSkeleton key={index} />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+/**
+ * Mirrors `ProductSlider`: the heading row with its two arrows, then one
+ * CLIPPED row of cards.
+ *
+ * One row and not a wrapping grid, because a placeholder shaped unlike the
+ * layout that replaces it moves everything below it on first paint. Card widths
+ * are the slider's `slidesPerView` at the same breakpoints — two, three and six
+ * across with the grid's 20px gap — so the placeholder is the height of the row
+ * that replaces it.
+ *
+ * The `calc` is `(100% - (n - 1) x gap) / n` at each breakpoint: one 1.25rem
+ * gap between two cards, two between three, five between six.
+ */
+export function ProductSliderSkeleton() {
+  return (
+    <section aria-hidden className="container-px site-container py-8">
+      <div className="mb-8 flex items-center justify-between gap-4">
+        <SkeletonBlock className="h-7 w-64 max-w-[60%]" />
+        <div className="flex items-center gap-4">
+          <SkeletonBlock className="h-5 w-32" />
+          <div className="flex shrink-0 gap-2">
+            <SkeletonBlock className="size-9 rounded-full" />
+            <SkeletonBlock className="size-9 rounded-full" />
+          </div>
+        </div>
+      </div>
+      <div className="flex gap-x-5 overflow-hidden">
+        {Array.from({ length: 6 }, (_, index) => (
+          <div
+            key={index}
+            className="w-[calc((100%-1.25rem)/2)] shrink-0 sm:w-[calc((100%-2.5rem)/3)] lg:w-[calc((100%-6.25rem)/6)]"
+          >
+            <ProductCardSkeleton />
+          </div>
         ))}
       </div>
     </section>

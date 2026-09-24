@@ -83,6 +83,59 @@ describe("defaults", () => {
     // depends on. Change the backend's tuple and this fails, which is the point.
     expect(SECTION_LAYOUTS.HERO).toEqual(["SPLIT_THREE", "FULL_SLIDER", "SLIDER_STACK", "SPLIT_TALL"]);
     expect(SECTION_LAYOUTS.FEATURED_CATEGORIES).toEqual(["GRID", "SLIDER"]);
+    expect(SECTION_LAYOUTS.BEST_SELLING).toEqual(["GRID", "SLIDER"]);
+    expect(SECTION_LAYOUTS.FEATURED_PRODUCTS).toEqual(["GRID", "SLIDER"]);
+    expect(SECTION_LAYOUTS.NEW_ARRIVALS).toEqual(["GRID", "SLIDER"]);
+  });
+});
+
+/*
+ * The three product rows.
+ *
+ * Each is its own entry although all three offer the same two layouts, because
+ * the layout is stored per section — a merchant may show one row as a grid and
+ * another as a slider. The cases below are the ones that decide whether a
+ * storefront renders a row at all, and none is reachable by a normal manual
+ * test: producing them means a hand-edited settings row or a backend that has
+ * learned a layout this build has not.
+ */
+describe("product rows", () => {
+  const ROWS = ["BEST_SELLING", "FEATURED_PRODUCTS", "NEW_ARRIVALS"] as const;
+
+  it.each(ROWS)("%s defaults to the grid it rendered before layouts existed", (key) => {
+    expect(defaultLayout(key)).toBe("GRID");
+    expect(SECTION_LAYOUTS[key][0]).toBe("GRID");
+  });
+
+  it.each(ROWS)("%s resolves an absent or unusable layout to the grid", (key) => {
+    expect(resolveSectionLayout(key, undefined)).toBe("GRID");
+    expect(resolveSectionLayout(key, null)).toBe("GRID");
+    expect(resolveSectionLayout(key, 3)).toBe("GRID");
+    expect(resolveSectionLayout(key, "")).toBe("GRID");
+    // A layout from a newer server this build has no component for.
+    expect(resolveSectionLayout(key, "MASONRY")).toBe("GRID");
+  });
+
+  it.each(ROWS)("%s accepts the slider", (key) => {
+    expect(resolveSectionLayout(key, "SLIDER")).toBe("SLIDER");
+  });
+
+  /*
+   * Cross-section leakage: `SPLIT_THREE` is a real layout, just not one a
+   * product row offers. The tuples are per key precisely so this is caught —
+   * were the map flat, a hero layout would resolve here and the row would try
+   * to render a component it has no business rendering.
+   */
+  it.each(ROWS)("%s refuses a layout belonging to another section", (key) => {
+    expect(resolveSectionLayout(key, "SPLIT_THREE")).toBe("GRID");
+    expect(resolveSectionLayout(key, "FULL_SLIDER")).toBe("GRID");
+  });
+
+  it("offers a choice on the three rows and not on the countdown row", () => {
+    for (const key of ROWS) expect(offersLayouts(key)).toBe(true);
+    // DEAL_OF_WEEK shares a grid with a countdown panel; a slider there is a
+    // different layout problem and the backend does not offer it either.
+    expect(offersLayouts("DEAL_OF_WEEK")).toBe(false);
   });
 });
 

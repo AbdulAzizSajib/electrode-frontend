@@ -8,6 +8,7 @@ import { formatPrice } from "@/lib/format";
 import StarRating from "@/components/ui/StarRating";
 import { useAppDispatch } from "@/store/hooks";
 import { openCart } from "@/store/uiSlice";
+import { getCatalogFeatures } from "@/lib/catalog-features";
 import {
   useGetWishlistQuery,
   useMoveWishlistItemToCartMutation,
@@ -41,7 +42,9 @@ export default function WishlistView() {
     setActionError("");
     try {
       await moveToCart(itemId).unwrap();
-      dispatch(openCart());
+      // Only the AUTOMATIC open is a setting. Every control whose purpose is
+      // to show the cart still opens it — see `catalog-features.ts`.
+      if (getCatalogFeatures().openCartOnAdd) dispatch(openCart());
     } catch (error) {
       // The backend keeps the item on failure, so the list still shows it —
       // saying why is the only thing left to do.

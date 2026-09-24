@@ -7,6 +7,10 @@ import { useRouter } from "next/navigation";
 import { AlertCircle, BadgeCheck, Loader2, Plus, Store, Truck } from "lucide-react";
 import clsx from "clsx";
 import AddressForm from "@/components/account/AddressForm";
+import {
+  CartQuantityControl,
+  CartRemoveButton,
+} from "@/components/cart/CartLineControls";
 import { Field } from "@/components/account/form-controls";
 import { formatPrice, roundMoney } from "@/lib/format";
 import {
@@ -222,6 +226,21 @@ export default function CheckoutForm({
   const displayDiscount = directOrder ? 0 : cart.discountAmount;
   const displayTotal = directOrder ? displayLines[0].lineTotal : cart.total;
 
+  /*
+   * The lines and their quantities, as one string.
+   *
+   * Two things need it and must not disagree. It is part of `orderFingerprint`
+   * below, which regenerates the idempotency key so a corrected order cannot be
+   * submitted under a previous attempt's key. And it re-keys the delivery quote
+   * — for a cart order the server prices the cart itself, so without this the
+   * quote would not re-run when a quantity changed here and the total would
+   * stay priced for the old one. See `CheckoutQuoteRequest.cartKey`.
+   */
+  const lineSignature = displayLines
+    .map((l) => `${l.id}:${l.quantity}`)
+    .sort()
+    .join(",");
+
   // What makes this a materially different order. Notes are excluded: editing
   // them after an unconfirmed attempt should not turn a retry into a duplicate.
   // The guest's own details are included for the same reason the address id is:
@@ -243,10 +262,7 @@ export default function CheckoutForm({
           guest.city,
           guest.postalCode,
         ].join("~"),
-    displayLines
-      .map((l) => `${l.id}:${l.quantity}`)
-      .sort()
-      .join(","),
+    lineSignature,
   ].join("|");
   const lastFingerprint = useRef(orderFingerprint);
 
@@ -303,6 +319,9 @@ export default function CheckoutForm({
     {
       deliveryOptionKey: deliveryOptionKey ?? "",
       items: directOrder ? [directOrder.item] : undefined,
+      // Re-keys the quote when the cart changes. A direct order needs none —
+      // its lines are in `items`, which already re-keys it.
+      cartKey: directOrder ? undefined : lineSignature,
     },
     { skip: !hasLines || !deliveryOptionKey },
   );
@@ -531,16 +550,45 @@ export default function CheckoutForm({
   }
 
   return (
-    <div className="container-px mx-auto max-w-6xl py-10">
+    <div className="container-px mx-auto max-w-7xl py-10">
       <h1 className="mb-8 text-2xl font-bold text-gray-900">Checkout</h1>
 
-      <div className="grid grid-cols-1 gap-10 lg:grid-cols-3">
-        <form onSubmit={handlePlaceOrder} className="space-y-8 lg:col-span-2">
+      {/*
+        FIVE COLUMNS, NOT THREE — the summary takes two of them rather than one.
+        At thirds the summary was half the width of the form beside it, which
+        left the product rows wrapping their names to one line and the money
+        column crammed against the edge. The order being placed deserves at
+        least as much room as the address being typed, and the extra fifth is
+        what lets a product name, a quantity stepper and a price sit on one row
+        without any of them truncating.
+      */}
+      {/*
+        MOBILE REORDERS AROUND THE SUMMARY, DESKTOP DOES NOT.
+
+        On one column the two grid children stack in source order, which put
+        the whole form — address, delivery, payment, Place Order — above a
+        summary the shopper only ever saw by scrolling past the button they
+        were being asked to press. The merchant's order is: type where it goes,
+        check what is being bought, then choose how it ships and pay.
+
+        The form is `display: contents` below `lg` so its sections become
+        siblings of the summary card in the same flex column and can be
+        ordered around it; `contents` drops the form's own box, so its
+        `space-y-8` moves to the column's `gap-8` for that range. Submission is
+        unaffected — the element still exists, only its box does not. At `lg`
+        the form is a block again in column 3 and every `order-*` is dropped,
+        so the two-column layout is exactly as before.
+      */}
+      <div className="flex flex-col gap-8 lg:grid lg:grid-cols-5 lg:items-start">
+        <form
+          onSubmit={handlePlaceOrder}
+          className="contents lg:block lg:space-y-8 lg:col-span-3"
+        >
           {/* Hidden entirely when collecting — there is nothing to deliver to,
               and the fields' required rules are dropped with them. Switching
               back to a delivery area restores both. */}
           {needsAddress && (
-          <section>
+          <section className="order-1 lg:order-0">
             <h2 className="mb-4 text-lg font-semibold text-gray-900">
               Delivery address
             </h2>
@@ -565,23 +613,23 @@ export default function CheckoutForm({
                     says so in its label when it is not mandatory. */}
                 {shows("fullName") && (
                   <Field
-                    label={`Full name${optionalSuffix("fullName")}`}
+                    label={`Full Name${optionalSuffix("fullName")}`}
                     name="fullName"
                     value={guest.fullName}
                     onChange={(e) => updateGuest("fullName", e.target.value)}
                     error={guestErrors.fullName}
-                    placeholder="e.g. Rahim Uddin"
+                    placeholder="আপনার সম্পূর্ণ নাম লিখুন ..."
                     autoComplete="name"
                   />
                 )}
                 {shows("phone") && (
                   <Field
-                    label={`Phone number${optionalSuffix("phone")}`}
+                    label={`Mobile Number${optionalSuffix("phone")}`}
                     name="phone"
                     value={guest.phone}
                     onChange={(e) => updateGuest("phone", e.target.value)}
                     error={guestErrors.phone}
-                    placeholder="01XXXXXXXXX"
+                    placeholder="সঠিক মোবাইল নম্বর লিখুন ..."
                     autoComplete="tel"
                     inputMode="tel"
                   />
@@ -593,17 +641,18 @@ export default function CheckoutForm({
                     value={guest.addressLine1}
                     onChange={(e) => updateGuest("addressLine1", e.target.value)}
                     error={guestErrors.addressLine1}
-                    placeholder="House, road, area"
+                    placeholder="বাড়ি/মহল্লা/রাস্তা/এরিয়ার বিস্তারিত ঠিকানা লিখুন ..."
                     autoComplete="address-line1"
                   />
                 )}
                 {shows("addressLine2") && (
                   <Field
-                    label={`Apartment, floor${optionalSuffix("addressLine2")}`}
+                    label={`Apartment, Floor${optionalSuffix("addressLine2")}`}
                     name="addressLine2"
                     value={guest.addressLine2}
                     onChange={(e) => updateGuest("addressLine2", e.target.value)}
                     error={guestErrors.addressLine2}
+                    placeholder="আপনার অ্যাপার্টমেন্ট, ফ্লোর লিখুন ..."
                     autoComplete="address-line2"
                   />
                 )}
@@ -616,7 +665,7 @@ export default function CheckoutForm({
                         value={guest.city}
                         onChange={(e) => updateGuest("city", e.target.value)}
                         error={guestErrors.city}
-                        placeholder="e.g. Dhaka"
+                        placeholder="আপনার শহরের নাম লিখুন ..."
                         autoComplete="address-level2"
                       />
                     )}
@@ -627,6 +676,7 @@ export default function CheckoutForm({
                         value={guest.postalCode}
                         onChange={(e) => updateGuest("postalCode", e.target.value)}
                         error={guestErrors.postalCode}
+                        placeholder="আপনার পোস্টাল কোড লিখুন ..."
                         autoComplete="postal-code"
                         inputMode="numeric"
                       />
@@ -711,7 +761,7 @@ export default function CheckoutForm({
           </section>
           )}
 
-          <section>
+          <section className="order-3 lg:order-0">
             <h2 className="mb-4 text-lg font-semibold text-gray-900">
               Delivery
             </h2>
@@ -830,7 +880,7 @@ export default function CheckoutForm({
           </section>
 
           {!isSignedIn && (
-            <section>
+            <section className="order-4 lg:order-0">
               <h2 className="mb-4 text-lg font-semibold text-gray-900">Payment</h2>
               <div className="flex items-start gap-3 rounded-xl border border-gray-200 p-4">
                 <BadgeCheck size={18} className="mt-0.5 shrink-0 text-green-600" />
@@ -846,7 +896,7 @@ export default function CheckoutForm({
           )}
 
           {checkout.showOrderNote && (
-            <section>
+            <section className="order-5 lg:order-0">
               <h2 className="mb-4 text-lg font-semibold text-gray-900">
                 Order note <span className="text-sm font-normal text-gray-400">(optional)</span>
               </h2>
@@ -865,7 +915,7 @@ export default function CheckoutForm({
             <div
               role="alert"
               className={clsx(
-                "flex items-start gap-2 rounded border px-4 py-3 text-sm",
+                "order-6 flex items-start gap-2 rounded border px-4 py-3 text-sm lg:order-0",
                 indeterminate
                   ? "border-amber-200 bg-amber-50 text-amber-800"
                   : "border-red-200 bg-red-50 text-red-700",
@@ -887,7 +937,7 @@ export default function CheckoutForm({
             </div>
           )}
 
-          <div>
+          <div className="order-7 lg:order-0">
             {/* Merchant-authored, and rendered only when there is something to
                 say — an empty notice must leave no container or spacing behind. */}
             {checkout.notice.trim() && (
@@ -915,56 +965,122 @@ export default function CheckoutForm({
           </div>
         </form>
 
-        <div className="h-fit rounded-xl bg-gray-50 p-6">
-          <h2 className="mb-4 text-lg font-semibold text-gray-900">Order Summary</h2>
+        {/*
+          A BORDERED CARD ON WHITE, not a grey block.
+          
+          The grey panel read as a muted aside — the least important thing on
+          the page — when it is the one part a shopper actually checks before
+          paying. A white card with its own border and a titled header gives it
+          the same visual weight as the form, which is what the merchant's
+          reference layout does.
+          
+          `lg:sticky` keeps the totals in view while a long address form is
+          filled in; `top-24` clears the sticky site header above it.
+        */}
+        <div className="order-2 h-fit overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm lg:order-0 lg:sticky lg:top-24 lg:col-span-2">
+          <div className="border-b border-gray-200 px-5 py-4">
+            <h2 className="text-center text-lg font-bold text-gray-900">Order Details</h2>
+          </div>
+
+          <div className="px-5 py-4">
           {directOrder && (
-            <p className="mb-4 rounded bg-white px-3 py-2 text-xs text-gray-500">
+            <p className="mb-4 rounded bg-gray-50 px-3 py-2 text-xs text-gray-500">
               Buying this item directly. Your cart is untouched.
             </p>
           )}
-          <div className="max-h-72 space-y-4 overflow-y-auto pr-1" data-lenis-prevent>
+          {/*
+            A HEADER ROW over the lines, so the right-hand column is labelled
+            rather than left as bare numbers a shopper has to interpret. It is
+            the one thing the old block had no room for.
+          */}
+          <div className="flex items-center justify-between border-b border-gray-200 pb-2.5 text-xs font-semibold uppercase tracking-wide text-gray-500">
+            <span>Product</span>
+            <span>Subtotal</span>
+          </div>
+          <div className="max-h-96 divide-y divide-gray-100 overflow-y-auto" data-lenis-prevent>
             {displayLines.map((line) => (
-              <div key={line.id} className="flex gap-3">
-                <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded bg-white">
+              <div key={line.id} className="flex gap-3 py-4">
+                <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-lg border border-gray-200 bg-white">
                   {line.image && (
                     <Image src={line.image} alt={line.name} fill className="object-cover" />
                   )}
-                  <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-gray-500 text-[10px] font-bold text-white">
-                    {line.quantity}
-                  </span>
-                </div>
-                <div className="flex-1">
-                  <p className="line-clamp-1 text-sm text-gray-800">{line.name}</p>
-                  {line.variantName && (
-                    <p className="text-xs text-gray-500">{line.variantName}</p>
+                  {/*
+                    The badge stays for a DIRECT order, which has no cart line to
+                    step and so keeps the read-only quantity it always had.
+                  */}
+                  {directOrder && (
+                    <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-gray-500 text-[10px] font-bold text-white">
+                      {line.quantity}
+                    </span>
                   )}
                 </div>
-                <span className="text-sm font-medium text-gray-700">
+                <div className="min-w-0 flex-1">
+                  {/*
+                    TWO LINES, not one. At the old width a product name was cut
+                    off mid-word, so "Hoco DB160 60000mAh 100W PD Fast Charging
+                    Power Bank" and the 20000mAh model beside it were the same
+                    truncated string — a shopper could not tell which one they
+                    were buying. The wider column plus a second line fits a real
+                    product name.
+                  */}
+                  <p className="line-clamp-2 text-sm font-medium text-gray-800">{line.name}</p>
+                  {line.variantName && (
+                    <p className="mt-0.5 text-xs text-gray-500">{line.variantName}</p>
+                  )}
+                  {/*
+                    The same two controls the cart page uses, so a correction at
+                    the moment of payment is the interaction the shopper has
+                    already met rather than a new one.
+                    
+                    NOT offered for a direct order: its line is synthetic
+                    (`id: "direct"`, and no cart line behind it), so a stepper
+                    would PATCH an item id that does not exist.
+                    
+                    A change here moves `orderFingerprint`, which regenerates
+                    the idempotency key — so the order submitted is the corrected
+                    one and an attempt made before the change cannot be replayed
+                    as if it were. That was already wired; see the fingerprint
+                    above.
+                  */}
+                  {!directOrder && (
+                    <div className="mt-2 flex items-center gap-3">
+                      <CartQuantityControl line={line} />
+                      <CartRemoveButton line={line} />
+                    </div>
+                  )}
+                </div>
+                <span className="shrink-0 text-sm font-semibold text-gray-900">
                   {formatPrice(line.lineTotal)}
                 </span>
               </div>
             ))}
           </div>
 
-          <div className="mt-5 space-y-2 border-t border-gray-200 pt-4 text-sm">
-            <div className="flex items-center justify-between text-gray-600">
-              <span>Subtotal</span>
-              <span>{formatPrice(quote?.subtotal ?? displaySubtotal)}</span>
+          <div className="space-y-3 border-t border-gray-200 pt-4 text-sm">
+            <div className="flex items-center justify-between">
+              <span className="font-semibold text-gray-900">Subtotal</span>
+              <span className="font-semibold text-gray-900">
+                {formatPrice(quote?.subtotal ?? displaySubtotal)}
+              </span>
             </div>
             {(quote?.discountAmount ?? displayDiscount) > 0 && (
               <div className="flex items-center justify-between text-green-700">
-                <span>Discount{cart.discountCode ? ` (${cart.discountCode})` : ""}</span>
-                <span>-{formatPrice(quote?.discountAmount ?? displayDiscount)}</span>
+                <span className="font-medium">
+                  Discount{cart.discountCode ? ` (${cart.discountCode})` : ""}
+                </span>
+                <span className="font-semibold">
+                  -{formatPrice(quote?.discountAmount ?? displayDiscount)}
+                </span>
               </div>
             )}
-            <div className="flex items-center justify-between text-gray-600">
+            <div className="flex items-center justify-between text-gray-700">
               {/* Names the option the shopper chose, so the line they are about
                   to be charged is the one they picked rather than a generic
                   "Delivery" they have to map back onto a choice. */}
-              <span>
+              <span className="font-semibold text-gray-900">
                 {selectedOption?.label ?? (collecting ? "Collection" : "Delivery")}
               </span>
-              <span>
+              <span className="font-semibold text-gray-900">
                 {quoteRefusal ? (
                   <span className="text-red-600">Unavailable</span>
                 ) : quote ? (
@@ -986,9 +1102,9 @@ export default function CheckoutForm({
               </span>
             </div>
             {quote && quote.taxAmount > 0 && (
-              <div className="flex items-center justify-between text-gray-600">
-                <span>Tax</span>
-                <span>{formatPrice(quote.taxAmount)}</span>
+              <div className="flex items-center justify-between text-gray-700">
+                <span className="font-semibold text-gray-900">Tax</span>
+                <span className="font-semibold text-gray-900">{formatPrice(quote.taxAmount)}</span>
               </div>
             )}
             {!collecting && quote?.deliveryDays != null && quote.deliveryDays > 0 && (
@@ -1012,9 +1128,11 @@ export default function CheckoutForm({
             />
           )}
 
-          <div className="mt-4 flex items-center justify-between border-t border-gray-200 pt-4 text-base font-bold text-gray-900">
-            <span>Total</span>
-            <span className="text-sale">
+          {/* The figure the shopper is actually agreeing to, sized so it is the
+              largest thing in the card rather than one more row of the list. */}
+          <div className="mt-4 flex items-center justify-between border-t border-gray-200 pt-4">
+            <span className="text-lg font-bold text-gray-900">Total</span>
+            <span className="text-xl font-bold text-sale">
               {quoting && !quote ? "…" : formatPrice(payableTotal)}
             </span>
           </div>
@@ -1025,6 +1143,7 @@ export default function CheckoutForm({
                 : "Delivery and tax are added once you choose an option."}
             </p>
           )}
+          </div>
         </div>
       </div>
     </div>

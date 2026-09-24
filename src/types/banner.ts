@@ -35,6 +35,8 @@ export interface ApiBanner {
   productId: string | null;
   status: string;
   sortOrder: number;
+  /** The promo strip this banner is a tile of, or null. `MID` banners only. */
+  promoBannerGroupId: string | null;
   startsAt: string | null;
   endsAt: string | null;
   createdAt: string;
@@ -60,4 +62,15 @@ export interface Banner {
   /** Always a usable href — falls back to the product page, then to `#`. */
   href: string;
   sortOrder: number;
+  /**
+   * Which promo strip this tile belongs to, or null for none.
+   *
+   * Kept through the trim — unlike most of the API's ~24 fields — because
+   * `MidBanners` filters the ONE already-fetched banner list down to its own
+   * group with it. Without it each strip would need its own request.
+   *
+   * A `MID` banner with null here renders in no strip. That is a real state, not
+   * a missing value: it is what a banner looks like after its group was deleted.
+   */
+  promoBannerGroupId: string | null;
 }
