@@ -7,11 +7,24 @@ import { useRouter } from "next/navigation";
 import { AlertCircle, BadgeCheck, Loader2, Plus, Store, Truck } from "lucide-react";
 import clsx from "clsx";
 import AddressForm from "@/components/account/AddressForm";
+import AdvancePaymentSection, {
+  defaultAdvanceClaim,
+  EMPTY_ADVANCE_CLAIM,
+  type AdvanceClaimDraft,
+  type AdvanceClaimErrors,
+} from "@/components/checkout/AdvancePaymentSection";
+import DestinationField from "@/components/account/DestinationField";
 import {
   CartQuantityControl,
   CartRemoveButton,
 } from "@/components/cart/CartLineControls";
 import { Field } from "@/components/account/form-controls";
+import {
+  findDestination,
+  refusalMessage,
+  resolveDeliveryOption,
+  type Destination,
+} from "@/lib/delivery-destination";
 import { formatPrice, roundMoney } from "@/lib/format";
 import {
   clearDirectOrderIntent,
@@ -25,7 +38,7 @@ import { EMPTY_CART, useGetCartQuery } from "@/store/cartApi";
 import { usePlaceOrderMutation, useQuoteCheckoutQuery } from "@/store/orderApi";
 import { formatAddress, type Address } from "@/types/address";
 import type { CartLine, CartSummary } from "@/types/cart";
-import type { PlaceOrderPayload } from "@/types/order";
+import type { CheckoutPaymentMethod, PlaceOrderPayload } from "@/types/order";
 import type {
   CheckoutConfig,
   CheckoutFieldKey,
@@ -179,8 +192,154 @@ export default function CheckoutForm({
    */
   const [deliveryOptionKey, setDeliveryOptionKey] = useState<string | null>(null);
 
+  /*
+   * WHERE THE ORDER IS GOING — which is now what decides the delivery charge.
+   *
+   * A guest chooses it in the address fields above. A signed-in shopper's comes
+   * from the address they selected, so switching address moves the charge with
+   * it and nothing has to be re-entered.
+   *
+   * Null for an address saved before the picker existed: `findDestination`
+   * refuses to guess a district out of free text, because a guess that is
+   * usually right is a wrong delivery charge on the orders where it is not.
+   * Those fall through to the option cards below. See design.md, D7.
+   */
+  const [guestDestination, setGuestDestination] = useState<Destination | null>(null);
+
+  /*
+   * The address the order is going to.
+   *
+   * An address added without leaving checkout is held here as well, because
+   * `onSaved` selects it a moment before the list query has refetched it: the
+   * shopper would otherwise watch the delivery options reappear and vanish
+   * again as the charge they had just settled was unresolved and re-resolved.
+   */
+  const [addedAddress, setAddedAddress] = useState<Address | null>(null);
+  const selectedAddress =
+    addresses.find((a) => a.id === addressId) ??
+    (addedAddress && addedAddress.id === addressId ? addedAddress : null);
+
+  const destination: Destination | null = isSignedIn
+    ? findDestination(selectedAddress?.state, selectedAddress?.city)
+    : guestDestination;
+
+  /*
+   * The picker answers BOTH halves at once. The area lands in `guest.city`,
+   * which is what keeps the merchant's own rule for that field — shown,
+   * required — governing this one, with no second rule beside it to disagree.
+   * The district travels separately, as `state`, when the order is sent.
+   */
+  const chooseDestination = (next: Destination | null) => {
+    setGuestDestination(next);
+    updateGuest("city", next?.area ?? "");
+  };
+
+  /*
+   * The option the destination makes this, or the reason it makes none.
+   *
+   * Collection is handed a null destination deliberately: a pickup point is
+   * somewhere the shopper goes, not somewhere an address resolves to, and which
+   * one they collect from stays their own choice.
+   */
+  const destinationResolution = resolveDeliveryOption(
+    collecting ? null : destination,
+    deliveryOptions,
+  );
+  const derivedOption = destinationResolution.resolved
+    ? destinationResolution.option
+    : null;
+
+  /*
+   * The option in force: derived when the destination decided one, otherwise
+   * the one the shopper picked off the cards — and the cards are shown exactly
+   * when nothing was derived. One of the two and never both, so there is a
+   * single key to quote against, to submit, and to fingerprint the attempt.
+   */
   const selectedOption: DeliveryOption | null =
-    shownOptions.find((o) => o.key === deliveryOptionKey) ?? null;
+    derivedOption ?? shownOptions.find((o) => o.key === deliveryOptionKey) ?? null;
+  const optionKeyInForce = selectedOption?.key ?? null;
+
+  const refusalReason = destinationResolution.resolved
+    ? null
+    : destinationResolution.reason;
+
+  /*
+   * THE OPTION CARDS ARE THE WAY OUT, NOT THE FIRST QUESTION.
+   *
+   * They used to appear the moment checkout loaded, before a district had been
+   * chosen — a full price list offering a choice the address was about to
+   * overrule, on a page whose whole point is that nobody has to know which
+   * bucket they live in. So while the shopper still has a picker in front of
+   * them and simply has not used it yet, there is nothing to show: the summary
+   * says the charge follows from their area, and it does.
+   *
+   * "Still has a picker" is the whole of the condition, and it is doing real
+   * work. A shopper COLLECTING has no destination to give and must still choose
+   * a pickup point. A merchant who does not collect a city leaves a guest with
+   * nothing to answer with at all. In both, an unanswered destination is
+   * permanent, and hiding the cards would leave a store unable to take an
+   * order — which is the one thing D5 exists to prevent.
+   */
+  const awaitingDestination =
+    refusalReason === "NO_DESTINATION" && !collecting && (isSignedIn || shows("city"));
+
+  /** The shopper is asked to choose only when the destination could not. */
+  const asksForOption = !derivedOption && !awaitingDestination;
+
+  /**
+   * Why they are being asked, when there is a reason worth saying. Null while
+   * they simply have not answered yet — telling someone their area could not be
+   * worked out before they have named one is an error message for nothing.
+   */
+  const optionRefusal = refusalReason ? refusalMessage(refusalReason) : null;
+
+  /*
+   * Whether this store takes money before it ships.
+   *
+   * The ONE condition the whole payment surface reads from. With it false —
+   * which is every store that has never configured it, since the API normalises
+   * an absent block to disabled — checkout renders the unchanged
+   * cash-on-delivery panel and the claim is never assembled, so the order goes
+   * out through the identical path it did before this existed.
+   *
+   * The account lists are checked too, not just the flag: the backend refuses to
+   * enable the feature with no accounts, so this can only differ from
+   * `enabled` if a merchant edits the row by hand — and offering a choice with
+   * nowhere to send money would be worse than not offering it.
+   */
+  const advanceConfig = checkout.advancePayment;
+  const advanceOffered =
+    advanceConfig.enabled &&
+    advanceConfig.mobileAccounts.length + advanceConfig.bankAccounts.length > 0;
+
+  /*
+   * Seeded with the advance charge and the first account already chosen, so a
+   * shopper lands on the number to send to rather than on two questions about
+   * how they would like to be asked. `defaultAdvanceClaim` carries the reasoning
+   * and the consequence — with a choice always set, an advance is required for
+   * as long as the merchant leaves the feature on.
+   *
+   * Lazily, and only where the merchant offers it: a store with the feature off
+   * must start from a claim that is empty in every field, because that is what
+   * "this shopper is not paying in advance" is spelled as everywhere below.
+   */
+  const [advanceClaim, setAdvanceClaim] = useState<AdvanceClaimDraft>(() =>
+    advanceOffered ? defaultAdvanceClaim(advanceConfig) : EMPTY_ADVANCE_CLAIM,
+  );
+  const [advanceErrors, setAdvanceErrors] = useState<AdvanceClaimErrors>({});
+
+  const patchAdvanceClaim = (patch: Partial<AdvanceClaimDraft>) => {
+    setAdvanceClaim((prev) => ({ ...prev, ...patch }));
+    // Clearing only the fields that were touched keeps a message on a field the
+    // shopper has not revisited, which is where they still need to see it.
+    setAdvanceErrors((prev) => {
+      const next = { ...prev };
+      for (const key of Object.keys(patch) as (keyof AdvanceClaimDraft)[]) {
+        delete next[key as keyof AdvanceClaimErrors];
+      }
+      return next;
+    });
+  };
 
   const [isAddingAddress, setIsAddingAddress] = useState(false);
   const [error, setError] = useState("");
@@ -250,8 +409,22 @@ export default function CheckoutForm({
     addressId,
     // The delivery choice is priced, so changing it makes this a different
     // order — it must not reuse the previous attempt's key and be handed back
-    // the order already placed at the old price.
-    deliveryOptionKey ?? "",
+    // the order already placed at the old price. The key IN FORCE, not the one
+    // the shopper clicked: on a derived order they clicked none.
+    optionKeyInForce ?? "",
+    // The destination itself, which is recorded on the order as well as being
+    // what decided that key. Two districts resolving to the same option are
+    // still two different places to send a parcel to.
+    destination ? destination.district + "/" + destination.area : "",
+    /*
+     * The payment claim, for the same reason as the delivery option and more
+     * sharply: an order paid for in advance by a DIFFERENT transaction is a
+     * different order. Reusing the key would hand back the one already placed
+     * and silently discard the second reference — money sent against nothing.
+     */
+    advanceClaim.choice ?? "",
+    advanceClaim.accountId ?? "",
+    advanceClaim.transactionId.trim(),
     isSignedIn
       ? ""
       : [
@@ -265,6 +438,24 @@ export default function CheckoutForm({
     lineSignature,
   ].join("|");
   const lastFingerprint = useRef(orderFingerprint);
+
+  /*
+   * A choice made against a list of accounts that has since changed is dropped.
+   *
+   * The merchant can delete an account between this page rendering and the
+   * shopper acting on it. Without this the claim would name an id the server no
+   * longer knows and be refused with an account error — after the shopper had
+   * already sent the money to a number that is now off the page.
+   */
+  useEffect(() => {
+    if (!advanceClaim.accountId) return;
+    const stillOffered =
+      advanceConfig.mobileAccounts.some((a) => a.id === advanceClaim.accountId) ||
+      advanceConfig.bankAccounts.some((a) => a.id === advanceClaim.accountId);
+    if (stillOffered) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setAdvanceClaim((prev) => ({ ...prev, accountId: null }));
+  }, [advanceConfig, advanceClaim.accountId]);
 
   useEffect(() => {
     if (lastFingerprint.current === orderFingerprint) return;
@@ -299,6 +490,15 @@ export default function CheckoutForm({
 
   const hasLines = displayLines.length > 0;
 
+  const asksAboutDelivery = asksForOption || offersCollection;
+
+  /*
+   * The payment step needs an option to price it, so it waits for one — which
+   * means "the merchant offers advance payment" is NOT the same as "this
+   * section has a payment step in it right now".
+   */
+  const showsPaymentStep = advanceOffered && selectedOption !== null;
+
   /*
    * The server's own arithmetic for this basket, for the option chosen.
    *
@@ -317,16 +517,26 @@ export default function CheckoutForm({
     error: quoteError,
   } = useQuoteCheckoutQuery(
     {
-      deliveryOptionKey: deliveryOptionKey ?? "",
+      deliveryOptionKey: optionKeyInForce ?? "",
       items: directOrder ? [directOrder.item] : undefined,
       // Re-keys the quote when the cart changes. A direct order needs none —
       // its lines are in `items`, which already re-keys it.
       cartKey: directOrder ? undefined : lineSignature,
     },
-    { skip: !hasLines || !deliveryOptionKey },
+    { skip: !hasLines || !optionKeyInForce },
   );
 
-  const quote = quoteResponse?.data ?? null;
+  /*
+   * The quote, and ONLY while there is an option for it to be a quote of.
+   *
+   * The query is skipped without one, but a skipped query still hands back what
+   * it last fetched, and that figure is now reachable: clearing the destination
+   * takes the option away again, where a radio button could only ever be moved
+   * from one option to another. Without this guard the summary kept charging
+   * ৳120 for a delivery nobody had chosen — and `payableTotal` read from the
+   * same stale quote, so the total agreed with it.
+   */
+  const quote = optionKeyInForce ? (quoteResponse?.data ?? null) : null;
 
   /*
    * The server's refusal, verbatim. Three distinct situations reach here and
@@ -341,8 +551,50 @@ export default function CheckoutForm({
   // rather than quietly charging nothing for delivery.
   const deliveryUnconfigured = deliveryOptions.length === 0;
 
+  /*
+   * With the destination answering the delivery question, the section can be
+   * left holding nothing at all, which is where a shopper starts now that the
+   * option cards wait for a destination. Rendering a heading over an empty box
+   * is how a form looks broken, so the section goes when there is nothing left
+   * in it.
+   *
+   * `showsPaymentStep` USED TO KEEP IT ALIVE, and no longer does: the payment
+   * step moved into the summary card, so an advance-payment store with its
+   * delivery question already answered has nothing to put in this section at
+   * all. Leaving the condition in would render an empty "Delivery" heading over
+   * a panel that is now two columns away.
+   *
+   * The misconfigured store keeps the section either way — "delivery is not set
+   * up" is the one thing that still has to be said.
+   */
+  const deliverySectionShown = deliveryUnconfigured || asksAboutDelivery;
+
   const shippingCharge = quote?.shippingAmount ?? selectedOption?.price ?? 0;
   const payableTotal = quote ? roundMoney(quote.totalAmount) : roundMoney(displayTotal);
+
+  /*
+   * What each advance choice costs, straight from the quote.
+   *
+   * Recomputed by the server on every re-quote, and the quote re-runs whenever
+   * the delivery option or the cart changes — so the figure the shopper reads
+   * moves with the option they pick rather than going stale behind it. There is
+   * deliberately no separate client-side recomputation to keep in step, because
+   * a second implementation of "how much should they send" is how a shopper is
+   * shown ৳130, sends ৳130, and has the claim refused for not being ৳150.
+   *
+   * Null until a delivery option is chosen, since there is no delivery charge to
+   * quote before then.
+   */
+  const advanceSplits = quote?.advanceOptions ?? null;
+  const selectedAdvance =
+    advanceClaim.choice && advanceSplits ? advanceSplits[advanceClaim.choice] : null;
+
+  /*
+   * An advance order is one where the shopper has actually chosen to pay now.
+   * Choosing nothing is the default and means cash on delivery, exactly as
+   * before — the choices are an offer, not a requirement.
+   */
+  const payingInAdvance = advanceOffered && advanceClaim.choice !== null;
 
   /*
    * A delivery option must be chosen — the server refuses an order without one,
@@ -354,9 +606,27 @@ export default function CheckoutForm({
   const canOrder =
     !quoteRefusal &&
     !deliveryUnconfigured &&
-    Boolean(deliveryOptionKey) &&
+    Boolean(optionKeyInForce) &&
     hasLines &&
-    (isSignedIn ? Boolean(addressId) || !needsAddress : true);
+    (isSignedIn ? Boolean(addressId) || !needsAddress : true) &&
+    /*
+     * An advance choice is only complete once there is an account, a sender and
+     * a reference. The button stays disabled rather than the shopper pressing it
+     * and being told what they missed — they have already sent real money by
+     * this point, and a refusal at that moment reads as the money being lost.
+     *
+     * A ZERO advance is refused here too, and it is not a theoretical case: it
+     * is what "pay the delivery charge" means on an order whose delivery was
+     * waived by the free-shipping threshold. The server refuses it (there is no
+     * transaction of ৳0 to verify), so the reason is said below the button
+     * instead of arriving as a 400 after the shopper has typed a reference.
+     */
+    (!payingInAdvance ||
+      (Boolean(advanceClaim.accountId) &&
+        advanceClaim.senderIdentifier.trim() !== "" &&
+        advanceClaim.transactionId.trim() !== "" &&
+        selectedAdvance !== null &&
+        selectedAdvance.advanceAmount > 0));
 
   /*
    * A refusal naming a stale option is recoverable, and recovering means
@@ -373,13 +643,13 @@ export default function CheckoutForm({
   );
   const refreshedFor = useRef<string | null>(null);
   useEffect(() => {
-    if (!staleOption || !deliveryOptionKey) return;
+    if (!staleOption || !optionKeyInForce) return;
     // Once per offending key: refreshing on every render of the same refusal
     // would loop, since the refusal survives until the shopper picks again.
-    if (refreshedFor.current === deliveryOptionKey) return;
-    refreshedFor.current = deliveryOptionKey;
+    if (refreshedFor.current === optionKeyInForce) return;
+    refreshedFor.current = optionKeyInForce;
     router.refresh();
-  }, [staleOption, deliveryOptionKey, router]);
+  }, [staleOption, optionKeyInForce, router]);
 
   /**
    * Guest-only. Mirrors what the API requires, no stricter — and now that "what
@@ -404,7 +674,7 @@ export default function CheckoutForm({
     if (!collecting) {
       requireField("addressLine1", "Address is required.");
       requireField("addressLine2", "This field is required.");
-      requireField("city", "City is required.");
+      requireField("city", "Please choose your district and area.");
       requireField("postalCode", "Postal code is required.");
     }
 
@@ -418,6 +688,100 @@ export default function CheckoutForm({
     return Object.keys(errors).length === 0;
   }
 
+  /**
+   * The method implied by the account the shopper picked.
+   *
+   * Sent so the request is well-formed — the backend rejects a claim with no
+   * advance method — but it is NOT what decides how the payment is recorded.
+   * The server re-derives the method from the same account, so a client that
+   * sent the wrong one changes nothing.
+   */
+  function claimedMethod(accountId: string): CheckoutPaymentMethod {
+    const mobile = advanceConfig.mobileAccounts.find((a) => a.id === accountId);
+    return mobile ? mobile.provider : "BANK_TRANSFER";
+  }
+
+  /**
+   * The claim's own required fields, mirroring what the backend demands.
+   *
+   * Separate from `validateGuest` because it applies to a signed-in shopper
+   * too: advance payment is not a guest feature, and the backend's own check
+   * deliberately sits outside its guest branch for the same reason.
+   */
+  function validateAdvanceClaim(): boolean {
+    const errors: AdvanceClaimErrors = {};
+
+    if (!advanceClaim.choice) {
+      errors.choice = "Choose how you would like to pay.";
+    }
+    if (!advanceClaim.accountId) {
+      errors.accountId = "Choose the account you sent the money to.";
+    }
+    if (!advanceClaim.senderIdentifier.trim()) {
+      errors.senderIdentifier = "Tell us which number or account you paid from.";
+    }
+    if (!advanceClaim.transactionId.trim()) {
+      errors.transactionId = "Enter the transaction id from your payment.";
+    }
+
+    setAdvanceErrors(errors);
+    return Object.keys(errors).length === 0;
+  }
+
+  /**
+   * Turns a refusal about the claim into a message on the field that caused it.
+   *
+   * Three of these need their own handling rather than the generic banner, and
+   * all three share a property: the shopper has ALREADY SENT the money. A
+   * catch-all "we couldn't place your order, please try again" tells someone who
+   * is ৳130 out of pocket to do the whole thing again, including paying.
+   *
+   * Returns true when it handled the error, so the caller leaves the banner
+   * alone and the message stays beside the field the shopper has to fix.
+   */
+  function handleClaimFailure(err: unknown): boolean {
+    const status = (err as { status?: number } | undefined)?.status;
+    const message = errorMessage(err);
+
+    // A reference someone else already claimed, or the shopper submitted twice.
+    // Named on the field, because the fix is a different id — not a retry.
+    if (status === 409 && /transaction id/i.test(message)) {
+      setAdvanceErrors({
+        transactionId:
+          "This transaction id is already recorded against another order. Check the id from your payment app — do not send the money again.",
+      });
+      return true;
+    }
+
+    /*
+     * The advance moved underneath the shopper — they changed a delivery option,
+     * or a coupon landed, between reading the figure and pressing the button.
+     * The server's message names both amounts, so it is shown verbatim above the
+     * button; what this adds is clearing the reference, because the money they
+     * sent was for the OLD figure and resubmitting the same id against the new
+     * one would be claiming a payment they did not make.
+     */
+    if (status === 409 && /advance has changed/i.test(message)) {
+      setError(message);
+      setAdvanceErrors({
+        transactionId:
+          "The amount changed after you paid. Send the difference and enter that transaction id, or choose cash on delivery and contact us about the payment you already sent.",
+      });
+      return true;
+    }
+
+    // The merchant removed the account between this page loading and the order
+    // being placed. Re-reading the settings is what puts the current list on
+    // screen; the effect above then drops the selection that no longer exists.
+    if (status === 400 && /payment account is no longer available/i.test(message)) {
+      setAdvanceErrors({ accountId: message });
+      router.refresh();
+      return true;
+    }
+
+    return false;
+  }
+
   async function handlePlaceOrder(event: React.FormEvent) {
     event.preventDefault();
     setError("");
@@ -429,12 +793,48 @@ export default function CheckoutForm({
     if (isSignedIn && needsAddress && !addressId) return;
     if (!isSignedIn && !validateGuest()) return;
     // The server refuses an order without one; this is the same refusal, said
-    // before the request rather than after.
-    if (!deliveryOptionKey) return;
+    // before the request rather than after. The key in force, since on a
+    // derived order the shopper never clicked one.
+    if (!optionKeyInForce) return;
+
+    // The claim is checked before anything is sent, for the same reason the
+    // button is disabled: a refusal after the money has left is the one failure
+    // the shopper cannot undo.
+    if (payingInAdvance && !validateAdvanceClaim()) return;
 
     // Normalized so the phone stored against the order matches what the
     // confirmation will send back to look it up.
     const normalizedPhone = normalizeBdPhone(guest.phone) ?? guest.phone.trim();
+
+    /*
+     * The claim, or nothing at all.
+     *
+     * Both keys are omitted entirely on a cash-on-delivery order rather than
+     * sent as `COD` with an empty claim — the backend treats an absent
+     * `paymentMethod` as cash on delivery, and a claim without an advance method
+     * is rejected outright. Omitting is what keeps the feature-off path byte for
+     * byte the request it was before this shipped.
+     *
+     * The method sent is the one the chosen ACCOUNT implies, not one the shopper
+     * names: the server re-derives it from the same account, because a shopper
+     * who could name a bKash account and declare it Nagad would send staff to
+     * the wrong statement to verify it.
+     */
+    const advanceFields =
+      payingInAdvance && advanceClaim.choice && advanceClaim.accountId && selectedAdvance
+        ? {
+            paymentMethod: claimedMethod(advanceClaim.accountId),
+            advancePayment: {
+              choice: advanceClaim.choice,
+              accountId: advanceClaim.accountId,
+              // Echoed back so the server can notice the page went stale
+              // between the figure being read and the money being sent.
+              expectedAdvanceAmount: selectedAdvance.advanceAmount,
+              senderIdentifier: advanceClaim.senderIdentifier.trim(),
+              transactionId: advanceClaim.transactionId.trim(),
+            },
+          }
+        : {};
 
     const payload: PlaceOrderPayload = isSignedIn
       ? {
@@ -443,14 +843,16 @@ export default function CheckoutForm({
           // The same key the quote was priced against, so the amount shown and
           // the amount charged come from one choice. Whether this is a delivery
           // or a collection is the option's own property, not a claim the client
-          // makes alongside it.
-          deliveryOptionKey,
+          // makes alongside it — and whether a person or their address picked it
+          // is not something the server is told either. See design.md, D8.
+          deliveryOptionKey: optionKeyInForce,
           notes: notes.trim() || undefined,
           idempotencyKey,
+          ...advanceFields,
         }
       : {
           mode: "guest",
-          deliveryOptionKey,
+          deliveryOptionKey: optionKeyInForce,
           /*
            * A field the merchant is not collecting is sent as `undefined`, not
            * as an empty string — the server treats absent and blank alike, but
@@ -467,14 +869,21 @@ export default function CheckoutForm({
             : {
                 addressLine1: collected("addressLine1"),
                 addressLine2: collected("addressLine2"),
+                /*
+                 * The two halves of the one answer the picker took. `state` is
+                 * the district — an existing field on both this payload and the
+                 * saved address, already validated and already persisted, which
+                 * is what keeps this change out of the server entirely.
+                 */
                 city: collected("city"),
+                state: destination?.district,
                 postalCode: collected("postalCode"),
               },
           // Present only for a direct product order; otherwise the cart is used.
           items: directOrder ? [directOrder.item] : undefined,
-          paymentMethod: "COD",
           notes: notes.trim() || undefined,
           idempotencyKey,
+          ...advanceFields,
         };
 
     try {
@@ -506,6 +915,11 @@ export default function CheckoutForm({
       // cart is refetched instead (see orderApi) because the order may have
       // committed — and the key is deliberately NOT regenerated, so pressing
       // Place Order again resolves to that order rather than duplicating it.
+
+      // A refusal about the claim is answered on the field that caused it, so
+      // the shopper is not told to retry an order they have already paid for.
+      if (handleClaimFailure(err)) return;
+
       setError(errorMessage(err));
       if (isIndeterminate(err)) {
         setIndeterminate(true);
@@ -551,7 +965,32 @@ export default function CheckoutForm({
 
   return (
     <div className="container-px mx-auto max-w-7xl py-10">
-      <h1 className="mb-8 text-2xl font-bold text-gray-900">Checkout</h1>
+      {/*
+        THE MERCHANT'S NOTICE SITS AT THE TOP, under the title and across both
+        columns.
+
+        It used to sit directly above Place Order, which is the right place for
+        a note ABOUT the button — "you are agreeing to X by pressing this". What
+        merchants actually write here is a condition on the whole order: that
+        stock is not guaranteed, that someone will ring to confirm. Read for the
+        first time at the bottom of the summary card, after the address, the
+        delivery choice and a transaction id have all been typed in, that is a
+        term disclosed after the work rather than before it.
+
+        Full width rather than in a column, because it qualifies both of them.
+
+        The wrapper carries the spacing so the notice can leave NOTHING behind
+        when it is empty — no container, no margin, no gap where a banner would
+        have been. That rule came with the notice and outranks where it sits.
+      */}
+      <div className="mb-8">
+        <h1 className="text-2xl font-bold text-gray-900">Checkout</h1>
+        {checkout.notice.trim() && (
+          <p className="mt-4 rounded border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-700 text-center font-bold">
+            {checkout.notice.trim()}
+          </p>
+        )}
+      </div>
 
       {/*
         FIVE COLUMNS, NOT THREE — the summary takes two of them rather than one.
@@ -565,30 +1004,111 @@ export default function CheckoutForm({
       {/*
         MOBILE REORDERS AROUND THE SUMMARY, DESKTOP DOES NOT.
 
-        On one column the two grid children stack in source order, which put
-        the whole form — address, delivery, payment, Place Order — above a
-        summary the shopper only ever saw by scrolling past the button they
-        were being asked to press. The merchant's order is: type where it goes,
-        check what is being bought, then choose how it ships and pay.
+        The summary card used to sit SECOND on one column — after the address,
+        before the delivery options — so that a shopper checked what they were
+        buying on the way down rather than scrolling past the button to find it.
+        It now goes LAST, and the reason is the same reason: the card holds the
+        payment step and Place Order, so anything left above it is a question
+        the shopper would be answering after being shown the button for it. The
+        order on one column is now: type where it goes, choose how it ships,
+        leave a note, then check the basket and pay.
 
-        The form is `display: contents` below `lg` so its sections become
-        siblings of the summary card in the same flex column and can be
-        ordered around it; `contents` drops the form's own box, so its
-        `space-y-8` moves to the column's `gap-8` for that range. Submission is
-        unaffected — the element still exists, only its box does not. At `lg`
-        the form is a block again in column 3 and every `order-*` is dropped,
-        so the two-column layout is exactly as before.
+        The left column is `display: contents` below `lg` so its sections become
+        siblings of the summary card in the same flex column and can be ordered
+        around it; `contents` drops that box, so its `space-y-8` moves to the
+        column's `gap-8` for that range. At `lg` it is a block again in column 3
+        and every `order-*` is dropped, so the two-column layout is unchanged.
       */}
-      <div className="flex flex-col gap-8 lg:grid lg:grid-cols-5 lg:items-start">
-        <form
-          onSubmit={handlePlaceOrder}
-          className="contents lg:block lg:space-y-8 lg:col-span-3"
-        >
+      {/*
+        THE FORM IS THE GRID, which it did not used to be — it was the left
+        column, with the summary card as its sibling. Place Order now sits at
+        the bottom of that card, and a submit button outside its form is not a
+        submit button. The alternative was `form="…"` on the button by id, which
+        works and would have left the payment fields above it outside the form
+        too: no Enter-to-submit from the transaction id field, and a shape that
+        reads like an accident to the next person in here.
+
+        The left column keeps its own box, so `contents` below `lg` and the
+        `order-*` classes on its sections behave exactly as before.
+      */}
+      <form
+        onSubmit={handlePlaceOrder}
+        className="flex flex-col gap-8 lg:grid lg:grid-cols-5 lg:items-start"
+      >
+        {/*
+          STICKY, AND THE SUMMARY CARD IS NOT — the reverse of how this page
+          used to work, for the reason the reversal followed: the card now holds
+          the payment step and Place Order, so it is the tall column, and a
+          sticky element taller than the viewport pins at its top and never
+          scrolls, putting its own button out of reach. The short column is the
+          one that can be pinned, and pinning it is what keeps the address and
+          the chosen delivery option on screen while the shopper works down the
+          payment step beside it.
+
+          PLAIN `sticky`, WITH NO HEIGHT GATE AND NO INNER SCROLLER, and both
+          omissions were tried the other way first.
+
+          A `min-height` media query — stick only on a viewport tall enough to
+          hold the column — reads as the careful answer and is worse than
+          useless: the height it has to guess at is the rendered height of a form
+          whose fields the merchant configures, so on a scaled 1080p display, the
+          common case, the gate simply never opened and nothing was sticky at
+          all. A feature that silently does nothing on the machine it is being
+          looked at is not a safer feature.
+
+          A bounded height with `overflow-y-auto` covers every viewport and costs
+          two things this page cannot pay: the district picker's list is
+          deliberately not a portal (see SearchableSelect), so a scroll container
+          here clips it, and Lenis owns the wheel page-wide, so an inner scroller
+          needs `data-lenis-prevent` — which then swallows the page scroll
+          whenever the cursor is over a column that had no overflow to scroll.
+
+          What is given up: on a viewport shorter than this column, its last few
+          pixels cannot be scrolled to, because a sticky box pins at its top and
+          stops. That is the same trade the summary card made here for as long as
+          it was the pinned one, and the thing at the bottom of this column is an
+          optional note rather than the button.
+        */}
+        <div className="contents lg:block lg:space-y-8 lg:col-span-3 lg:sticky lg:top-24">
+          {/*
+            EVERY STEP IS A CARD, ON THE SAME CHROME AS THE SUMMARY.
+
+            The left column used to be bare headings and fields on the page's own
+            background while the summary opposite was a bordered card, which made
+            the one column read as a panel and the other as loose page — two
+            halves of one checkout drawn as two different kinds of thing. They now
+            share `rounded-xl border border-gray-200 bg-gray-50 shadow-sm`.
+
+            THE FILL IS WHAT DOES THE WORK, not the border. The page background is
+            merchant-themable and white by default, so a white card on it was a
+            card only by its outline; a step that is tinted is a step you can see
+            the edges of without looking for them.
+
+            The grey is a fixed neutral rather than a theme token on purpose —
+            every other surface on this page (the payment plate, the notice, the
+            disabled button) is already drawn from the same `gray-*` scale, and
+            deriving it from the merchant's background would put a colour they
+            chose for the page underneath content that has to stay readable.
+
+            EVERY CONTROL ON THE CARD IS PAINTED WHITE, from the card rather than
+            from itself. `Field` and the note's textarea draw no background of
+            their own, which was right while they sat on the page's white and is
+            wrong the moment the surface under them is tinted — a field a shopper
+            has to type into must not be the same colour as the panel around it.
+            Reached with `[&_input]` / `[&_textarea]` for the same reason the
+            payment plate reaches for it: `Field` spreads its props onto the
+            input AFTER its own class string, so a `className` passed in replaces
+            the control instead of adding to it.
+
+            The radio inputs in the delivery fieldset are caught by that selector
+            too and are unaffected by it — a native radio draws from
+            `accent-color`, not from its background.
+          */}
           {/* Hidden entirely when collecting — there is nothing to deliver to,
               and the fields' required rules are dropped with them. Switching
               back to a delivery area restores both. */}
           {needsAddress && (
-          <section className="order-1 lg:order-0">
+          <section className="order-1 lg:order-0 rounded-xl border border-gray-200 bg-gray-50 p-5 shadow-sm [&_input]:bg-white [&_textarea]:bg-white">
             <h2 className="mb-4 text-lg font-semibold text-gray-900">
               Delivery address
             </h2>
@@ -634,9 +1154,78 @@ export default function CheckoutForm({
                     inputMode="tel"
                   />
                 )}
+                {/*
+                  THE DESTINATION IS ASKED BEFORE THE STREET ADDRESS.
+
+                  It used to come after, in the order a postal address is
+                  written: street, then area, then city. That is the right order
+                  for addressing an envelope and the wrong one for this form,
+                  because here this field is not part of the address — it is what
+                  DECIDES the order. Choosing a district and area resolves the
+                  delivery option, the charge, and with it the advance to send;
+                  see `chooseDestination`. Asked last, a shopper typed out a full
+                  street address before finding out what delivery would cost, and
+                  anyone who balked at the figure had already done the typing.
+
+                  Postal code moves with it rather than staying behind, because
+                  the two share a row when the merchant collects both and a
+                  half-width box on its own is not a layout.
+                */}
+                {(shows("city") || shows("postalCode")) && (
+                  /* Two columns only when there are two fields to put in them.
+                     A lone field in a two-column grid is a half-width box with
+                     nothing beside it, which was survivable for a short "City"
+                     input and is not for a picker whose closed state reads
+                     "Select District and City…" and whose list has to show a
+                     district and an area on one line. */
+                  <div
+                    className={clsx(
+                      "grid grid-cols-1 gap-4",
+                      shows("city") && shows("postalCode") && "sm:grid-cols-2",
+                    )}
+                  >
+                    {/*
+                        THE CITY FIELD, ASKED AS A PLACE RATHER THAN AS TEXT.
+
+                        It was a text box, and what came back was "dhaka",
+                        "Dahka", "savar, dhaka" — which cannot be searched,
+                        cannot be given to a courier, and cannot say what
+                        delivery costs. Chosen from the list it is a place the
+                        system knows, which is what lets the delivery option
+                        follow from it instead of being asked for separately.
+
+                        Still governed by the merchant's own `city` setting:
+                        shown when they collect a city, required when they
+                        require one, and gone entirely when they do not — in
+                        which case nothing is derived and the shopper picks a
+                        delivery option themselves, as before.
+                      */}
+                    {shows("city") && (
+                      <DestinationField 
+                        id="destination"
+                        label={`District / City${optionalSuffix("city")}`}
+                        value={guestDestination}
+                        onChange={chooseDestination}
+                        error={guestErrors.city}
+                      />
+                    )}
+                    {shows("postalCode") && (
+                      <Field
+                        label={`Postal code${optionalSuffix("postalCode")}`}
+                        name="postalCode"
+                        value={guest.postalCode}
+                        onChange={(e) => updateGuest("postalCode", e.target.value)}
+                        error={guestErrors.postalCode}
+                        placeholder="আপনার পোস্টাল কোড লিখুন ..."
+                        autoComplete="postal-code"
+                        inputMode="numeric"
+                      />
+                    )}
+                  </div>
+                )}
                 {shows("addressLine1") && (
                   <Field
-                    label={`Address${optionalSuffix("addressLine1")}`}
+                    label={`Full Address${optionalSuffix("addressLine1")}`}
                     name="addressLine1"
                     value={guest.addressLine1}
                     onChange={(e) => updateGuest("addressLine1", e.target.value)}
@@ -656,33 +1245,6 @@ export default function CheckoutForm({
                     autoComplete="address-line2"
                   />
                 )}
-                {(shows("city") || shows("postalCode")) && (
-                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                    {shows("city") && (
-                      <Field
-                        label={`City${optionalSuffix("city")}`}
-                        name="city"
-                        value={guest.city}
-                        onChange={(e) => updateGuest("city", e.target.value)}
-                        error={guestErrors.city}
-                        placeholder="আপনার শহরের নাম লিখুন ..."
-                        autoComplete="address-level2"
-                      />
-                    )}
-                    {shows("postalCode") && (
-                      <Field
-                        label={`Postal code${optionalSuffix("postalCode")}`}
-                        name="postalCode"
-                        value={guest.postalCode}
-                        onChange={(e) => updateGuest("postalCode", e.target.value)}
-                        error={guestErrors.postalCode}
-                        placeholder="আপনার পোস্টাল কোড লিখুন ..."
-                        autoComplete="postal-code"
-                        inputMode="numeric"
-                      />
-                    )}
-                  </div>
-                )}
               </div>
             ) : isAddingAddress ? (
               <div className="rounded-xl border border-gray-200 p-5">
@@ -694,7 +1256,11 @@ export default function CheckoutForm({
                   defaultToDefault={addresses.length === 0}
                   onSaved={(saved) => {
                     setIsAddingAddress(false);
-                    if (saved.id) setAddressId(saved.id);
+                    if (!saved.id) return;
+                    setAddressId(saved.id);
+                    // Its district and area are the destination from this
+                    // moment, not from whenever the address list catches up.
+                    setAddedAddress(saved);
                   }}
                   onCancel={() => setIsAddingAddress(false)}
                 />
@@ -761,10 +1327,31 @@ export default function CheckoutForm({
           </section>
           )}
 
-          <section className="order-3 lg:order-0">
-            <h2 className="mb-4 text-lg font-semibold text-gray-900">
-              Delivery
-            </h2>
+          {/*
+            DELIVERY ONLY. PAYMENT IS ANSWERED IN THE SUMMARY CARD.
+
+            The two were one section for a while, and the reasoning that merged
+            them still stands where it was aimed: what the advance costs IS the
+            delivery charge just picked, so the two questions cannot be posed as
+            unrelated decisions of equal weight. What changed is WHERE the second
+            one is posed. Standing in this column, the payment step was a long
+            way from the figure it is asking the shopper to send; in the summary
+            card it sits directly under the Total, which is the number it is
+            about. See the note at its mount point there.
+
+            What stays here is the part that belongs to the address above it:
+            where the order is going, and what that costs. The alternatives sit
+            SIDE BY SIDE rather than stacked — a pair read at a glance is a
+            choice, a pair a screenful apart is a list to work down.
+          */}
+          {deliverySectionShown && (
+          <section className="order-3 lg:order-0 rounded-xl border border-gray-200 bg-gray-50 p-5 shadow-sm [&_input]:bg-white [&_textarea]:bg-white">
+            {/* Just "Delivery" again, and fixed rather than derived. The
+                heading moved between "Delivery", "Payment" and "Delivery &
+                Payment" for as long as this section could be holding either
+                question; with payment answered in the summary card it only ever
+                holds the one. */}
+            <h2 className="mb-4 text-lg font-semibold text-gray-900">Delivery</h2>
 
             {/* A store that has configured no options cannot take an order at
                 all. Said as the setup problem it is, rather than blamed on
@@ -794,40 +1381,84 @@ export default function CheckoutForm({
                   </div>
                 )}
 
-                {/* Step one, and ONLY when there is a real choice between the
-                    two. With collection off, the shopper goes straight to the
-                    delivery areas and never sees this. */}
+                {/*
+                  STEP ONE, and ONLY when there is a real choice between the
+                  two. With collection off the shopper never sees it, and
+                  whatever comes next takes the number instead.
+
+                  It survives the destination picker above deliberately:
+                  collection is not somewhere an address resolves to, so this
+                  one question cannot be answered by knowing where they live.
+                */}
                 {offersCollection && (
-                  <div className="mb-4 grid grid-cols-2 gap-3">
-                    <button
-                      type="button"
-                      onClick={() => setCollectInPerson(false)}
-                      className={clsx(
-                        "flex items-center justify-center gap-2 rounded-xl border p-4 text-sm font-medium transition-colors",
-                        !collecting
-                          ? "border-brand bg-brand/5 text-brand"
-                          : "border-gray-200 text-gray-600 hover:border-gray-300",
-                      )}
-                    >
-                      <Truck size={16} /> Deliver to me
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setCollectInPerson(true)}
-                      className={clsx(
-                        "flex items-center justify-center gap-2 rounded-xl border p-4 text-sm font-medium transition-colors",
-                        collecting
-                          ? "border-brand bg-brand/5 text-brand"
-                          : "border-gray-200 text-gray-600 hover:border-gray-300",
-                      )}
-                    >
-                      <Store size={16} /> Collect in person
-                    </button>
-                  </div>
+                  <fieldset className="mb-5 min-w-0" aria-label="How you want it">
+                    <div className="grid grid-cols-2 gap-3">
+                      <button
+                        type="button"
+                        onClick={() => setCollectInPerson(false)}
+                        className={clsx(
+                          "flex items-center justify-center gap-2 rounded-xl border p-4 text-sm font-medium transition-colors",
+                          !collecting
+                            ? "border-brand bg-brand/5 text-brand ring-1 ring-brand"
+                            : "border-gray-200 bg-white text-gray-600 hover:border-gray-300",
+                        )}
+                      >
+                        <Truck size={16} /> Deliver to me
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setCollectInPerson(true)}
+                        className={clsx(
+                          "flex items-center justify-center gap-2 rounded-xl border p-4 text-sm font-medium transition-colors",
+                          collecting
+                            ? "border-brand bg-brand/5 text-brand ring-1 ring-brand"
+                            : "border-gray-200 bg-white text-gray-600 hover:border-gray-300",
+                        )}
+                      >
+                        <Store size={16} /> Collect in person
+                      </button>
+                    </div>
+                  </fieldset>
                 )}
 
-                {/* Step two: the matching list. Chosen by the shopper, never
-                    matched to their address — which is the whole change. */}
+                {/*
+                  ASKING FOR THE DELIVERY OPTION IS NOW THE FALLBACK, NOT THE PATH.
+
+                  When the shopper's district and area resolved to one of the
+                  merchant's options, this whole question is gone: the charge is
+                  already decided and named on the order summary, and asking
+                  again would be offering them a way to contradict their own
+                  address. See design.md, D5 and D6.
+
+                  It is still here, unchanged, for every case where a
+                  destination cannot decide — collection in person, an address
+                  saved before the picker existed, an area no zone covers, an
+                  option the merchant has since deleted, or a store that does
+                  not collect a city at all. A store must never be left unable
+                  to take an order because a map is out of date.
+
+                  THE OPTIONS SIT SIDE BY SIDE, NOT STACKED. Stacked, they read
+                  as a list to work down rather than one question to answer at a
+                  glance — and with the payment panel opening INSIDE the chosen
+                  row, picking the first area pushed the second one a screenful
+                  down the page, so the alternative the shopper had just decided
+                  against was no longer there to compare with. Side by side, the
+                  two are one question; and what opens now opens below BOTH of
+                  them, so the next step is always in the same place whichever
+                  was picked.
+                */}
+                {asksForOption && (
+                  <>
+                {/* Why they are being asked after all, when there is something
+                    worth saying — silent while they simply have not answered
+                    yet, and silent for collection, which was never derived. */}
+                {optionRefusal && (
+                  <p className="mb-3 flex items-start gap-2 rounded border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs text-amber-800">
+                    <AlertCircle size={14} className="mt-0.5 shrink-0" />
+                    <span>{optionRefusal}</span>
+                  </p>
+                )}
+
                 {shownOptions.length === 0 ? (
                   <p className="rounded border border-gray-200 p-4 text-sm text-gray-500">
                     {collecting
@@ -835,52 +1466,103 @@ export default function CheckoutForm({
                       : "No delivery areas are available at the moment."}
                   </p>
                 ) : (
-                  <div className="space-y-3">
-                    {shownOptions.map((option) => (
-                      <label
-                        key={option.key}
-                        className={clsx(
-                          "flex cursor-pointer items-center gap-3 rounded-xl border p-4 transition-colors",
-                          deliveryOptionKey === option.key
-                            ? "border-brand bg-brand/5"
-                            : "border-gray-200 hover:border-gray-300",
-                        )}
-                      >
-                        <input
-                          type="radio"
-                          name="deliveryOption"
-                          checked={deliveryOptionKey === option.key}
-                          onChange={() => setDeliveryOptionKey(option.key)}
-                          className="accent-brand"
-                        />
-                        <span className="flex-1 text-sm">
-                          <span className="font-medium text-gray-900">{option.label}</span>
-                          {option.days > 0 && (
-                            <span className="mt-0.5 block text-gray-500">
-                              {collecting ? "Ready in" : "Estimated delivery in"}{" "}
-                              {option.days} {option.days === 1 ? "day" : "days"}
+                  <fieldset
+                    className="min-w-0"
+                    aria-label={
+                      collecting ? "Where you will collect from" : "Which delivery charge applies"
+                    }
+                  >
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                      {shownOptions.map((option) => {
+                        const isSelected = deliveryOptionKey === option.key;
+
+                        return (
+                          <label
+                            key={option.key}
+                            className={clsx(
+                              "flex cursor-pointer items-start gap-3 rounded-xl border p-4 transition-colors",
+                              // White when unselected, exactly as the account
+                              // cards in the payment step are: on a tinted panel
+                              // the fill is what says "this is a thing to pick".
+                              isSelected
+                                ? "border-brand bg-brand/5 ring-1 ring-brand"
+                                : "border-gray-200 bg-white hover:border-gray-300",
+                            )}
+                          >
+                            <input
+                              type="radio"
+                              name="deliveryOption"
+                              checked={isSelected}
+                              onChange={() => setDeliveryOptionKey(option.key)}
+                              className="mt-0.5 accent-brand"
+                            />
+                            {/* Name, then when, then how much — down the card
+                                rather than across it. A card is half the width
+                                of the row it replaced, so a name and a price on
+                                one line no longer reliably fit, and the price
+                                carries the most weight of the three because it
+                                is what a shopper compares the two areas on. */}
+                            <span className="min-w-0 flex-1">
+                              <span className="block text-sm font-medium text-gray-900">
+                                {option.label}
+                              </span>
+                              {option.days > 0 && (
+                                <span className="mt-0.5 block text-xs text-gray-500">
+                                  {collecting ? "Ready in" : "Estimated delivery in"}{" "}
+                                  {option.days} {option.days === 1 ? "day" : "days"}
+                                </span>
+                              )}
+                              <span className="mt-2 block text-base font-bold text-gray-900">
+                                {formatPrice(option.price)}
+                              </span>
                             </span>
-                          )}
-                        </span>
-                        <span className="text-sm font-semibold text-gray-900">
-                          {formatPrice(option.price)}
-                        </span>
-                      </label>
-                    ))}
-                  </div>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </fieldset>
                 )}
 
                 {!deliveryOptionKey && shownOptions.length > 1 && (
                   <p className="mt-3 text-sm text-gray-500">
-                    Choose an option to see your total.
+                    {advanceOffered
+                      ? "Choose an option to see your total and how to pay."
+                      : "Choose an option to see your total."}
                   </p>
+                )}
+
+                  </>
                 )}
               </>
             )}
           </section>
+          )}
 
-          {!isSignedIn && (
-            <section className="order-4 lg:order-0">
+          {/*
+            THE CASH-ON-DELIVERY PANEL, AND THE ONE PLACE THE FEATURE SWITCHES.
+
+            With advance payment off this is byte for byte the panel it always
+            was, guest-only and static: cash on delivery, nothing collected up
+            front, no choice offered. That is not a fallback, it is the whole
+            guarantee — a store that predates this feature must behave exactly as
+            it did, down to this still being its own section.
+
+            It stays out here rather than folding into the delivery steps
+            above, and the asymmetry is the point: with the feature off there is
+            no payment DECISION to make, only a fact to state, so there is
+            nothing to attach to a delivery option and nothing a shopper can get
+            out of order. The confusion the merge fixes is two lists of radios;
+            one list and a sentence is not that.
+
+            With advance payment on, this renders nothing — the panel lives
+            below the chosen delivery option as its own step, and for a
+            SIGNED-IN shopper too, unlike this one. That mirrors the backend: the
+            old cash-only check lived in the guest branch and was moved out,
+            because a signed-in shopper sends the delivery charge on the same
+            terms a guest does.
+          */}
+          {!advanceOffered && !isSignedIn && (
+            <section className="order-4 lg:order-0 rounded-xl border border-gray-200 bg-gray-50 p-5 shadow-sm [&_input]:bg-white [&_textarea]:bg-white">
               <h2 className="mb-4 text-lg font-semibold text-gray-900">Payment</h2>
               <div className="flex items-start gap-3 rounded-xl border border-gray-200 p-4">
                 <BadgeCheck size={18} className="mt-0.5 shrink-0 text-green-600" />
@@ -896,7 +1578,7 @@ export default function CheckoutForm({
           )}
 
           {checkout.showOrderNote && (
-            <section className="order-5 lg:order-0">
+            <section className="order-5 lg:order-0 rounded-xl border border-gray-200 bg-gray-50 p-5 shadow-sm [&_input]:bg-white [&_textarea]:bg-white">
               <h2 className="mb-4 text-lg font-semibold text-gray-900">
                 Order note <span className="text-sm font-normal text-gray-400">(optional)</span>
               </h2>
@@ -911,59 +1593,7 @@ export default function CheckoutForm({
             </section>
           )}
 
-          {error && (
-            <div
-              role="alert"
-              className={clsx(
-                "order-6 flex items-start gap-2 rounded border px-4 py-3 text-sm lg:order-0",
-                indeterminate
-                  ? "border-amber-200 bg-amber-50 text-amber-800"
-                  : "border-red-200 bg-red-50 text-red-700",
-              )}
-            >
-              <AlertCircle size={16} className="mt-0.5 shrink-0" />
-              <span>
-                {error}
-                {indeterminate && (
-                  <>
-                    {" "}
-                    <Link href="/track-order" className="font-semibold underline">
-                      Check your orders
-                    </Link>
-                    .
-                  </>
-                )}
-              </span>
-            </div>
-          )}
-
-          <div className="order-7 lg:order-0">
-            {/* Merchant-authored, and rendered only when there is something to
-                say — an empty notice must leave no container or spacing behind. */}
-            {checkout.notice.trim() && (
-              <p className="mb-4 rounded border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-700">
-                {checkout.notice.trim()}
-              </p>
-            )}
-            <button
-              type="submit"
-              disabled={!canOrder || placing}
-              className="flex w-full items-center justify-center gap-2 rounded bg-brand py-3.5 text-sm font-semibold uppercase tracking-wide text-white hover:bg-brand-dark disabled:cursor-not-allowed disabled:bg-gray-300"
-            >
-              {placing && <Loader2 size={16} className="animate-spin" />}
-              {placing ? "Placing order..." : "Place Order"}
-            </button>
-            {!canOrder && !deliveryUnconfigured && (
-              <p className="mt-2 text-center text-xs text-gray-500">
-                {isSignedIn && needsAddress && !addressId
-                  ? "Choose a delivery address to continue."
-                  : !deliveryOptionKey
-                    ? "Choose a delivery option to continue."
-                    : "Please fix the problem above to continue."}
-              </p>
-            )}
-          </div>
-        </form>
+        </div>
 
         {/*
           A BORDERED CARD ON WHITE, not a grey block.
@@ -974,10 +1604,25 @@ export default function CheckoutForm({
           the same visual weight as the form, which is what the merchant's
           reference layout does.
           
-          `lg:sticky` keeps the totals in view while a long address form is
-          filled in; `top-24` clears the sticky site header above it.
+          NO LONGER STICKY. It was, back when it held only the totals and was
+          the shorter of the two columns. It now carries the payment step and
+          Place Order, which makes it the taller one — and a sticky box taller
+          than the viewport pins at its top and stops moving, so the button at
+          its end could not be scrolled to at all. The form column opposite is
+          pinned instead; see the note on it.
+
+          `bg-gray-50` rather than white, matching the form's steps — see the
+          note on the shared chrome over there. The one thing this costs is the
+          payment plate inside, which is the same grey and so no longer reads as
+          a raised surface; it keeps its border, and the white controls on it are
+          what actually mark it out, so the step still holds together.
         */}
-        <div className="order-2 h-fit overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm lg:order-0 lg:sticky lg:top-24 lg:col-span-2">
+        {/* `[&_input]:bg-white` for the same reason the form's cards carry it:
+            the coupon box is shared with the cart page and draws no background
+            of its own, so on a tinted card it would be the same grey as the
+            panel. It reaches the quantity steppers in the product rows too,
+            which is wanted — every control on this card is a thing to touch. */}
+        <div className="order-6 h-fit overflow-hidden rounded-xl border border-gray-200 bg-gray-50 shadow-sm lg:order-0 lg:col-span-2 [&_input]:bg-white">
           <div className="border-b border-gray-200 px-5 py-4">
             <h2 className="text-center text-lg font-bold text-gray-900">Order Details</h2>
           </div>
@@ -1097,7 +1742,7 @@ export default function CheckoutForm({
                     formatPrice(shippingCharge)
                   )
                 ) : (
-                  "—"
+                  "Enter your address to view delivery fee"
                 )}
               </span>
             </div>
@@ -1136,16 +1781,132 @@ export default function CheckoutForm({
               {quoting && !quote ? "…" : formatPrice(payableTotal)}
             </span>
           </div>
-          {!quote && !quoteRefusal && (
+       
+          {/* {!quote && !quoteRefusal && (
             <p className="mt-2 text-xs text-gray-400">
               {deliveryUnconfigured
                 ? "This store has not set up delivery yet."
-                : "Delivery and tax are added once you choose an option."}
+                : asksForOption
+                  ? "Delivery and tax are added once you choose an option."
+                  : "Delivery and tax are added once you choose your district and area."}
             </p>
+          )} */}
+
+          {/*
+            THE PAYMENT STEP, DIRECTLY UNDER THE TOTAL IT IS ABOUT.
+
+            It used to open below the chosen delivery option in the left column,
+            which put "send ৳80 now" a column away from the ৳1,480 the shopper
+            was reading, and left the summary card as something to check on the
+            way past rather than the thing being agreed to. Here the sequence is
+            one column: what is being bought, what it comes to, what to send now,
+            and the button.
+
+            Mounted ONCE, for whichever option is selected — never one copy per
+            option with all but one hidden. Two mounted claim forms would put two
+            sets of the same fields in the page, and a half-typed transaction id
+            left behind in the hidden one is money quoted at one price attached
+            to an order placed at another.
+
+            Keyed on the option so changing area remounts it: the panel
+            re-animates, saying plainly that the figures in it now belong to a
+            different delivery charge.
+
+            `animate-menu-in` because the panel MOUNTS rather than toggling a
+            class — there is nothing for a transition to run between, which is
+            the same reason the header's dropdowns use this keyframe. Paired with
+            `motion-reduce:animate-none`, which leaves the panel and takes only
+            the movement.
+          */}
+          {showsPaymentStep && (
+            <div
+              key={optionKeyInForce}
+              className="animate-menu-in mt-5 border-t border-gray-200 pt-5 motion-reduce:animate-none"
+            >
+              <AdvancePaymentSection
+                config={advanceConfig}
+                splits={advanceSplits}
+                claim={advanceClaim}
+                errors={advanceErrors}
+                onChange={patchAdvanceClaim}
+                quoting={quoting}
+              />
+            </div>
           )}
+
+          {/* Moved down here with the button it is about. A placement failure
+              read three sections above the control that failed was a message
+              the shopper had to go looking for. */}
+          {error && (
+            <div
+              role="alert"
+              className={clsx(
+                "mt-5 flex items-start gap-2 rounded border px-4 py-3 text-sm",
+                indeterminate
+                  ? "border-amber-200 bg-amber-50 text-amber-800"
+                  : "border-red-200 bg-red-50 text-red-700",
+              )}
+            >
+              <AlertCircle size={16} className="mt-0.5 shrink-0" />
+              <span>
+                {error}
+                {indeterminate && (
+                  <>
+                    {" "}
+                    <Link href="/track-order" className="font-semibold underline">
+                      Check your orders
+                    </Link>
+                    .
+                  </>
+                )}
+              </span>
+            </div>
+          )}
+
+          <div className="mt-5">
+            {/* The merchant's notice used to be here, above the button. It is
+                now under the page title — see the note there. */}
+            <button
+              type="submit"
+              disabled={!canOrder || placing}
+              className="flex w-full items-center justify-center gap-2 rounded bg-brand py-3.5 text-sm font-semibold uppercase tracking-wide text-white hover:bg-brand-dark disabled:cursor-not-allowed disabled:bg-gray-300"
+            >
+              {placing && <Loader2 size={16} className="animate-spin" />}
+              {placing ? "Placing order..." : "Place Order"}
+            </button>
+            {!canOrder && !deliveryUnconfigured && (
+              <p className="mt-2 text-center text-xs text-gray-500">
+                {isSignedIn && needsAddress && !addressId
+                  ? "Choose a delivery address to continue."
+                  : !optionKeyInForce
+                    ? asksForOption
+                      ? "Choose a delivery option to continue."
+                      : "Choose your district and area to continue."
+                    : /*
+                       * The advance reasons come before the catch-all, because
+                       * "fix the problem above" points at nothing when the
+                       * problem is a field that was never filled in. The waived
+                       * charge is named outright: a shopper looking at "Free
+                       * delivery" and a disabled button has no way to guess that
+                       * the delivery-charge choice is what is blocking it.
+                       */
+                      payingInAdvance &&
+                        selectedAdvance !== null &&
+                        selectedAdvance.advanceAmount <= 0
+                      ? "Delivery is free on this order, so there is nothing to pay in advance. Choose Full payment to continue."
+                      : payingInAdvance && !advanceClaim.accountId
+                        ? "Choose the account you sent the payment to."
+                        : payingInAdvance &&
+                            (!advanceClaim.senderIdentifier.trim() ||
+                              !advanceClaim.transactionId.trim())
+                          ? "Enter the number you paid from and your transaction id."
+                          : "Please fix the problem above to continue."}
+              </p>
+            )}
+          </div>
           </div>
         </div>
-      </div>
+      </form>
     </div>
   );
 }

@@ -85,6 +85,29 @@ export default function OrderSummaryCard({ order }: { order: Order }) {
               <dd className="font-medium text-gray-900">Cash on delivery</dd>
             </div>
           )}
+          {/*
+            An order paid for in advance splits the total, and the card would
+            otherwise show only the whole of it — leaving a shopper who sent ৳130
+            reading ৳920 with nothing saying which part is still theirs to pay.
+            The verification state is not repeated here; it is stated once, in
+            `AdvancePaymentNotice` above this card.
+          */}
+          {order.advancePayment && (
+            <>
+              <div className="flex items-center justify-between pt-1 text-gray-600">
+                <dt>Paid in advance</dt>
+                <dd className="font-medium text-gray-900">
+                  {formatPrice(order.advancePayment.amount)}
+                </dd>
+              </div>
+              <div className="flex items-center justify-between text-gray-600">
+                <dt>Due on delivery</dt>
+                <dd className="font-medium text-gray-900">
+                  {formatPrice(order.advancePayment.balanceAmount)}
+                </dd>
+              </div>
+            </>
+          )}
         </dl>
       </div>
 

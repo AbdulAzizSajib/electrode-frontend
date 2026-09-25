@@ -178,6 +178,14 @@ export interface MobileBankingAccount {
   number: string;
   /** The merchant's own label — "Personal", "Merchant". Display only. */
   accountType: string;
+  /**
+   * The service's logo, uploaded by the merchant in Checkout Settings.
+   *
+   * Absent on an account configured before the field existed, and "" once a
+   * merchant clears one, so both have to read as "no icon" — see `ProviderMark`
+   * in AdvancePaymentSection.tsx, which falls back rather than rendering a gap.
+   */
+  iconUrl?: string;
 }
 
 /** One bank account the shopper deposits the advance into. `id` as above. */
@@ -186,6 +194,13 @@ export interface BankAccount {
   bankName: string;
   accountName: string;
   accountNumber: string;
+  /**
+   * The bank's logo, uploaded by the merchant in Checkout Settings.
+   *
+   * Unlike a mobile account's, this has no bundled fallback — nothing ships a
+   * bank's artwork — so an account without one shows a generic mark.
+   */
+  iconUrl?: string;
   /** Either may be empty: a same-bank transfer needs neither. */
   branch: string;
   routingNumber: string;

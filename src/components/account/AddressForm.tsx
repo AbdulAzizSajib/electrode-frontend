@@ -1,7 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import DestinationField from "@/components/account/DestinationField";
 import { Field, FormAlert, SubmitButton } from "@/components/account/form-controls";
+import { findDestination, type Destination } from "@/lib/delivery-destination";
 import {
   useCreateAddressMutation,
   useUpdateAddressMutation,
@@ -64,6 +66,32 @@ export default function AddressForm({
     setFieldErrors((prev) => ({ ...prev, [name]: "" }));
   };
 
+  /*
+   * THE DESTINATION IS THE TWO STORED FIELDS, NOT A THIRD.
+   *
+   * District lives in `state` and area in `city` — both already on the
+   * address, already validated by the API and already persisted, which is what
+   * keeps a picker on this form from being a database change. Reading the
+   * picker's value back out of them rather than holding it separately means
+   * there is one answer here, not two that can disagree.
+   *
+   * It resolves to null for an address saved before this existed, whose city is
+   * whatever the shopper once typed. The field then shows empty and `validate`
+   * asks for a real one — nothing here reinterprets what is stored, because a
+   * guess that is usually right is a wrong delivery charge on the rest. See
+   * openspec/changes/add-district-area-picker/design.md, D7.
+   */
+  const destination = findDestination(values.state, values.city);
+
+  const chooseDestination = (next: Destination | null) => {
+    setValues((prev) => ({
+      ...prev,
+      city: next?.area ?? "",
+      state: next?.district ?? "",
+    }));
+    setFieldErrors((prev) => ({ ...prev, city: "" }));
+  };
+
   function validate() {
     const errors: Record<string, string> = {};
 
@@ -81,7 +109,15 @@ export default function AddressForm({
       errors.addressLine1 = "Street address is required.";
     }
 
-    if (!values.city.trim()) errors.city = "City is required.";
+    /*
+     * A place from the list, not merely something in the box. An address that
+     * kept its old free-text city is asked for a real one before it can be
+     * saved again — the same address cannot be the one the shopper edits and
+     * still be the one nothing can price.
+     */
+    if (!findDestination(values.state, values.city)) {
+      errors.city = "Please choose your district and area.";
+    }
 
     setFieldErrors(errors);
     return Object.keys(errors).length === 0;
@@ -174,24 +210,18 @@ export default function AddressForm({
         onChange={(e) => update("addressLine2", e.target.value)}
       />
 
-      <div className="grid gap-4 sm:grid-cols-2">
-        <Field
-          label="City"
-          name="city"
-          autoComplete="address-level2"
-          placeholder="Dhaka"
-          value={values.city}
-          error={fieldErrors.city}
-          onChange={(e) => update("city", e.target.value)}
-        />
-        <Field
-          label="State / region (optional)"
-          name="state"
-          autoComplete="address-level1"
-          value={values.state}
-          onChange={(e) => update("state", e.target.value)}
-        />
-      </div>
+      {/*
+          One question where there were two boxes — a City to type and a
+          "State / region (optional)" nobody in Bangladesh has an answer for.
+          Together they are the district and area a courier is actually given,
+          and the pair is what decides the delivery charge at checkout.
+      */}
+      <DestinationField
+        id="address-destination"
+        value={destination}
+        onChange={chooseDestination}
+        error={fieldErrors.city}
+      />
 
       <div className="grid gap-4 sm:grid-cols-2">
         <Field

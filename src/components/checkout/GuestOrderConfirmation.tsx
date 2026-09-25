@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { CheckCircle2, Loader2, PackageX } from "lucide-react";
+import AdvancePaymentNotice from "@/components/checkout/AdvancePaymentNotice";
 import GuestOrderLookupForm from "@/components/order/GuestOrderLookupForm";
 import OrderSummaryCard from "@/components/order/OrderSummaryCard";
 import { readGuestOrderPhone } from "@/lib/guest-checkout";
@@ -150,6 +151,10 @@ export default function GuestOrderConfirmation({
           page.
         </p>
       </div>
+
+      {/* The same notice the signed-in confirmation carries, shared so the two
+          cannot drift. Renders nothing on a cash-on-delivery order. */}
+      <AdvancePaymentNotice order={order} />
 
       <OrderSummaryCard order={order} />
 

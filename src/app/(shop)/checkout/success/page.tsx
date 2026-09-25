@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { CheckCircle2, PackageX } from "lucide-react";
+import AdvancePaymentNotice from "@/components/checkout/AdvancePaymentNotice";
 import GuestOrderConfirmation from "@/components/checkout/GuestOrderConfirmation";
 import PurchaseTracker from "@/components/checkout/PurchaseTracker";
 import OrderSummaryCard from "@/components/order/OrderSummaryCard";
@@ -100,6 +101,12 @@ export default async function CheckoutSuccessPage({
           has been placed and is now {order.status.toLowerCase()}.
         </p>
       </div>
+
+      {/* Above the summary, not below it: on an order paid for in advance this
+          is the one thing the shopper needs to read, and the line above says
+          "placed", which they would otherwise take for confirmed. Renders
+          nothing on a cash-on-delivery order. */}
+      <AdvancePaymentNotice order={order} />
 
       <OrderSummaryCard order={order} />
 
