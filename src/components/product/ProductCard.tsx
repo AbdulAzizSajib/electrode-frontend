@@ -24,13 +24,21 @@ const ACTION_BASE =
   "flex min-h-11 w-full items-center justify-center gap-2 rounded border py-2.5 text-xs font-semibold uppercase tracking-wide transition-colors motion-reduce:transition-none";
 
 
-const ACTION_IDLE = "border-brand bg-white text-brand hover:bg-brand hover:text-white";
+const ACTION_IDLE =
+  "border-brand bg-brand text-white hover:border-brand-dark hover:bg-brand-dark";
 
 
-const ACTION_BUSY = "cursor-wait border-brand bg-brand text-white";
+/*
+ * Busy and done sit on `brand-dark` rather than the brand fill they used to.
+ * The resting button was an outline, so filling it WAS the feedback; now that it
+ * arrives already filled, an identical fill would leave the icon and label
+ * carrying the whole state change on their own. The darker shade is the same
+ * step the hover takes, so the button never looks like a different control.
+ */
+const ACTION_BUSY = "cursor-wait border-brand-dark bg-brand-dark text-white";
 
 
-const ACTION_DONE = "border-brand bg-brand text-white";
+const ACTION_DONE = "border-brand-dark bg-brand-dark text-white";
 
 
 const ACTION_DISABLED = "cursor-not-allowed border-gray-200 bg-gray-100 text-gray-600";
