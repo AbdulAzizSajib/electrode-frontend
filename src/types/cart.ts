@@ -50,9 +50,36 @@ export interface ApiCart {
   discount: CartDiscount | null;
 }
 
+/**
+ * The applied coupon and what it is worth, as the API actually returns it.
+ *
+ * THIS TYPE USED TO SAY `{ code, amount }` AND NOTHING ON THE WIRE EVER HAD
+ * EITHER KEY. The server sends `ICouponDiscountResult` with the coupon row
+ * beside it — `{ coupon, discountAmount, freeShipping, subtotal }` — so both
+ * reads in `toCartSummary` resolved to `undefined`, the discount fell back to
+ * 0, and the code fell back to nothing. A coupon applied, the server held it on
+ * the `appliedCoupon` cookie and honoured it in the checkout quote, and the
+ * storefront showed no discount, no applied-code chip and no way to remove it.
+ * Nothing caught it because a hand-written type that disagrees with the wire is
+ * agreed with by the compiler.
+ *
+ * Kept narrow deliberately: `coupon` is the full row on the wire and only its
+ * code is ever rendered, so only the code is declared. Widening this to the
+ * whole row would invite the cart UI to start reading validation fields that
+ * the server has already applied.
+ */
 export interface CartDiscount {
-  code: string;
-  amount: string;
+  coupon: { code: string };
+  /** Taka off the subtotal, already re-validated against the current cart. */
+  discountAmount: number;
+  /**
+   * The coupon waives delivery. The CHECKOUT QUOTE is what acts on this — the
+   * cart's own summary has no shipping to waive, which is why nothing here
+   * reads it.
+   */
+  freeShipping: boolean;
+  /** The subtotal the server measured the discount against. */
+  subtotal: number;
 }
 
 /** A cart line with its money resolved — what the cart UI renders. */

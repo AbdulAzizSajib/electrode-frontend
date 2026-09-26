@@ -1,12 +1,10 @@
 "use client";
-import { useRef } from "react";
+import { useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Swiper, SwiperSlide } from "swiper/react";
-import { Navigation } from "swiper/modules";
 import type { Swiper as SwiperInstance } from "swiper";
 
 import "swiper/css";
-import "swiper/css/navigation";
 
 import CategoryTile from "@/components/home/categories/CategoryTile";
 import type { CategoriesLayoutProps } from "@/components/home/categories/types";
@@ -38,6 +36,37 @@ import type { CategoriesLayoutProps } from "@/components/home/categories/types";
  * loop because a shopper who reaches the end of fourteen categories should be
  * able to tell they have. The arrows beside the heading are the visible control
  * the spec requires; they sit outside the row so they never overlay a tile.
+ */
+
+/**
+ * ── Why the arrows drive Swiper DIRECTLY, and Navigation is gone ──────────
+ *
+ * This row used Swiper's `Navigation` module with the bare `navigation` prop
+ * and handed it the two buttons in `onBeforeInit`. That had two faults, and
+ * both of them only showed up on a phone:
+ *
+ *  1. THE ROW GREW A SECOND PAIR OF ARROWS. `navigation` as a bare boolean
+ *     makes `needsNavigation()` true, and swiper/react then renders its OWN
+ *     `.swiper-button-prev/next` elements inside the row — which
+ *     `swiper/css/navigation` draws as large chevrons floating over the first
+ *     and last tile. They were wired to nothing, because `onBeforeInit` had
+ *     pointed the module at the buttons beside the heading instead.
+ *
+ *  2. THE REAL ARROWS STOPPED WORKING BELOW 640px. `onBeforeInit` writes the
+ *     elements into `swiper.params` alone. Under the smallest entry in
+ *     `breakpoints` nothing matches, so `getBreakpoint()` returns `"max"` and
+ *     `setBreakpoint()` restores the whole parameter set from
+ *     `swiper.originalParams` — which still names swiper/react's own hidden
+ *     elements. The module rebinds to those and the visible buttons go dead.
+ *     At `sm` and up a real breakpoint entry applies instead, it carries no
+ *     `navigation` key, and the buttons keep working — which is why this read
+ *     as "broken on mobile, fine on desktop" rather than as simply broken.
+ *
+ * Keeping the module would mean patching `originalParams` as well, pinning this
+ * row to Swiper's internals. Calling `slidePrev`/`slideNext` on the instance is
+ * what the module does anyway, and the disabled state it expressed as a class
+ * is here the button's own `disabled` — which also stops a keyboard reaching a
+ * control that does nothing.
  *
  * See server/openspec/changes/add-featured-categories-layout, design.md Decision 4.
  */
@@ -49,23 +78,31 @@ const GAP = 16;
 /** Tailwind's `sm` and `lg` breakpoints, in pixels. */
 const BREAKPOINT = { sm: 640, lg: 1024 } as const;
 
-export default function CategorySlider({ title, categories }: CategoriesLayoutProps) {
-  const prevRef = useRef<HTMLButtonElement>(null);
-  const nextRef = useRef<HTMLButtonElement>(null);
+const ARROW_CLASS =
+  "flex size-9 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-700 transition hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand disabled:pointer-events-none disabled:opacity-40";
 
-  // Swiper reads its navigation elements at init, before React has attached
-  // the refs, so they are handed over in `onBeforeInit` rather than as props —
-  // and `navigation` below is the bare boolean, which Swiper expands to the
-  // module's default object before this runs. Reading `ref.current` in the
-  // prop instead would be a read during render (which the lint forbids) AND
-  // always `null` on the first render, which is the one that initialises.
-  const attachNavigation = (swiper: SwiperInstance) => {
-    const navigation = swiper.params.navigation;
-    if (navigation && typeof navigation !== "boolean") {
-      navigation.prevEl = prevRef.current;
-      navigation.nextEl = nextRef.current;
-    }
-  };
+export default function CategorySlider({ title, categories }: CategoriesLayoutProps) {
+  const [swiper, setSwiper] = useState<SwiperInstance | null>(null);
+  /*
+   * Which ends the row is sitting at. Both true when every tile already fits,
+   * which is how a row that cannot scroll disables both arrows — Swiper reports
+   * a locked row as simultaneously at its beginning and at its end.
+   */
+  const [edges, setEdges] = useState({ atStart: true, atEnd: false });
+
+  /*
+   * Re-read from the instance rather than tracked by hand, because the answer
+   * changes for three unrelated reasons: the shopper slid the row, the viewport
+   * crossed a breakpoint and changed how many tiles fit, or the list changed.
+   * Returning the SAME object when nothing moved is what keeps `onUpdate` —
+   * which Swiper fires on its own re-renders — from looping.
+   */
+  const syncEdges = (instance: SwiperInstance) =>
+    setEdges((current) =>
+      current.atStart === instance.isBeginning && current.atEnd === instance.isEnd
+        ? current
+        : { atStart: instance.isBeginning, atEnd: instance.isEnd },
+    );
 
   return (
     <section className="container-px site-container pb-8">
@@ -73,18 +110,20 @@ export default function CategorySlider({ title, categories }: CategoriesLayoutPr
         <h2 className="text-xl font-bold text-gray-900 sm:text-2xl">{title}</h2>
         <div className="flex shrink-0 gap-2">
           <button
-            ref={prevRef}
             type="button"
             aria-label="Previous categories"
-            className="flex size-9 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-700 transition hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand [&.swiper-button-disabled]:pointer-events-none [&.swiper-button-disabled]:opacity-40"
+            disabled={edges.atStart}
+            onClick={() => swiper?.slidePrev()}
+            className={ARROW_CLASS}
           >
             <ChevronLeft className="size-5" aria-hidden />
           </button>
           <button
-            ref={nextRef}
             type="button"
             aria-label="Next categories"
-            className="flex size-9 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-700 transition hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand [&.swiper-button-disabled]:pointer-events-none [&.swiper-button-disabled]:opacity-40"
+            disabled={edges.atEnd}
+            onClick={() => swiper?.slideNext()}
+            className={ARROW_CLASS}
           >
             <ChevronRight className="size-5" aria-hidden />
           </button>
@@ -92,15 +131,20 @@ export default function CategorySlider({ title, categories }: CategoriesLayoutPr
       </div>
 
       <Swiper
-        modules={[Navigation]}
         slidesPerView={COLUMNS.base}
         spaceBetween={GAP}
         breakpoints={{
           [BREAKPOINT.sm]: { slidesPerView: COLUMNS.sm },
           [BREAKPOINT.lg]: { slidesPerView: COLUMNS.lg },
         }}
-        navigation
-        onBeforeInit={attachNavigation}
+        onSwiper={(instance) => {
+          setSwiper(instance);
+          syncEdges(instance);
+        }}
+        onSlideChange={syncEdges}
+        onBreakpoint={syncEdges}
+        onResize={syncEdges}
+        onUpdate={syncEdges}
         aria-label={title}
       >
         {categories.map((cat) => (

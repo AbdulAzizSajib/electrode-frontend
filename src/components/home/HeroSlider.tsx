@@ -4,12 +4,17 @@ import Link from "next/link";
 import { Swiper, SwiperSlide } from "swiper/react";
 
 // Import Swiper styles
+//
+// NO `swiper/css/navigation`, and no `Navigation` module below: this slider has
+// never passed a `navigation` prop, so both were dead. The stylesheet was not
+// merely unused — a Swiper stylesheet imported anywhere is global, and it is
+// what drew the stray chevrons over the category and product rows before those
+// two stopped creating navigation elements. See `CategorySlider`.
 import "swiper/css";
 import "swiper/css/pagination";
-import "swiper/css/navigation";
 
 // import required modules
-import { Pagination, Navigation, Autoplay } from "swiper/modules";
+import { Pagination, Autoplay } from "swiper/modules";
 
 import type { Banner } from "@/types/banner";
 
@@ -63,7 +68,7 @@ export default function HeroSlider({
       autoplay={{ delay: 6000, disableOnInteraction: false }}
       // Looping a single slide clones it for no benefit, and Swiper warns.
       loop={slides.length > 1}
-      modules={[Pagination, Navigation, Autoplay]}
+      modules={[Pagination, Autoplay]}
       className="h-full w-full"
     >
       {slides.map((slide, index) => {

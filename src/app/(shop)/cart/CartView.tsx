@@ -132,29 +132,23 @@ export default function CartView({
               />
             )}
 
-            {/* Still true, and now for a sharper reason: tax comes from each
-                product's own rule and delivery from matching its shipping rule
-                against a destination — neither of which the cart knows. The
-                checkout asks the server for both. */}
-            <p className="mt-4 text-xs text-gray-400">
-              Tax and delivery depend on where this is going, and are calculated
-              at checkout.
-            </p>
+           
             <div className="mt-4 flex items-center justify-between border-t border-gray-200 pt-4 text-base font-bold text-gray-900">
               <span>Subtotal</span>
               <span className="text-sale">{formatPrice(cart.total)}</span>
             </div>
-            <Link
-              href="/checkout"
-              className="mt-6 block rounded bg-brand py-3 text-center text-sm font-semibold text-white hover:bg-brand-dark"
-            >
-              Proceed to Checkout
-            </Link>
+            
             <Link
               href="/products"
               className="mt-3 block rounded border border-gray-300 py-3 text-center text-sm font-semibold text-gray-700 hover:bg-white"
             >
               Continue Shopping
+            </Link>
+            <Link
+              href="/checkout"
+              className="mt-6 block rounded bg-brand py-3 text-center text-sm font-semibold text-white hover:bg-brand-dark"
+            >
+              Proceed to Checkout
             </Link>
           </div>
         </div>

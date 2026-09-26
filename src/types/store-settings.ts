@@ -109,6 +109,20 @@ export interface Newsletter {
   buttonLabel?: string;
 }
 
+/**
+ * One column of the home page's perks band.
+ *
+ * Every field required, unlike the optional `icon` on a middle-bar link: the
+ * band is a row of aligned columns, so a perk missing any of the three renders
+ * as a hole in it. The backend's `perksSchema` refuses to store one.
+ */
+export interface Perk {
+  /** An Iconify name, e.g. `lucide:truck`, resolved by `@iconify/react`. */
+  icon: string;
+  title: string;
+  description: string;
+}
+
 /** The six checkout fields a merchant may configure. Keys match the order payload. */
 export type CheckoutFieldKey =
   | "fullName"
@@ -688,6 +702,19 @@ export interface StoreSettings {
    */
   middleBarLinks: MiddleBarLink[];
   newsletter: Newsletter;
+  /**
+   * The perks band's columns, in the order it renders them. At most four.
+   *
+   * ALWAYS AN ARRAY, never undefined — the backend merges its own defaults in
+   * and `getStoreSettings` repairs a malformed payload — so the component maps
+   * it without a guard. An EMPTY array is a merchant who cleared every column,
+   * and the band is then left out of the page entirely.
+   *
+   * Whether the band renders at all is the `PERKS_BAR` entry of `homeConfig`,
+   * not this field: an empty list and a switched-off section are different
+   * decisions that happen to look the same on the page.
+   */
+  perks: Perk[];
   checkoutConfig: CheckoutConfig;
   catalogConfig: CatalogConfig;
   /**

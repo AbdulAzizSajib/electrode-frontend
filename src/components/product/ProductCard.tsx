@@ -160,7 +160,7 @@ export default function ProductCard({ product }: { product: Product }) {
   return (
    
     <div className="group relative flex h-full flex-col rounded-lg border border-gray-200 bg-white p-4 transition-[border-color,box-shadow] duration-200 hover:border-gray-300 hover:shadow-md motion-reduce:transition-none">
-      <div className="relative aspect-7/6 overflow-hidden rounded-md bg-gray-100">
+      <div className="relative aspect-7/6 overflow-hidden rounded-md ">
         {discount && (
           <span className="absolute left-0 top-0 z-10 rounded bg-brand px-2 py-1 text-xs font-semibold text-white">
             -{discount}%

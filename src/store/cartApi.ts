@@ -87,14 +87,16 @@ export function toCartSummary(cart: ApiCart | null | undefined): CartSummary {
 
   const lines = (cart.items ?? []).map(toCartLine);
   const subtotal = roundMoney(lines.reduce((sum, l) => sum + l.lineTotal, 0));
-  const discountAmount = roundMoney(Number(cart.discount?.amount ?? 0));
+  // `discount.discountAmount`, not `discount.amount` — see the note on
+  // `CartDiscount` for how the two disagreed silently for as long as they did.
+  const discountAmount = roundMoney(Number(cart.discount?.discountAmount ?? 0));
 
   return {
     id: cart.id,
     lines,
     itemCount: lines.reduce((sum, l) => sum + l.quantity, 0),
     subtotal,
-    discountCode: cart.discount?.code,
+    discountCode: cart.discount?.coupon?.code,
     discountAmount,
     // Never let a discount drive the total below zero.
     total: roundMoney(Math.max(0, subtotal - discountAmount)),

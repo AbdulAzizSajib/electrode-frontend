@@ -1,13 +1,11 @@
 "use client";
-import { useRef } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Swiper, SwiperSlide } from "swiper/react";
-import { Navigation } from "swiper/modules";
 import type { Swiper as SwiperInstance } from "swiper";
 
 import "swiper/css";
-import "swiper/css/navigation";
 
 import ProductCard from "@/components/product/ProductCard";
 import type { ProductRowLayoutProps } from "@/components/home/products/types";
@@ -44,6 +42,16 @@ import type { ProductRowLayoutProps } from "@/components/home/products/types";
  * are the visible control the spec requires, and sit outside the row so they
  * never overlay a card.
  *
+ * ── Why the arrows drive Swiper DIRECTLY, and Navigation is gone ─────────
+ *
+ * The same correction `CategorySlider` carries, made here for the same two
+ * reasons — this row had the identical arrangement, so it had the identical
+ * pair of faults, and both showed up only on a phone: swiper/react rendered a
+ * SECOND, inert pair of arrows over the first and last card, and below 640px
+ * `setBreakpoint()` restored the parameters from `originalParams` and rebound
+ * the module to those hidden elements, killing the visible buttons. The long
+ * account is on `CategorySlider`; this row simply must not drift from it.
+ *
  * See server/openspec/changes/add-product-slider-and-card-quantity, design.md
  * Decision 3.
  */
@@ -55,67 +63,103 @@ const GAP = 20;
 /** Tailwind's `sm` and `lg` breakpoints, in pixels. */
 const BREAKPOINT = { sm: 640, lg: 1024 } as const;
 
+const ARROW_CLASS =
+  "flex size-9 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-700 transition hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand disabled:pointer-events-none disabled:opacity-40";
+
 export default function ProductSlider({
   title,
   products,
   viewAllHref = "/products",
 }: ProductRowLayoutProps) {
-  const prevRef = useRef<HTMLButtonElement>(null);
-  const nextRef = useRef<HTMLButtonElement>(null);
+  const [swiper, setSwiper] = useState<SwiperInstance | null>(null);
+  /*
+   * Which ends the row is sitting at. Both true when every card already fits,
+   * which is how a row that cannot scroll disables both arrows — Swiper reports
+   * a locked row as simultaneously at its beginning and at its end.
+   */
+  const [edges, setEdges] = useState({ atStart: true, atEnd: false });
 
-  // Swiper reads its navigation elements at init, before React has attached
-  // the refs, so they are handed over in `onBeforeInit` rather than as props —
-  // and `navigation` below is the bare boolean, which Swiper expands to the
-  // module's default object before this runs. Reading `ref.current` in the
-  // prop instead would be a read during render (which the lint forbids) AND
-  // always `null` on the first render, which is the one that initialises.
-  const attachNavigation = (swiper: SwiperInstance) => {
-    const navigation = swiper.params.navigation;
-    if (navigation && typeof navigation !== "boolean") {
-      navigation.prevEl = prevRef.current;
-      navigation.nextEl = nextRef.current;
-    }
-  };
+  /*
+   * Re-read from the instance rather than tracked by hand: the answer changes
+   * when the shopper slides the row, when the viewport crosses a breakpoint and
+   * changes how many cards fit, and when the list changes. Returning the SAME
+   * object when nothing moved is what keeps `onUpdate` — which Swiper fires on
+   * its own re-renders — from looping.
+   */
+  const syncEdges = (instance: SwiperInstance) =>
+    setEdges((current) =>
+      current.atStart === instance.isBeginning && current.atEnd === instance.isEnd
+        ? current
+        : { atStart: instance.isBeginning, atEnd: instance.isEnd },
+    );
 
   return (
     <section className="container-px site-container py-8">
-      <div className="mb-8 flex flex-wrap items-center justify-between gap-4">
+      {/*
+        THREE ITEMS IN ONE WRAPPING ROW, not a title beside a grouped pair.
+        Grouping the link and the arrows in a div is what put them BOTH on the
+        second line on a phone, left-aligned under the heading, leaving the
+        space beside the heading empty — so the row read as two ragged
+        left-aligned lines rather than as a heading with its controls.
+
+        The arrows are auto-margined to the right edge instead, at every width.
+        Below `sm` that lands them beside the heading and the link takes a line
+        of its own (`w-full`); at `sm` and up `order` puts the link back in
+        front of them and the two auto margins collapse to one gap, which is
+        the arrangement this row has always had on a desktop. The heading's own
+        width is what decides whether the arrows fit beside it, so nothing here
+        assumes a title length.
+
+        `justify-between` is gone deliberately: an auto margin absorbs the free
+        space first, so leaving it would be a rule that never applies.
+      */}
+      <div className="mb-8 flex flex-wrap items-center gap-x-4 gap-y-3">
         <h2 className="text-xl font-bold text-gray-900 sm:text-2xl">{title}</h2>
-        <div className="flex items-center gap-4">
-          <Link href={viewAllHref} className="text-sm font-semibold text-brand hover:underline">
-            See all products
-          </Link>
-          <div className="flex shrink-0 gap-2">
-            <button
-              ref={prevRef}
-              type="button"
-              aria-label={`Previous ${title.toLowerCase()}`}
-              className="flex size-9 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-700 transition hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand [&.swiper-button-disabled]:pointer-events-none [&.swiper-button-disabled]:opacity-40"
-            >
-              <ChevronLeft className="size-5" aria-hidden />
-            </button>
-            <button
-              ref={nextRef}
-              type="button"
-              aria-label={`Next ${title.toLowerCase()}`}
-              className="flex size-9 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-700 transition hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand [&.swiper-button-disabled]:pointer-events-none [&.swiper-button-disabled]:opacity-40"
-            >
-              <ChevronRight className="size-5" aria-hidden />
-            </button>
-          </div>
+
+        <Link
+          href={viewAllHref}
+          className="order-2 w-full text-sm font-semibold text-brand hover:underline sm:order-1 sm:ms-auto sm:w-auto"
+        >
+          See all products
+        </Link>
+
+        <div className="order-1 ms-auto flex shrink-0 gap-2 sm:order-2">
+          <button
+            type="button"
+            aria-label={`Previous ${title.toLowerCase()}`}
+            disabled={edges.atStart}
+            onClick={() => swiper?.slidePrev()}
+            className={ARROW_CLASS}
+          >
+            <ChevronLeft className="size-5" aria-hidden />
+          </button>
+          <button
+            type="button"
+            aria-label={`Next ${title.toLowerCase()}`}
+            disabled={edges.atEnd}
+            onClick={() => swiper?.slideNext()}
+            className={ARROW_CLASS}
+          >
+            <ChevronRight className="size-5" aria-hidden />
+          </button>
         </div>
       </div>
 
       <Swiper
-        modules={[Navigation]}
         slidesPerView={COLUMNS.base}
         spaceBetween={GAP}
         breakpoints={{
           [BREAKPOINT.sm]: { slidesPerView: COLUMNS.sm },
           [BREAKPOINT.lg]: { slidesPerView: COLUMNS.lg },
         }}
-        navigation
-        onBeforeInit={attachNavigation}
+        onSwiper={(instance) => {
+          setSwiper(instance);
+          syncEdges(instance);
+        }}
+        onSlideChange={syncEdges}
+        onBreakpoint={syncEdges}
+        onResize={syncEdges}
+        onUpdate={syncEdges}
         aria-label={title}
       >
         {products.map((product) => (

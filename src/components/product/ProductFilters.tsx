@@ -23,6 +23,12 @@ interface Props {
   onBrandChange: (slug: string | null) => void;
   onPriceChange: (range: { min: number; max: number } | null) => void;
   onClearAll: () => void;
+  /**
+   * Fired after any filter is applied. Set by a host that shows this panel
+   * transiently — the mobile drawer, which dismisses itself once the shopper
+   * has chosen; the desktop sidebar leaves it unset and stays put.
+   */
+  onApplied?: () => void;
 }
 
 /**
@@ -33,6 +39,10 @@ interface Props {
  * Ordered price → category → brand: price is the one filter every shopper has
  * an opinion about before they know the catalog, so it costs nothing to scan
  * past and is the most likely first move.
+ *
+ * Owns no box of its own — no width, no padding, no scroller. It is mounted in
+ * two places (the desktop sidebar and the mobile drawer) whose boxes have
+ * nothing in common, so each host sizes and scrolls it.
  */
 export default function ProductFilters({
   categories,
@@ -46,6 +56,7 @@ export default function ProductFilters({
   onBrandChange,
   onPriceChange,
   onClearAll,
+  onApplied,
 }: Props) {
   /**
    * Which parents are expanded. Seeded with the ancestor of the current
@@ -65,6 +76,29 @@ export default function ProductFilters({
     );
   }
 
+  /**
+   * Reports an applied filter to the host on top of forwarding it.
+   *
+   * Only the four filters go through this. Expanding a parent category
+   * deliberately does not: it reveals choices rather than making one, and
+   * dismissing the drawer there would put the children out of reach.
+   */
+  function reporting<T>(change: (value: T) => void) {
+    return (value: T) => {
+      change(value);
+      onApplied?.();
+    };
+  }
+
+  const changeCategory = reporting(onCategoryChange);
+  const changeBrand = reporting(onBrandChange);
+  const changePrice = reporting(onPriceChange);
+
+  function clearAll() {
+    onClearAll();
+    onApplied?.();
+  }
+
   // A catalog whose products all cost the same gives the track no width, so
   // there is no price filter to offer. `PriceRangeFilter` enforces this itself
   // as well — it is the one that cannot render without it.
@@ -74,7 +108,7 @@ export default function ProductFilters({
   const hasAnyFilter = Boolean(selectedCategory || selectedBrand) || hasPriceFilter;
 
   return (
-    <aside className="w-full shrink-0 lg:w-64">
+    <div>
       {/*
        * Only rendered once something is applied, so the panel does not carry a
        * permanently-dead control. It clears every filter at once — the
@@ -83,7 +117,7 @@ export default function ProductFilters({
       {hasAnyFilter && (
         <button
           type="button"
-          onClick={onClearAll}
+          onClick={clearAll}
           className="mb-6 flex items-center gap-1.5 text-xs font-semibold tracking-wide text-gray-500 uppercase transition hover:text-brand"
         >
           <X size={14} />
@@ -104,7 +138,7 @@ export default function ProductFilters({
             max={priceBounds.max}
             selectedMin={selectedMinPrice}
             selectedMax={selectedMaxPrice}
-            onApply={onPriceChange}
+            onApply={changePrice}
           />
 
           <div className="my-7 border-t border-gray-200" />
@@ -120,7 +154,7 @@ export default function ProductFilters({
           <li>
             <button
               type="button"
-              onClick={() => onCategoryChange(null)}
+              onClick={() => changeCategory(null)}
               className={`block w-full py-2 text-left transition ${
                 selectedCategory
                   ? "text-gray-600 hover:text-brand"
@@ -145,7 +179,7 @@ export default function ProductFilters({
                 <div className="flex items-center justify-between gap-2">
                   <button
                     type="button"
-                    onClick={() => onCategoryChange(parent.slug)}
+                    onClick={() => changeCategory(parent.slug)}
                     className={`flex-1 py-2 text-left transition ${
                       selectedCategory === parent.slug
                         ? "font-semibold text-brand"
@@ -179,7 +213,7 @@ export default function ProductFilters({
                       <li key={child.id}>
                         <button
                           type="button"
-                          onClick={() => onCategoryChange(child.slug)}
+                          onClick={() => changeCategory(child.slug)}
                           className={`block w-full py-1.5 text-left transition ${
                             selectedCategory === child.slug
                               ? "font-semibold text-brand"
@@ -208,15 +242,17 @@ export default function ProductFilters({
             </h3>
 
             {/*
-             * Capped height with its own scroller: a shop with 80 brands would
-             * otherwise push the product grid's first row below a sidebar the
-             * shopper has to scroll past.
+             * No cap and no scroller of its own. A shop with 80 brands used to
+             * need one to stop the sidebar pushing the product grid down, but
+             * both hosts now bound this panel themselves — the sidebar to the
+             * viewport, the drawer to its own height — and a second scroller
+             * nested inside either only gives the shopper two tracks to fight.
              */}
-            <ul className="max-h-72 space-y-0.5 overflow-y-auto pr-1 text-sm">
+            <ul className="space-y-0.5 text-sm">
               <li>
                 <button
                   type="button"
-                  onClick={() => onBrandChange(null)}
+                  onClick={() => changeBrand(null)}
                   className={`block w-full py-2 text-left transition ${
                     selectedBrand
                       ? "text-gray-600 hover:text-brand"
@@ -234,7 +270,7 @@ export default function ProductFilters({
                     onClick={() =>
                       // Re-pressing the applied brand clears it, so the filter
                       // can be undone where it was set.
-                      onBrandChange(selectedBrand === brand.slug ? null : brand.slug)
+                      changeBrand(selectedBrand === brand.slug ? null : brand.slug)
                     }
                     className={`block w-full py-2 text-left transition ${
                       selectedBrand === brand.slug
@@ -250,6 +286,6 @@ export default function ProductFilters({
           </div>
         </>
       )}
-    </aside>
+    </div>
   );
 }

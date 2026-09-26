@@ -133,6 +133,22 @@ const FALLBACK_SETTINGS: StoreSettings = {
     buttonLabel: "Subscribe",
   },
   /*
+   * The four columns this storefront used to hardcode in `data/content.ts`,
+   * now the fallback for a settings read that FAILED — the same role the
+   * middle-bar links above play, and the same hazard: this is the only list
+   * reached during an outage, so a shop that has renamed its perks shows these
+   * instead. Stale wording on a degraded page beats a gap where a band was.
+   *
+   * Mirrors `DEFAULT_PERKS` in the backend's store-setting.constant.ts, and is
+   * kept in step with it by hand.
+   */
+  perks: [
+    { icon: "lucide:truck", title: "Free Shipping", description: "For orders over ৳130." },
+    { icon: "lucide:rotate-ccw", title: "Money Return", description: "30 days for an exchange" },
+    { icon: "lucide:gift", title: "Member Discount", description: "Shop smart and save bigger" },
+    { icon: "lucide:headset", title: "Special Gifts", description: "Contact us anytime" },
+  ],
+  /*
    * Mirrors the backend's DEFAULT_CHECKOUT_CONFIG, which in turn reproduces the
    * checkout this storefront had before it was configurable. A settings outage
    * therefore degrades checkout to its old behaviour, never to an unusable one.
@@ -460,6 +476,15 @@ async function fetchStoreSettings(): Promise<StoreSettings> {
         ? data.middleBarLinks
         : FALLBACK_SETTINGS.middleBarLinks,
       newsletter: data.newsletter ?? FALLBACK_SETTINGS.newsletter,
+      /*
+       * Same shape of repair as `middleBarLinks` above and the same reasoning:
+       * an EMPTY ARRAY is a merchant who cleared every column and must survive,
+       * because substituting the fallback would put four perks back on a shop
+       * that deliberately removed them, on every render, with no way to stop
+       * it. The array check is only against a malformed payload — a non-array
+       * here would have `PerksBar` calling `.map` on a string.
+       */
+      perks: Array.isArray(data.perks) ? data.perks : FALLBACK_SETTINGS.perks,
       /*
        * Backfilled per-field, not just per-block: an older API that predates one
        * of these keys, or a row missing a colour, must not leave checkout

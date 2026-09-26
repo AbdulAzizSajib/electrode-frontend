@@ -79,8 +79,9 @@ export async function generateMetadata(): Promise<Metadata> {
  * run concurrently as siblings, and each replaces its skeleton the moment its
  * own data arrives. Disabling a section still stops its work entirely: a
  * section that is not in the enabled list is never rendered, so its fetch never
- * runs. `PERKS_BAR` and `NEWSLETTER` fetch nothing (local constants, and copy
- * from the settings payload) and render directly.
+ * runs. `PERKS_BAR` and `NEWSLETTER` fetch nothing — both read
+ * their copy from the settings payload this route already holds — and render
+ * directly.
  *
  * The list arrives complete and current: the backend reconciles the stored
  * configuration against its own registry before serving it, so a section added
@@ -258,7 +259,9 @@ export default async function Home() {
         />
       </Suspense>
     ),
-    PERKS_BAR: <PerksBar />,
+    /* Fetches nothing — its columns ride the settings payload this route
+       already holds, exactly like NEWSLETTER below. */
+    PERKS_BAR: <PerksBar perks={settings.perks} />,
     DEAL_OF_WEEK: (
       <Suspense fallback={<DealOfWeekSkeleton />}>
         <DealOfWeekRow />

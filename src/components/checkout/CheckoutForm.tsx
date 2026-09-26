@@ -1768,6 +1768,10 @@ export default function CheckoutForm({
           */}
           {checkout.showCouponBox && !directOrder && (
             <CouponForm
+              // This sits inside the checkout's own <form> — see the note on
+              // CouponForm. Without it, Apply submits the checkout instead and
+              // the page reloads.
+              asForm={false}
               appliedCode={cart.discountCode}
               discountAmount={cart.discountAmount}
             />

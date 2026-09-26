@@ -780,7 +780,7 @@ export default function AdvancePaymentSection({
               onChange={(e) => onChange({ transactionId: e.target.value })}
               error={errors.transactionId}
               placeholder={
-                channel === "BANK" ? "e.g. 884512309" : "e.g. 9F2K4LM7XQ"
+                channel === "BANK" ? "e.g. 884512309" : "ট্রানজেকশন আইডি লিখুন"
               }
               maxLength={150}
             />

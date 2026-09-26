@@ -81,13 +81,6 @@ export const midBanners = [
   },
 ];
 
-export const perks = [
-  { title: "Free Shipping", description: "For orders over ৳130." },
-  { title: "Money Return", description: "30 days for an exchange" },
-  { title: "Member Discount", description: "Shop smart and save bigger" },
-  { title: "Special Gifts", description: "Contact us anytime" },
-];
-
 export const collectionTiles = [
   { id: 1, title: "Only this week. Don't miss...", subtitle: "3D Glasses VR All In One Machine", price: "৳149.00", image: placeholderImage("coll-vr", { w: 700, h: 500, label: "3D Glasses VR" }), href: "/products" },
   { id: 2, title: "Find everything you need", subtitle: "Vifa Wireless Portable Bluetooth Speaker", price: "৳599.00", image: placeholderImage("coll-speaker", { w: 700, h: 500, label: "Vifa Bluetooth Speaker" }), href: "/products" },
@@ -111,7 +104,9 @@ export const categoryGrid = [
 
 /*
  * Removed here, now merchant-managed: `contact`, `navLinks`/`NavLink`,
- * `footerColumns`, and the two homepage content rows — the client quotes and
+ * `footerColumns`, `perks` (the home page's band of promises, moved to the
+ * `perks` settings column by add-perks-strip-content), and the two homepage
+ * content rows — the client quotes and
  * the latest-posts cards, which are now models with their own admin sections.
  *
  * Those last two were deleted outright rather than kept as a fallback behind an
