@@ -47,7 +47,7 @@ export default function LandingStickyCta({
       // Always rendered, never conditionally mounted: translating it out of view
       // means the bar slides rather than appearing abruptly, and the observer
       // above keeps its target for the whole page life.
-      className={`fixed inset-x-0 bottom-0 z-40 border-t border-gray-200 bg-white/95 p-3 backdrop-blur transition-transform duration-200 md:hidden ${
+      className={`fixed inset-x-0 bottom-0 z-40 border-t border-lp-border bg-lp-surface/95 p-3 backdrop-blur transition-transform duration-200 md:hidden ${
         visible ? "translate-y-0" : "translate-y-full"
       }`}
       // Hidden from assistive tech and from tab order while off-screen: the
@@ -58,7 +58,7 @@ export default function LandingStickyCta({
       <a
         href="#order-form"
         tabIndex={visible ? 0 : -1}
-        className="flex items-center justify-center gap-2 rounded-xl bg-brand px-4 py-3.5 text-base font-semibold text-white"
+        className="flex items-center justify-center gap-2 rounded-xl bg-lp-accent px-4 py-3.5 text-base font-semibold text-lp-accent-contrast"
       >
         <span>{label}</span>
         <span className="opacity-80">·</span>

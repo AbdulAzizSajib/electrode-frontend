@@ -8,6 +8,7 @@ import { AlertCircle, BadgeCheck, Loader2, Plus, Store, Truck } from "lucide-rea
 import clsx from "clsx";
 import AddressForm from "@/components/account/AddressForm";
 import AdvancePaymentSection, {
+  claimedMethod as sharedClaimedMethod,
   defaultAdvanceClaim,
   EMPTY_ADVANCE_CLAIM,
   type AdvanceClaimDraft,
@@ -697,8 +698,9 @@ export default function CheckoutForm({
    * sent the wrong one changes nothing.
    */
   function claimedMethod(accountId: string): CheckoutPaymentMethod {
-    const mobile = advanceConfig.mobileAccounts.find((a) => a.id === accountId);
-    return mobile ? mobile.provider : "BANK_TRANSFER";
+    // The shared derivation, so this form and a campaign page cannot disagree
+    // about which statement a claim points staff at.
+    return sharedClaimedMethod(advanceConfig, accountId);
   }
 
   /**

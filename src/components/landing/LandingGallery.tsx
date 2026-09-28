@@ -34,7 +34,7 @@ export default function LandingGallery({
 
   return (
     <div className="w-full">
-      <div className="relative aspect-square w-full overflow-hidden rounded-2xl bg-gray-100">
+      <div className="relative aspect-square w-full overflow-hidden rounded-2xl bg-lp-surface-alt">
         {active.type === "VIDEO" ? (
           <video
             key={active.url}
@@ -74,8 +74,8 @@ export default function LandingGallery({
                 className={clsx(
                   "relative block h-16 w-16 overflow-hidden rounded-lg border-2 transition",
                   index === activeIndex
-                    ? "border-brand"
-                    : "border-transparent hover:border-gray-300",
+                    ? "border-lp-accent"
+                    : "border-transparent hover:border-lp-border",
                 )}
               >
                 <Image
@@ -88,6 +88,14 @@ export default function LandingGallery({
                 {item.type === "VIDEO" && (
                   <span
                     aria-hidden
+                    /*
+                     * NOT a theme token, deliberately. This is a scrim over a
+                     * photograph — its job is to darken whatever image is
+                     * beneath it so the play glyph stays visible, and a
+                     * merchant's surface colour cannot do that. Themed, a pale
+                     * campaign would render an invisible play button over a
+                     * bright thumbnail.
+                     */
                     className="absolute inset-0 grid place-items-center bg-black/35 text-white"
                   >
                     ▶

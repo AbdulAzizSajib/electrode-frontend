@@ -20,7 +20,7 @@ The customer storefront of a single BD electronics/gadgets e-commerce business: 
 
 ## Positioning
 
-Not a generic storefront template: it is the buyer-facing half of a one-product system whose backend (`server/`) and admin panel it shares a contract with, and whose paid-campaign funnel is a first-class surface — when the store runs in LANDING_PAGE mode the shop root redirects to `/lp/<slug>` so an advertised page keeps a single canonical URL and never competes with the catalog.
+Not a generic storefront template: it is the buyer-facing half of a one-product system whose backend (`server/`) and admin panel it shares a contract with, and whose paid-campaign funnel is a first-class surface — when the store runs in LANDING_PAGE mode the shop root redirects to `/offer/<slug>` so an advertised page keeps a single canonical URL and never competes with the catalog.
 
 ## Operating Context
 

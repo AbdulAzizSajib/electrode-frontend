@@ -5,6 +5,19 @@ import Link from "next/link";
 import clsx from "clsx";
 import { formatPrice } from "@/lib/format";
 import { trackLandingPagePurchase } from "@/components/landing/FacebookPixel";
+import DestinationField from "@/components/account/DestinationField";
+import {
+  refusalMessage,
+  resolveDeliveryOption,
+  type Destination,
+} from "@/lib/delivery-destination";
+import AdvancePaymentSection, {
+  claimedMethod,
+  defaultAdvanceClaim,
+  EMPTY_ADVANCE_CLAIM,
+  type AdvanceClaimDraft,
+  type AdvanceClaimErrors,
+} from "@/components/checkout/AdvancePaymentSection";
 import type {
   LandingPage,
   LandingPageQuoteResult,
@@ -50,10 +63,89 @@ export default function LandingOrderForm({
    */
   pixelId: string | null;
 }) {
-  const { orderForm, deliveryZones, productSnapshot } = page;
+  const { orderForm, deliveryOptions, productSnapshot } = page;
+  const packages = page.packages ?? [];
+
+  /*
+   * WHICH TIER is selected, when the page offers any.
+   *
+   * Seeded from the merchant's own preselection, else the first — the same rule
+   * the server's resolver applies, so the page opens showing what the server
+   * would price if the shopper submitted without touching anything.
+   *
+   * Empty string for a page with no packages, which then sends no `packageKey`
+   * and is priced from its bound product exactly as before packages existed.
+   */
+  const [packageKey, setPackageKey] = useState(
+    () => packages.find((pkg) => pkg.preselected)?.key ?? packages[0]?.key ?? "",
+  );
+
+  /*
+   * THE SAME SECTION THE SHOP'S CHECKOUT RENDERS, imported rather than copied.
+   * A shopper meets one payment form in both places, and a fix to either
+   * reaches both — which is what stops the two drifting into subtly different
+   * rules about money someone has already sent.
+   *
+   * Driven by `advancePayment`, NOT by `requiresAdvancePayment`: the server has
+   * already resolved the campaign's switch against the shop's accounts, so a
+   * campaign that asks but whose shop has none arrives with null here and the
+   * section simply does not render.
+   */
+  const advanceConfig = page.advancePayment;
+  const advanceOffered = advanceConfig !== null;
+
+  const [advanceClaim, setAdvanceClaim] = useState<AdvanceClaimDraft>(() =>
+    advanceConfig ? defaultAdvanceClaim(advanceConfig) : EMPTY_ADVANCE_CLAIM,
+  );
+  const [advanceErrors, setAdvanceErrors] = useState<AdvanceClaimErrors>({});
+
+  const patchAdvanceClaim = (patch: Partial<AdvanceClaimDraft>) => {
+    setAdvanceClaim((prev) => ({ ...prev, ...patch }));
+    // Clear only the fields that were touched, so a message stays on a field
+    // the shopper has not revisited — which is where they still need to see it.
+    setAdvanceErrors((prev) => {
+      const next = { ...prev };
+      for (const key of Object.keys(patch) as (keyof AdvanceClaimDraft)[]) {
+        delete next[key as keyof AdvanceClaimErrors];
+      }
+      return next;
+    });
+  };
 
   const [quantity, setQuantity] = useState(1);
-  const [zoneKey, setZoneKey] = useState(deliveryZones[0]?.key ?? "");
+  /*
+   * WHERE THE ORDER IS GOING, and — only when that resolves to nothing the shop
+   * has configured — which option the shopper picked instead.
+   *
+   * The same pattern the shop's checkout uses. A campaign no longer asks the
+   * shopper to classify their own address into a delivery band: someone in
+   * Savar was guessing whether that counted as "আশেপাশে" or "বাইরে", and the
+   * difference was the merchant's money either way.
+   */
+  const [destination, setDestination] = useState<Destination | null>(null);
+  const [chosenOptionKey, setChosenOptionKey] = useState<string | null>(null);
+
+  /*
+   * THE OPTION IN FORCE: derived when the destination decided one, otherwise the
+   * one the shopper picked off the cards — and the cards are shown exactly when
+   * nothing was derived. One of the two and never both, so there is a single key
+   * to quote against and to submit.
+   */
+  const destinationResolution = resolveDeliveryOption(destination, deliveryOptions);
+  const derivedOption = destinationResolution.resolved ? destinationResolution.option : null;
+
+  const selectedOption =
+    derivedOption ?? deliveryOptions.find((option) => option.key === chosenOptionKey) ?? null;
+  const optionKeyInForce = selectedOption?.key ?? null;
+
+  /*
+   * THE CARDS ARE THE WAY OUT, NOT THE FIRST QUESTION. They appear only after a
+   * destination has been given and failed to resolve — asking someone to pick a
+   * delivery band before they have said where they are is the question this
+   * change removed.
+   */
+  const refusal = destinationResolution.resolved ? null : destinationResolution.reason;
+  const askForOption = refusal !== null && refusal !== "NO_DESTINATION";
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
   const [address, setAddress] = useState("");
@@ -87,7 +179,7 @@ export default function LandingOrderForm({
    * would be a second, weaker copy of a check that already exists.
    */
   useEffect(() => {
-    if (!zoneKey || placed || !orderable) return;
+    if (!optionKeyInForce || placed || !orderable) return;
 
     let cancelled = false;
 
@@ -101,7 +193,13 @@ export default function LandingOrderForm({
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ quantity, zoneKey }),
+            body: JSON.stringify({
+              quantity,
+              deliveryOptionKey: optionKeyInForce,
+              // Omitted entirely on a page with no packages, so the server
+              // resolves the bound product rather than a key it cannot match.
+              ...(packageKey ? { packageKey } : {}),
+            }),
           },
         );
 
@@ -124,7 +222,12 @@ export default function LandingOrderForm({
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [page.slug, quantity, zoneKey, placed, orderable]);
+    /*
+     * `packageKey` is a dependency, so switching tier RE-QUOTES. Without it the
+     * shopper would pick ১ কেজি and still see ৫০০ গ্রাম's total — and then
+     * submit that stale figure as `expectedTotal`, which the server refuses.
+     */
+  }, [page.slug, quantity, optionKeyInForce, packageKey, placed, orderable]);
 
   // No `useCallback`: this project compiles with the React Compiler, which
   // memoizes automatically and refuses to compile a component whose manual
@@ -135,7 +238,7 @@ export default function LandingOrderForm({
 
     if (submit.status === "submitting") return;
 
-    if (!zoneKey) {
+    if (!optionKeyInForce) {
       setSubmit({ status: "failed", message: "ডেলিভারি এলাকা নির্বাচন করুন" });
       return;
     }
@@ -161,7 +264,14 @@ export default function LandingOrderForm({
           },
           body: JSON.stringify({
             quantity,
-            zoneKey,
+            deliveryOptionKey: optionKeyInForce,
+            /*
+             * The place itself, beside the option it resolved to. The order
+             * records where it is going, not just which band it fell into —
+             * same shape a shop order captures.
+             */
+            ...(destination ? { destination } : {}),
+            ...(packageKey ? { packageKey } : {}),
             fullName: fullName.trim() || undefined,
             phone: phone.trim(),
             address: address.trim(),
@@ -170,6 +280,34 @@ export default function LandingOrderForm({
             // order if its own figure disagrees, so a price that changed
             // between page load and submit is reported rather than charged.
             expectedTotal: quote?.totalAmount,
+            /*
+             * The claim, only when this campaign asks for one. The method comes
+             * from the account the shopper picked — the server derives it from
+             * the account too and would refuse a mismatch, so sending it is an
+             * agreement check rather than an instruction.
+             */
+            ...(advanceConfig && advanceClaim.choice && advanceClaim.accountId
+              ? {
+                  /*
+                   * DERIVED FROM THE ACCOUNT, through the shared helper. Sent so
+                   * the request is well-formed; the server re-derives it from
+                   * the same account, because a shopper who could name a bKash
+                   * account and declare it Nagad would send staff to the wrong
+                   * statement to verify it.
+                   */
+                  paymentMethod: claimedMethod(advanceConfig, advanceClaim.accountId),
+                  advancePayment: {
+                    choice: advanceClaim.choice,
+                    accountId: advanceClaim.accountId,
+                    senderIdentifier: advanceClaim.senderIdentifier.trim(),
+                    transactionId: advanceClaim.transactionId.trim(),
+                    // The figure the shopper was shown, echoed back so a stale
+                    // page is refused rather than accepted for a different sum.
+                    expectedAdvanceAmount:
+                      quote?.advanceOptions?.[advanceClaim.choice]?.advanceAmount,
+                  },
+                }
+              : {}),
           }),
         },
       );
@@ -230,33 +368,43 @@ export default function LandingOrderForm({
     return (
       <div
         id="order-form"
-        className="rounded-2xl border border-gray-200 bg-gray-50 p-6 text-center"
+        className="rounded-2xl border border-lp-border bg-lp-surface-alt p-6 text-center"
       >
-        <p className="font-semibold text-gray-900">এই মুহূর্তে পণ্যটি পাওয়া যাচ্ছে না</p>
-        <p className="mt-1 text-sm text-gray-600">
+        <p className="font-semibold text-lp-text">এই মুহূর্তে পণ্যটি পাওয়া যাচ্ছে না</p>
+        <p className="mt-1 text-sm text-lp-muted">
           স্টকে এলে আবার অর্ডার করা যাবে। খোঁজ নিতে আমাদের সাথে যোগাযোগ করুন।
         </p>
       </div>
     );
   }
 
-  const selectedZone = deliveryZones.find((zone) => zone.key === zoneKey);
 
   return (
     <form
       id="order-form"
       onSubmit={handleSubmit}
-      className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm md:p-6"
+      /*
+        A HEAVIER CARD than anything else on the page, with an accent top edge.
+        Every call to action points here, and a form that looks like the cards
+        around it gives a reader arriving from one of those buttons nothing to
+        land on. The top border is the cheapest way to say "this is the thing"
+        without colouring the whole panel and hurting the fields' legibility.
+      */
+      className="rounded-2xl border border-lp-border border-t-4 border-t-lp-accent bg-lp-surface p-5 shadow-[0_8px_30px_rgba(0,0,0,0.08)] md:p-6"
       // Bangla-first content, and the browser is told so — it drives hyphenation
       // and the spellchecker. The attribute follows the merchant's content, not
       // a locale setting, because there is no locale setting.
       lang="bn"
     >
       {orderForm.heading && (
-        <h2 className="text-lg font-semibold text-gray-900">{orderForm.heading}</h2>
+        <h2 className="text-center text-lg font-bold text-lp-text md:text-xl">
+          {orderForm.heading}
+        </h2>
       )}
       {orderForm.subheading && (
-        <p className="mt-1 text-sm text-gray-600">{orderForm.subheading}</p>
+        <p className="mt-1.5 text-center text-sm leading-relaxed text-lp-muted">
+          {orderForm.subheading}
+        </p>
       )}
 
       <div className="mt-5 space-y-4">
@@ -317,13 +465,56 @@ export default function LandingOrderForm({
           />
         </Field>
 
+        <PackagePicker packages={packages} value={packageKey} onChange={setPackageKey} />
+
+        {/*
+          The SAME component the shop's checkout renders. Shown only when the
+          server resolved a config for this campaign, so a page whose shop has
+          no accounts shows nothing rather than a form that cannot be submitted.
+        */}
+        {advanceConfig && (
+          <AdvancePaymentSection
+            config={advanceConfig}
+            splits={quote?.advanceOptions ?? null}
+            claim={advanceClaim}
+            errors={advanceErrors}
+            onChange={patchAdvanceClaim}
+            quoting={quoting}
+          />
+        )}
+
         <QuantityStepper value={quantity} onChange={setQuantity} max={productSnapshot.available} />
 
-        <DeliveryZones
-          zones={deliveryZones}
-          value={zoneKey}
-          onChange={setZoneKey}
+        {/*
+          WHERE IT IS GOING, asked once. The same component the shop's checkout
+          and the saved-address form use, so the same address means the same
+          thing whichever form captured it.
+        */}
+        <DestinationField
+          id="lp-destination"
+          label="জেলা / এলাকা"
+          value={destination}
+          onChange={(next) => {
+            setDestination(next);
+            // A new destination re-decides everything: a card picked under the
+            // old one must not survive into a place it was never chosen for.
+            setChosenOptionKey(null);
+          }}
         />
+
+        {/*
+          The fallback, reached only after a destination failed to resolve —
+          an unserved district, or a band the merchant has not priced. The
+          reason is stated rather than left as a silent reappearance of cards.
+        */}
+        {askForOption && (
+          <DeliveryOptionChoice
+            options={deliveryOptions}
+            value={chosenOptionKey}
+            onChange={setChosenOptionKey}
+            reason={refusalMessage(refusal)}
+          />
+        )}
 
         <Field id="lp-notes" label="অতিরিক্ত তথ্য (ঐচ্ছিক)">
           <textarea
@@ -339,7 +530,7 @@ export default function LandingOrderForm({
       <OrderSummary
         quote={quote}
         quoting={quoting}
-        zoneLabel={selectedZone?.label}
+        zoneLabel={selectedOption?.label}
       />
 
       {submit.status === "failed" && (
@@ -353,21 +544,21 @@ export default function LandingOrderForm({
 
       <button
         type="submit"
-        disabled={submit.status === "submitting" || !zoneKey}
-        className="mt-5 w-full rounded-xl bg-brand px-4 py-3.5 text-base font-semibold text-white transition hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-60"
+        disabled={submit.status === "submitting" || !optionKeyInForce}
+        className="mt-5 w-full rounded-xl bg-lp-accent px-4 py-3.5 text-base font-semibold text-lp-accent-contrast transition hover:bg-lp-accent disabled:cursor-not-allowed disabled:opacity-60"
       >
         {submit.status === "submitting" ? "পাঠানো হচ্ছে…" : orderForm.submitLabel}
       </button>
 
       {orderForm.notice && (
-        <p className="mt-3 text-center text-xs text-gray-500">{orderForm.notice}</p>
+        <p className="mt-3 text-center text-xs text-lp-muted">{orderForm.notice}</p>
       )}
     </form>
   );
 }
 
 const inputClass =
-  "w-full rounded-lg border border-gray-300 px-3 py-2.5 text-base text-gray-900 outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/20";
+  "w-full rounded-lg border border-lp-border px-3 py-2.5 text-base text-lp-text outline-none transition focus:border-lp-accent focus:ring-2 focus:ring-lp-accent/20";
 
 function Field({
   id,
@@ -384,7 +575,7 @@ function Field({
 }) {
   return (
     <div>
-      <label htmlFor={id} className="mb-1.5 block text-sm font-medium text-gray-900">
+      <label htmlFor={id} className="mb-1.5 block text-sm font-medium text-lp-text">
         {label}
         {required && (
           <span aria-hidden className="ml-0.5 text-sale">
@@ -393,7 +584,7 @@ function Field({
         )}
       </label>
       {children}
-      {helper && <p className="mt-1 text-xs text-gray-500">{helper}</p>}
+      {helper && <p className="mt-1 text-xs text-lp-muted">{helper}</p>}
     </div>
   );
 }
@@ -416,14 +607,14 @@ function QuantityStepper({
 
   return (
     <div>
-      <span className="mb-1.5 block text-sm font-medium text-gray-900">পরিমাণ</span>
-      <div className="inline-flex items-center rounded-lg border border-gray-300">
+      <span className="mb-1.5 block text-sm font-medium text-lp-text">পরিমাণ</span>
+      <div className="inline-flex items-center rounded-lg border border-lp-border">
         <button
           type="button"
           onClick={() => onChange(Math.max(1, value - 1))}
           disabled={value <= 1}
           aria-label="পরিমাণ কমান"
-          className="grid size-11 place-items-center text-lg text-gray-700 disabled:opacity-40"
+          className="grid size-11 place-items-center text-lg text-lp-muted disabled:opacity-40"
         >
           −
         </button>
@@ -435,63 +626,172 @@ function QuantityStepper({
           onClick={() => onChange(Math.min(ceiling, value + 1))}
           disabled={value >= ceiling}
           aria-label="পরিমাণ বাড়ান"
-          className="grid size-11 place-items-center text-lg text-gray-700 disabled:opacity-40"
+          className="grid size-11 place-items-center text-lg text-lp-muted disabled:opacity-40"
         >
           +
         </button>
       </div>
       {value >= ceiling && (
-        <p className="mt-1 text-xs text-gray-500">স্টকে আছে {ceiling}টি</p>
+        <p className="mt-1 text-xs text-lp-muted">স্টকে আছে {ceiling}টি</p>
       )}
     </div>
   );
 }
 
 /**
- * The inside/outside Dhaka radio pair every Bangladeshi single-product page
- * carries — except the labels and the prices are the merchant's, not ours.
+ * The tier picker — ৫০০ গ্রাম beside ১ কেজি, each with its own price.
+ *
+ * CARDS RATHER THAN A DROPDOWN, because the comparison IS the decision: a
+ * shopper weighing two sizes needs both prices, both struck-through figures and
+ * both free gifts visible at once. A select hides every option but one and
+ * turns a comparison into a memory test.
+ *
+ * Renders nothing when the page offers no packages — that page sells its bound
+ * product at one price, and a picker with a single option is a control that
+ * cannot be used.
  */
-function DeliveryZones({
-  zones,
+function PackagePicker({
+  packages,
   value,
   onChange,
 }: {
-  zones: LandingPage["deliveryZones"];
+  packages: NonNullable<LandingPage["packages"]>;
   value: string;
   onChange: (next: string) => void;
 }) {
+  if (!packages.length) return null;
+
   return (
     <fieldset>
-      <legend className="mb-1.5 block text-sm font-medium text-gray-900">
+      <legend className="mb-1.5 block text-sm font-medium text-lp-text">
+        প্যাকেজ বেছে নিন
+        <span aria-hidden className="ml-0.5 text-sale">
+          *
+        </span>
+      </legend>
+      <div className="grid gap-2.5 sm:grid-cols-2">
+        {packages.map((pkg) => {
+          const selected = value === pkg.key;
+
+          return (
+            <label
+              key={pkg.key}
+              className={clsx(
+                "relative flex cursor-pointer flex-col gap-1 rounded-lg border p-3 transition",
+                selected
+                  ? "border-lp-accent bg-lp-accent-soft ring-1 ring-lp-accent"
+                  : "border-lp-border hover:border-lp-border",
+              )}
+            >
+              {/*
+                The merchant's own ribbon — "হট অফার". Positioned over the card's
+                edge rather than inline, so a package with one and a package
+                without still line up.
+              */}
+              {pkg.badge && (
+                <span className="absolute -top-2 right-2 rounded-full bg-sale px-2 py-0.5 text-[10px] font-semibold text-white">
+                  {pkg.badge}
+                </span>
+              )}
+
+              <span className="flex items-center gap-2.5">
+                <input
+                  type="radio"
+                  name="landingPackage"
+                  value={pkg.key}
+                  checked={selected}
+                  onChange={() => onChange(pkg.key)}
+                  className="size-4 shrink-0 accent-[var(--color-brand)]"
+                />
+                <span className="text-sm font-medium text-lp-text">{pkg.label}</span>
+              </span>
+
+              <span className="flex items-baseline gap-2 pl-6.5">
+                <span className="text-base font-bold text-lp-text">
+                  {formatPrice(pkg.price)}
+                </span>
+                {/*
+                  The struck-through figure is the PACKAGE's own, never the
+                  product's — a ৫০০ গ্রাম "was" price shown against a ১ কেজি
+                  package would advertise a far bigger discount than the
+                  merchant offered.
+                */}
+                {typeof pkg.compareAtPrice === "number" && (
+                  <span className="text-xs text-lp-muted line-through">
+                    {formatPrice(pkg.compareAtPrice)}
+                  </span>
+                )}
+              </span>
+
+              {pkg.freeGiftText && (
+                <span className="pl-6.5 text-xs font-medium text-lp-success">
+                  {pkg.freeGiftText}
+                </span>
+              )}
+            </label>
+          );
+        })}
+      </div>
+    </fieldset>
+  );
+}
+
+/**
+ * The shop's delivery options, shown when a destination resolved to none of
+ * them.
+ *
+ * NOT the opening question. A campaign asks where the order is going and works
+ * the charge out; this is what happens when it cannot — an unserved district,
+ * or a band the merchant has configured no option for. The reason is shown
+ * with it, because cards appearing with no explanation read as the form having
+ * changed its mind.
+ */
+function DeliveryOptionChoice({
+  options,
+  value,
+  onChange,
+  reason,
+}: {
+  options: LandingPage["deliveryOptions"];
+  value: string | null;
+  onChange: (next: string) => void;
+  reason: string | null;
+}) {
+  return (
+    <fieldset>
+      <legend className="mb-1.5 block text-sm font-medium text-lp-text">
         ডেলিভারি এলাকা
         <span aria-hidden className="ml-0.5 text-sale">
           *
         </span>
       </legend>
+
+      {reason && <p className="mb-2 text-xs text-lp-muted">{reason}</p>}
+
       <div className="space-y-2">
-        {zones.map((zone) => (
+        {options.map((option) => (
           <label
-            key={zone.key}
+            key={option.key}
             className={clsx(
               "flex cursor-pointer items-center justify-between gap-3 rounded-lg border px-3 py-2.5 transition",
-              value === zone.key
-                ? "border-brand bg-brand/5"
-                : "border-gray-300 hover:border-gray-400",
+              value === option.key
+                ? "border-lp-accent bg-lp-accent-soft"
+                : "border-lp-border hover:border-lp-border",
             )}
           >
             <span className="flex items-center gap-2.5">
               <input
                 type="radio"
-                name="deliveryZone"
-                value={zone.key}
-                checked={value === zone.key}
-                onChange={() => onChange(zone.key)}
+                name="landingDeliveryOption"
+                value={option.key}
+                checked={value === option.key}
+                onChange={() => onChange(option.key)}
                 className="size-4 accent-[var(--color-brand)]"
               />
-              <span className="text-sm text-gray-900">{zone.label}</span>
+              <span className="text-sm text-lp-text">{option.label}</span>
             </span>
-            <span className="text-sm font-semibold text-gray-900">
-              {zone.price === 0 ? "ফ্রি" : formatPrice(zone.price)}
+            <span className="text-sm font-semibold text-lp-text">
+              {option.price === 0 ? "ফ্রি" : formatPrice(option.price)}
             </span>
           </label>
         ))}
@@ -519,7 +819,7 @@ function OrderSummary({
     <dl
       aria-busy={quoting}
       className={clsx(
-        "mt-5 space-y-2 rounded-xl bg-gray-50 p-4 text-sm transition-opacity",
+        "mt-5 space-y-2 rounded-xl bg-lp-surface-alt p-4 text-sm transition-opacity",
         quoting && "opacity-60",
       )}
     >
@@ -533,9 +833,9 @@ function OrderSummary({
           quote && (quote.shippingAmount === 0 ? "ফ্রি" : formatPrice(quote.shippingAmount))
         }
       />
-      <div className="flex items-baseline justify-between border-t border-gray-200 pt-2">
-        <dt className="text-base font-semibold text-gray-900">সর্বমোট</dt>
-        <dd className="text-lg font-bold text-gray-900">
+      <div className="flex items-baseline justify-between border-t border-lp-border pt-2">
+        <dt className="text-base font-semibold text-lp-text">সর্বমোট</dt>
+        <dd className="text-lg font-bold text-lp-text">
           {quote ? formatPrice(quote.totalAmount) : "—"}
         </dd>
       </div>
@@ -546,8 +846,8 @@ function OrderSummary({
 function Row({ label, value }: { label: string; value: string | null | false }) {
   return (
     <div className="flex items-baseline justify-between">
-      <dt className="text-gray-600">{label}</dt>
-      <dd className="font-medium text-gray-900">{value || "—"}</dd>
+      <dt className="text-lp-muted">{label}</dt>
+      <dd className="font-medium text-lp-text">{value || "—"}</dd>
     </div>
   );
 }
@@ -576,26 +876,26 @@ function SuccessPanel({
     <div
       id="order-form"
       role="status"
-      className="rounded-2xl border border-brand/30 bg-brand/5 p-6 text-center"
+      className="rounded-2xl border border-lp-accent/30 bg-lp-accent-soft p-6 text-center"
     >
-      <p className="text-lg font-semibold text-gray-900">
+      <p className="text-lg font-semibold text-lp-text">
         {heading || "ধন্যবাদ! আপনার অর্ডারটি গ্রহণ করা হয়েছে।"}
       </p>
-      <p className="mt-2 text-sm text-gray-700">
+      <p className="mt-2 text-sm text-lp-muted">
         {message || "আমাদের প্রতিনিধি শীঘ্রই আপনার সাথে যোগাযোগ করবে।"}
       </p>
 
       {orderNumber && (
-        <p className="mt-4 rounded-lg bg-white px-4 py-3 text-sm">
-          <span className="text-gray-600">অর্ডার নম্বর</span>
+        <p className="mt-4 rounded-lg bg-lp-surface px-4 py-3 text-sm">
+          <span className="text-lp-muted">অর্ডার নম্বর</span>
           <br />
-          <strong className="text-base tracking-wide text-gray-900">{orderNumber}</strong>
+          <strong className="text-base tracking-wide text-lp-text">{orderNumber}</strong>
         </p>
       )}
 
-      <p className="mt-4 text-xs leading-relaxed text-gray-600">
+      <p className="mt-4 text-xs leading-relaxed text-lp-muted">
         এই অর্ডার নম্বর এবং আপনার মোবাইল নম্বর দিয়ে{" "}
-        <Link href="/track-order" className="font-medium text-brand underline">
+        <Link href="/track-order" className="font-medium text-lp-accent underline">
           ট্র্যাক অর্ডার
         </Link>{" "}
         পেজ থেকে যেকোনো সময় অর্ডারের অবস্থা দেখতে পারবেন।

@@ -34,6 +34,53 @@
   --color-brand-dark: #133f9e;
   --color-accent: #f5b301;
   --color-sale: #e02020;
+
+  /*
+   * ---------------------------------------------------------------------
+   * LANDING PAGE TOKENS — every colour a campaign page draws.
+   *
+   * THESE DEFAULTS ARE THE POINT. A campaign sets only the tokens its
+   * merchant actually chose, as custom properties on the page's own wrapper;
+   * an unset token never appears there, so the value below applies. That is
+   * what makes a page which sets nothing render exactly as landing pages did
+   * before tokens existed — by construction, rather than by a default table
+   * kept in step by hand somewhere else.
+   *
+   * Each value is the literal Tailwind colour the components used to hardcode,
+   * so this block is a faithful transcription and not a redesign:
+   *   --lp-text        was text-gray-900
+   *   --lp-muted       was text-gray-400/500/600/700, now one weight
+   *   --lp-surface     was bg-white
+   *   --lp-surface-alt was bg-gray-50 / bg-gray-100
+   *   --lp-border      was border-gray-200/300/400
+   *
+   * They are declared on :root rather than scoped to the landing route so the
+   * utilities below compile once; nothing outside a campaign page uses them.
+   *
+   * See server/openspec/changes/add-landing-page-theme-tokens, design.md D3.
+   * ---------------------------------------------------------------------
+   */
+  --lp-accent: var(--color-brand);
+  /*
+   * A WASH of the accent rather than a fixed tint, so setting only `accent`
+   * still yields a coherent page — which is the common case and must not
+   * require a merchant to set eight fields. Same `color-mix` the announcement
+   * bar below already uses, for the same reason.
+   */
+  --lp-accent-soft: color-mix(in srgb, var(--lp-accent) 8%, #ffffff);
+  --lp-accent-contrast: #ffffff;
+  --lp-surface: #ffffff;
+  --lp-surface-alt: #f9fafb;
+  --lp-text: #111827;
+  --lp-muted: #4b5563;
+  --lp-border: #e5e7eb;
+  /*
+   * "This is a gain" — the free-gift line, and anything else that means good
+   * news. A token rather than a hardcoded green so a merchant recolouring the
+   * page reaches it too; kept separate from `accent` because a campaign whose
+   * accent IS red would otherwise render its free gift in red.
+   */
+  --lp-success: #15803d;
 }
 
 @theme inline {
@@ -43,6 +90,25 @@
   --color-brand-dark: var(--color-brand-dark);
   --color-accent: var(--color-accent);
   --color-sale: var(--color-sale);
+
+  /*
+   * The landing tokens as utilities: `bg-lp-surface`, `text-lp-text`,
+   * `border-lp-border`, and so on.
+   *
+   * Mapped here so a campaign page's components name a ROLE rather than a
+   * colour. A component that writes `text-lp-muted` keeps working when a
+   * merchant recolours the page, and — the part that matters — a merchant
+   * recolouring the page reaches every such component at once.
+   */
+  --color-lp-accent: var(--lp-accent);
+  --color-lp-accent-soft: var(--lp-accent-soft);
+  --color-lp-accent-contrast: var(--lp-accent-contrast);
+  --color-lp-surface: var(--lp-surface);
+  --color-lp-surface-alt: var(--lp-surface-alt);
+  --color-lp-text: var(--lp-text);
+  --color-lp-muted: var(--lp-muted);
+  --color-lp-border: var(--lp-border);
+  --color-lp-success: var(--lp-success);
   --font-sans: "Outfit", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica,
     Arial, sans-serif;
 

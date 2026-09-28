@@ -652,7 +652,7 @@ async function fetchStoreSettings(): Promise<StoreSettings> {
        *
        * The pair is also cross-checked: LANDING_PAGE mode with no page to serve
        * is not a state the root can act on, so it degrades to WEBSITE rather
-       * than redirecting to `/lp/undefined`.
+       * than redirecting to `/offer/undefined`.
        */
       siteMode:
         data.siteMode === "LANDING_PAGE" && data.activeLandingPage?.slug

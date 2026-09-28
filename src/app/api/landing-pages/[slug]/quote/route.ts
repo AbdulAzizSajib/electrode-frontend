@@ -1,7 +1,7 @@
 import { proxyRequest } from "@/lib/api-proxy";
 
 /**
- * Body: `{ quantity, zoneKey }`.
+ * Body: `{ quantity, deliveryOptionKey, packageKey? }`.
  *
  * Prices the campaign order as the shopper changes quantity or delivery area,
  * so the totals beside the order button are the server's own. The alternative —

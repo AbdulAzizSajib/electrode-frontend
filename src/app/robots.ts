@@ -28,7 +28,7 @@ const GROUP_PREFIXES: Partial<Record<SeoRouteGroup, string[]>> = {
   compare: ["/compare"],
   search: ["/products?"],
   blog: ["/blogs"],
-  landingPage: ["/lp"],
+  landingPage: ["/offer"],
 };
 
 export default async function robots(): Promise<MetadataRoute.Robots> {

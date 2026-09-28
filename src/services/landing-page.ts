@@ -21,7 +21,7 @@ const LANDING_PAGE_REVALIDATE_SECONDS = 30;
  *
  * Note the backend pings `store-settings` alongside this one: publishing or
  * unpublishing a page changes what the SETTINGS payload says about the
- * storefront root, not just what `/lp/<slug>` renders.
+ * storefront root, not just what `/offer/<slug>` renders.
  */
 export const LANDING_PAGES_CACHE_TAG = "landing-pages";
 

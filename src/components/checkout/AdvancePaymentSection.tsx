@@ -135,6 +135,25 @@ export function defaultAdvanceClaim(
   };
 }
 
+/**
+ * The method a claim declares, derived from the account the shopper picked.
+ *
+ * Sent so the request is well-formed — the backend rejects a claim with no
+ * method — but it is NOT what decides how the payment is recorded. The server
+ * re-derives it from the same account, because a shopper who could name a bKash
+ * account and declare it Nagad would send staff to the wrong statement.
+ *
+ * Lives here rather than in either form, so the shop's checkout and a campaign
+ * page cannot derive it differently.
+ */
+export function claimedMethod(
+  config: AdvancePaymentConfig,
+  accountId: string,
+): MobileBankingProvider | "BANK_TRANSFER" {
+  const mobile = config.mobileAccounts.find((a) => a.id === accountId);
+  return mobile ? mobile.provider : "BANK_TRANSFER";
+}
+
 export interface AdvanceClaimErrors {
   choice?: string;
   accountId?: string;

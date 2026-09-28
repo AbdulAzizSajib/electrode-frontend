@@ -1,7 +1,7 @@
 import { proxyRequest } from "@/lib/api-proxy";
 
 /**
- * Body: `{ quantity, zoneKey, fullName?, phone, address, notes?, expectedTotal? }`.
+ * Body: `{ quantity, deliveryOptionKey, destination?, fullName?, phone, address, notes?, expectedTotal? }`.
  *
  * Places the campaign order. Goes through the proxy rather than straight to the
  * backend for two reasons that both matter here:

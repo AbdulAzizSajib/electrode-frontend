@@ -9,7 +9,7 @@ import { resolveMetadata } from "@/lib/seo/resolve-metadata";
 /*
  * A single-product campaign landing page.
  *
- * Reachable at `/lp/<slug>` in BOTH site modes — being the "active" landing
+ * Reachable at `/offer/<slug>` in BOTH site modes — being the "active" landing
  * page decides only what the storefront ROOT serves, never whether this URL
  * works. That matters for ads: a campaign keeps one stable address whether or
  * not the merchant has flipped the toggle.
@@ -22,7 +22,7 @@ import { resolveMetadata } from "@/lib/seo/resolve-metadata";
 
 export async function generateMetadata({
   params,
-}: PageProps<"/lp/[slug]">): Promise<Metadata> {
+}: PageProps<"/offer/[slug]">): Promise<Metadata> {
   const { slug } = await params;
   const [page, settings] = await Promise.all([
     getLandingPageBySlug(slug),
@@ -44,7 +44,7 @@ export async function generateMetadata({
   return resolveMetadata({
     settings,
     routeGroup: "landingPage",
-    path: `/lp/${slug}`,
+    path: `/offer/${slug}`,
     record: page
       ? {
           /*
@@ -63,7 +63,7 @@ export async function generateMetadata({
   });
 }
 
-export default async function LandingPageRoute({ params }: PageProps<"/lp/[slug]">) {
+export default async function LandingPageRoute({ params }: PageProps<"/offer/[slug]">) {
   const { slug } = await params;
 
   // Concurrent: neither depends on the other, and this page is the one place

@@ -96,7 +96,7 @@ export default async function Home() {
    * The site-mode toggle, checked before anything else is fetched.
    *
    * When a merchant is running a campaign, `/` serves that campaign — and
-   * serving it means redirecting to its own `/lp/<slug>` URL rather than
+   * serving it means redirecting to its own `/offer/<slug>` URL rather than
    * rendering it here. Three reasons:
    *
    *  - the landing page needs a shell with NO header, footer or cart drawer,
@@ -115,7 +115,7 @@ export default async function Home() {
    *
    * Only reached when the settings payload reports BOTH the mode and a live
    * page; the service degrades a half-configured pair to WEBSITE, so there is
-   * no way to end up redirecting to `/lp/undefined`.
+   * no way to end up redirecting to `/offer/undefined`.
    *
    * STILL FIRST, ahead of the section config below: in landing-page mode this
    * route renders no sections at all, so reading them — let alone fetching for
@@ -126,7 +126,7 @@ export default async function Home() {
   const settings = await getStoreSettings();
 
   if (settings.siteMode === "LANDING_PAGE" && settings.activeLandingPage) {
-    redirect(`/lp/${settings.activeLandingPage.slug}`);
+    redirect(`/offer/${settings.activeLandingPage.slug}`);
   }
 
   // The merchant's order, filtered to what is on. Order is preserved exactly —

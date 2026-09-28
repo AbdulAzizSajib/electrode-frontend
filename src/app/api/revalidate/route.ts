@@ -55,7 +55,7 @@ const ALLOWED_TAGS = new Set<string>([
    * Campaign landing pages. The backend pings this AND `store-settings` on
    * every landing page write, because publishing or unpublishing a page changes
    * what the settings payload says about the storefront root — not just what
-   * `/lp/<slug>` renders.
+   * `/offer/<slug>` renders.
    */
   LANDING_PAGES_CACHE_TAG,
   /*
