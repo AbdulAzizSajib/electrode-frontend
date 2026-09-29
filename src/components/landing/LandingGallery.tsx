@@ -54,7 +54,7 @@ export default function LandingGallery({
             // `md`, so the browser is told that rather than left to download a
             // full-width image for a half-width slot.
             sizes="(min-width: 768px) 50vw, 100vw"
-            className="object-cover"
+            className="object-contain w-full h-full"
             // The hero image is the largest thing above the fold on a page
             // whose whole job is the first impression.
             priority={activeIndex === 0}

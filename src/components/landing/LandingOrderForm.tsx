@@ -447,6 +447,55 @@ export default function LandingOrderForm({
           />
         </Field>
 
+        {/*
+          WHERE IT IS GOING, asked once, and asked BEFORE the street address.
+
+          The district decides what delivery costs, so it is the question the
+          rest of the form depends on — picking it re-quotes the order and
+          clears any delivery option chosen under a previous one. Asked after
+          the address it inverted the order of the shopper's own thought: they
+          had already written out a full address, and were then asked to name
+          the district again from a list, which reads as being asked the same
+          thing twice.
+
+          Narrow-to-wide is also how the rest of the form runs — district, then
+          the street within it — and it is the order the courier slip is read in.
+
+          The same component the shop's checkout and the saved-address form use,
+          so the same address means the same thing whichever form captured it.
+        */}
+        <DestinationField
+          id="lp-destination"
+          label="জেলা / এলাকা"
+          themed
+          value={destination}
+          onChange={(next) => {
+            setDestination(next);
+            // A new destination re-decides everything: a card picked under the
+            // old one must not survive into a place it was never chosen for.
+            setChosenOptionKey(null);
+          }}
+        />
+
+        {/*
+          The fallback, reached only after a destination failed to resolve — an
+          unserved district, or a band the merchant has not priced. The reason is
+          stated rather than left as a silent reappearance of cards.
+
+          Kept DIRECTLY BELOW the picker that causes it. It is the answer to the
+          district just chosen, and several fields further down it would appear
+          somewhere the shopper is no longer looking — a price they never
+          knowingly agreed to.
+        */}
+        {askForOption && (
+          <DeliveryOptionChoice
+            options={deliveryOptions}
+            value={chosenOptionKey}
+            onChange={setChosenOptionKey}
+            reason={refusalMessage(refusal)}
+          />
+        )}
+
         <Field
           id="lp-address"
           label={orderForm.fields.address.label}
@@ -465,12 +514,45 @@ export default function LandingOrderForm({
           />
         </Field>
 
+        {/*
+          DIRECTLY AFTER THE ADDRESS, because it is a note ABOUT the address and
+          the delivery — "leave it in the afternoon", "ring the other bell". Kept
+          with the where-to-send-it block, the shopper writes it while that is
+          still what they are thinking about.
+
+          It is optional, and it used to sit at the very end for that reason. But
+          the end of this form is the package, the payment and the total — money
+          decisions — and an optional free-text box dropped in among those is a
+          pause at the worst possible moment, right before the submit button.
+        */}
+        <Field id="lp-notes" label="অতিরিক্ত তথ্য (ঐচ্ছিক)">
+          {/* Every other field on this form says what belongs in it; this one
+              rendered as an unexplained empty box, which on an OPTIONAL field
+              reads as something the shopper has failed to fill in rather than
+              something they may skip. */}
+          <textarea
+            id="lp-notes"
+            value={notes}
+            onChange={(event) => setNotes(event.target.value)}
+            placeholder="যেমন: বিকেলে ডেলিভারি দিন, অন্য রঙ চাই"
+            rows={2}
+            className={clsx(inputClass, "resize-y")}
+          />
+        </Field>
+
         <PackagePicker packages={packages} value={packageKey} onChange={setPackageKey} />
 
         {/*
           The SAME component the shop's checkout renders. Shown only when the
           server resolved a config for this campaign, so a page whose shop has
           no accounts shows nothing rather than a form that cannot be submitted.
+
+          `themed` is what makes it belong to THIS page. The panel draws in `lp-*`
+          tokens throughout, and this page's wrapper has redefined those to the
+          merchant's colours — but its two claim fields come from the account
+          forms' shared `Field`, whose greys are NOT what those tokens resolve to.
+          Without the flag the step renders a grey slab in the middle of a themed
+          page; with it, only this caller moves and the shop checkout is untouched.
         */}
         {advanceConfig && (
           <AdvancePaymentSection
@@ -480,57 +562,21 @@ export default function LandingOrderForm({
             errors={advanceErrors}
             onChange={patchAdvanceClaim}
             quoting={quoting}
+            themed
           />
         )}
 
         <QuantityStepper value={quantity} onChange={setQuantity} max={productSnapshot.available} />
 
-        {/*
-          WHERE IT IS GOING, asked once. The same component the shop's checkout
-          and the saved-address form use, so the same address means the same
-          thing whichever form captured it.
-        */}
-        <DestinationField
-          id="lp-destination"
-          label="জেলা / এলাকা"
-          value={destination}
-          onChange={(next) => {
-            setDestination(next);
-            // A new destination re-decides everything: a card picked under the
-            // old one must not survive into a place it was never chosen for.
-            setChosenOptionKey(null);
-          }}
-        />
-
-        {/*
-          The fallback, reached only after a destination failed to resolve —
-          an unserved district, or a band the merchant has not priced. The
-          reason is stated rather than left as a silent reappearance of cards.
-        */}
-        {askForOption && (
-          <DeliveryOptionChoice
-            options={deliveryOptions}
-            value={chosenOptionKey}
-            onChange={setChosenOptionKey}
-            reason={refusalMessage(refusal)}
-          />
-        )}
-
-        <Field id="lp-notes" label="অতিরিক্ত তথ্য (ঐচ্ছিক)">
-          <textarea
-            id="lp-notes"
-            value={notes}
-            onChange={(event) => setNotes(event.target.value)}
-            rows={2}
-            className={clsx(inputClass, "resize-y")}
-          />
-        </Field>
       </div>
 
       <OrderSummary
         quote={quote}
         quoting={quoting}
         zoneLabel={selectedOption?.label}
+        productName={productSnapshot.name}
+        packageLabel={packages.find((pkg) => pkg.key === packageKey)?.label}
+        imageUrl={productSnapshot.images[0]?.url}
       />
 
       {submit.status === "failed" && (
@@ -806,14 +852,37 @@ function DeliveryOptionChoice({
  * Tax is shown only when there is any: a "৳0 tax" row on a page selling an
  * untaxed product is noise the shopper has to read past.
  */
+/**
+ * What is being bought, and what it comes to.
+ *
+ * IT NAMES THE THING FIRST. This used to open at "পণ্যের মূল্য" — a price with
+ * no subject — so a shopper who had scrolled past the package cards and was
+ * looking at the figure they were about to pay had nothing on screen saying
+ * WHICH tier it was for. On a page whose whole job is to sell one product in
+ * one scroll, the last block before the button is exactly where that has to be
+ * unambiguous: the tiers differ in price AND in what ships, and the only thing
+ * distinguishing ৯৯০ from ১৩৯০ was a card further up.
+ *
+ * The thumbnail is the product's first image, the same one the gallery opens
+ * on, so the summary shows the thing the page has been showing throughout.
+ * Omitted entirely when the product has no image rather than reserving an empty
+ * square — a missing thumbnail costs the picture, not the alignment.
+ */
 function OrderSummary({
   quote,
   quoting,
   zoneLabel,
+  productName,
+  packageLabel,
+  imageUrl,
 }: {
   quote: LandingPageQuoteResult | null;
   quoting: boolean;
   zoneLabel?: string;
+  productName: string;
+  /** The chosen tier, e.g. "২ পিস কম্বো". Absent on a page with no packages. */
+  packageLabel?: string;
+  imageUrl?: string;
 }) {
   return (
     <dl
@@ -823,6 +892,36 @@ function OrderSummary({
         quoting && "opacity-60",
       )}
     >
+      {/*
+        NOT a <dt>/<dd> pair: this is the subject the list below describes, not
+        another term-and-value row in it. It sits above the border-less rows as a
+        heading would.
+      */}
+      <div className="flex items-center gap-3 border-b border-lp-border pb-3">
+        {imageUrl && (
+          // eslint-disable-next-line @next/next/no-img-element -- merchant-supplied host, not in next.config's allow-list
+          <img
+            src={imageUrl}
+            alt=""
+            className="size-12 shrink-0 rounded-lg border border-lp-border bg-lp-surface object-cover"
+            loading="lazy"
+          />
+        )}
+        <div className="min-w-0">
+          <p className="font-semibold text-lp-text">{productName}</p>
+          {/*
+            Only when it SAYS something the name does not. A package tier often
+            resolves a product named after the tier itself — this campaign's
+            "২ পিস কম্বো" tier ships a product called "২ পিস কম্বো" — and printing
+            both puts the same words on two lines, which reads as a rendering
+            fault rather than as two facts.
+          */}
+          {packageLabel && packageLabel.trim() !== productName.trim() && (
+            <p className="mt-0.5 text-xs text-lp-muted">{packageLabel}</p>
+          )}
+        </div>
+      </div>
+
       <Row label="পণ্যের মূল্য" value={quote && formatPrice(quote.subtotal)} />
       {quote && quote.taxAmount > 0 && (
         <Row label="ট্যাক্স" value={formatPrice(quote.taxAmount)} />

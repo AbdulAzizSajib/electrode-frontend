@@ -191,6 +191,54 @@ export interface LandingPageProduct {
   isOrderable: boolean;
 }
 
+/**
+ * The sections a campaign page can be built from.
+ *
+ * MIRRORS `LANDING_SECTION_KEYS` in the backend's landing-page.constant.ts, and
+ * carries the standing obligation to be kept in step with it. The packages never
+ * import each other, so a key renamed on one side produces NO type error here —
+ * the section simply stops resolving and vanishes from the page. Pinned by
+ * `verify-landing-section-shapes` for that reason.
+ */
+export type LandingSectionKey =
+  | "HERO"
+  | "OFFER"
+  | "HIGHLIGHTS"
+  | "WHY_US"
+  | "BODY"
+  | "USAGE_IDEAS"
+  | "QUOTES"
+  | "FAQS"
+  | "CTA"
+  | "CUSTOM";
+
+/** How a custom section arranges its own content. Mirrors the backend. */
+export type LandingCustomSectionLayout = "PROSE" | "CENTERED" | "HIGHLIGHT";
+
+/**
+ * One entry in a campaign page's section order.
+ *
+ * ORDER IS THE DATA: this entry's position in the array IS where the section
+ * renders. Never sort this list.
+ *
+ * The four optional fields belong to `CUSTOM` alone — a built-in section's
+ * content lives in its own field on `LandingPage`.
+ */
+export interface LandingSectionConfigEntry {
+  key: LandingSectionKey;
+  /**
+   * False hides the section WITHOUT clearing its content, which is the whole
+   * distinction: an empty section and a disabled one are different states, and
+   * only the second restores for free.
+   */
+  enabled: boolean;
+  /** A CUSTOM section's identity, stable across saves. Position is not one. */
+  id?: string;
+  heading?: string;
+  /** Merchant-authored HTML. Sanitise at render — see lib/sanitize-html.ts. */
+  body?: string;
+  layout?: LandingCustomSectionLayout;
+}
 export interface LandingPage {
   id: string;
   title: string;
@@ -263,6 +311,18 @@ export interface LandingPage {
    */
   advancePayment: AdvancePaymentConfig | null;
   theme: LandingPageTheme | null;
+  /**
+   * Which sections this page renders, and in what order.
+   *
+   * NULL MEANS "NEVER CONFIGURED", and resolves to the default order — which is
+   * exactly what every campaign created before the section editor existed sends.
+   * It is not an error state and must never be treated as one: resolving it to
+   * an empty page would blank every existing campaign on deploy.
+   *
+   * Read it only through `resolveLandingSections`, which also tolerates a stored
+   * order naming a section this build does not have, or omitting one it does.
+   */
+  sectionConfig?: LandingSectionConfigEntry[] | null;
   /**
    * The SIZE of the limited run, as the merchant configured it.
    *

@@ -7,16 +7,41 @@ interface FieldProps extends InputHTMLAttributes<HTMLInputElement> {
   label: string;
   name: string;
   error?: string;
+  /**
+   * Draws the control in the campaign-page theme tokens instead of this app's
+   * literal greys.
+   *
+   * OPT-IN, AND IT HAS TO BE. This primitive is the account forms' shared field
+   * — login, register, password, addresses, guest order lookup and checkout —
+   * and every one of those must keep the shop's own colours no matter what a
+   * merchant chose for a campaign. So the default branch below is untouched and
+   * only a caller that has said so follows the theme.
+   *
+   * The reason it is a PROP rather than a wrapper's descendant selector: a
+   * `[&_input]:text-lp-text` on an ancestor and the class string below land at
+   * the same specificity, so which one wins is decided by the order Tailwind
+   * happens to emit them in — it rendered grey. A prop is the same decision made
+   * where it cannot be lost.
+   *
+   * Passing `className` is not the alternative either: the `{...props}` spread
+   * below puts a caller's `className` AFTER this one, replacing the control's
+   * styling rather than adding to it.
+   *
+   * See server/openspec/changes/add-landing-page-theme-tokens.
+   */
+  themed?: boolean;
 }
 
-export function Field({ label, name, error, ...props }: FieldProps) {
+export function Field({ label, name, error, themed = false, ...props }: FieldProps) {
   const errorId = `${name}-error`;
 
   return (
     <div>
       <label
         htmlFor={name}
-        className="mb-1.5 block text-sm font-medium text-gray-700"
+        className={`mb-1.5 block text-sm font-medium ${
+          themed ? "text-lp-muted" : "text-gray-700"
+        }`}
       >
         {label}
       </label>
@@ -25,10 +50,16 @@ export function Field({ label, name, error, ...props }: FieldProps) {
         name={name}
         aria-invalid={error ? true : undefined}
         aria-describedby={error ? errorId : undefined}
-        className={`w-full rounded border px-4 py-3 text-sm text-gray-800 outline-none transition-colors placeholder:text-gray-400 ${
+        className={`w-full rounded border px-4 py-3 text-sm outline-none transition-colors ${
+          themed
+            ? "bg-lp-surface text-lp-text placeholder:text-lp-muted/70"
+            : "text-gray-800 placeholder:text-gray-400"
+        } ${
           error
             ? "border-red-400 focus:border-red-500"
-            : "border-gray-300 focus:border-brand"
+            : themed
+              ? "border-lp-border focus:border-lp-accent"
+              : "border-gray-300 focus:border-brand"
         }`}
         {...props}
       />

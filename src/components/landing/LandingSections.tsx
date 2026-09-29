@@ -109,7 +109,7 @@ export function LandingQuotes({ items }: { items: LandingPageQuote[] | null }) {
             */}
             {typeof item.rating === "number" && (
               <div className="mb-2">
-                <StarRating rating={item.rating} />
+                <StarRating rating={item.rating} themed />
               </div>
             )}
             {/*

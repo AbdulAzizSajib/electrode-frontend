@@ -45,6 +45,7 @@ export default function SearchableSelect({
   describedBy,
   disabled,
   name,
+  themed = false,
 }: {
   /** The id the label points at. The text input carries it. */
   id: string;
@@ -69,6 +70,18 @@ export default function SearchableSelect({
    * `<select>` it stands in for when the form is read by anything but React.
    */
   name?: string;
+  /**
+   * Draws the control in the campaign-page `lp-*` tokens instead of this app's
+   * literal greys.
+   *
+   * OPT-IN, because this picker is shared: the shop's checkout renders it and so
+   * does a landing page, and the shop's copy must keep the shop's colours
+   * whatever a merchant chose for a campaign. Only a caller that has said so
+   * follows the theme; the default branch is the original styling, untouched.
+   *
+   * See server/openspec/changes/add-landing-page-theme-tokens.
+   */
+  themed?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -206,7 +219,10 @@ export default function SearchableSelect({
         {open && (
           <Search
             size={16}
-            className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+            className={clsx(
+              "pointer-events-none absolute left-3 top-1/2 -translate-y-1/2",
+              themed ? "text-lp-muted" : "text-gray-400",
+            )}
             aria-hidden
           />
         )}
@@ -234,11 +250,16 @@ export default function SearchableSelect({
           onFocus={openList}
           onKeyDown={onKeyDown}
           className={clsx(
-            "w-full rounded border py-3 pr-16 text-sm text-gray-800 outline-none transition-colors placeholder:text-gray-400 disabled:bg-gray-50 disabled:text-gray-400",
+            "w-full rounded border py-3 pr-16 text-sm outline-none transition-colors",
+            themed
+              ? "bg-lp-surface text-lp-text placeholder:text-lp-muted/70 disabled:bg-lp-surface-alt disabled:text-lp-muted"
+              : "text-gray-800 placeholder:text-gray-400 disabled:bg-gray-50 disabled:text-gray-400",
             open ? "pl-9" : "pl-4",
             invalid
               ? "border-red-400 focus:border-red-500"
-              : "border-gray-300 focus:border-brand",
+              : themed
+                ? "border-lp-border focus:border-lp-accent"
+                : "border-gray-300 focus:border-brand",
           )}
         />
 
@@ -249,7 +270,9 @@ export default function SearchableSelect({
               onClick={clear}
               aria-label="Clear selection"
               className={clsx(
-                "rounded p-1 text-gray-400 hover:text-gray-600",
+                themed
+                  ? "rounded p-1 text-lp-muted hover:text-lp-text"
+                  : "rounded p-1 text-gray-400 hover:text-gray-600",
                 FOCUS_RING,
               )}
             >
@@ -259,7 +282,8 @@ export default function SearchableSelect({
           <ChevronDown
             size={16}
             className={clsx(
-              "pointer-events-none text-gray-400 transition-transform",
+              "pointer-events-none transition-transform",
+              themed ? "text-lp-muted" : "text-gray-400",
               open && "rotate-180",
             )}
             aria-hidden
@@ -276,10 +300,22 @@ export default function SearchableSelect({
              of the screen, and a list taller than this puts its own rows behind
              it. `overscroll-contain` keeps a flick inside the list from
              scrolling the checkout page underneath it. */
-          className="absolute z-20 mt-1 max-h-60 w-full overflow-y-auto overscroll-contain rounded border border-gray-200 bg-white py-1 shadow-lg"
+          className={clsx(
+            "absolute z-20 mt-1 max-h-60 w-full overflow-y-auto overscroll-contain rounded border py-1 shadow-lg",
+            themed
+              ? "border-lp-border bg-lp-surface"
+              : "border-gray-200 bg-white",
+          )}
         >
           {results.length === 0 ? (
-            <li className="px-4 py-3 text-sm text-gray-500">{emptyMessage}</li>
+            <li
+              className={clsx(
+                "px-4 py-3 text-sm",
+                themed ? "text-lp-muted" : "text-gray-500",
+              )}
+            >
+              {emptyMessage}
+            </li>
           ) : (
             results.map((option, index) => {
               const selected = option.value === value;
@@ -299,20 +335,44 @@ export default function SearchableSelect({
                   onMouseEnter={() => setActiveIndex(index)}
                   className={clsx(
                     "flex cursor-pointer items-center justify-between gap-2 px-4 py-2.5 text-sm",
-                    index === activeIndex ? "bg-brand/10" : "bg-white",
-                    selected ? "font-semibold text-gray-900" : "text-gray-700",
+                    themed
+                      ? index === activeIndex
+                        ? "bg-lp-accent-soft"
+                        : "bg-lp-surface"
+                      : index === activeIndex
+                        ? "bg-brand/10"
+                        : "bg-white",
+                    themed
+                      ? selected
+                        ? "font-semibold text-lp-text"
+                        : "text-lp-muted"
+                      : selected
+                        ? "font-semibold text-gray-900"
+                        : "text-gray-700",
                   )}
                 >
                   <span className="min-w-0">
                     <span className="block truncate">{option.label}</span>
                     {option.hint && (
-                      <span className="mt-0.5 block truncate text-xs text-gray-500">
+                      <span
+                        className={clsx(
+                          "mt-0.5 block truncate text-xs",
+                          themed ? "text-lp-muted" : "text-gray-500",
+                        )}
+                      >
                         {option.hint}
                       </span>
                     )}
                   </span>
                   {selected && (
-                    <Check size={15} className="shrink-0 text-brand" aria-hidden />
+                    <Check
+                      size={15}
+                      className={clsx(
+                        "shrink-0",
+                        themed ? "text-lp-accent" : "text-brand",
+                      )}
+                      aria-hidden
+                    />
                   )}
                 </li>
               );

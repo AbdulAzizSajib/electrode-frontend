@@ -34,12 +34,26 @@ import type {
  * caller owns the frame; see the note at the mount point in CheckoutForm.tsx.
  *
  * ONE FILLED SURFACE, AND NOTHING FILLED INSIDE IT. Everything that opens once
- * a choice is made sits on a single grey plate, so the step reads as one place
- * to finish rather than a stack of loose blocks — and every white thing on it
- * (the account cards, the details panel, the two fields) is a thing to touch.
- * That is why the instruction no longer carries a grey box of its own: a grey
- * card on a grey plate is two borders drawn around one sentence, and it takes
- * the white surfaces' only job away from them.
+ * a choice is made sits on a single `lp-surface-alt` plate, so the step reads as
+ * one place to finish rather than a stack of loose blocks — and every
+ * `lp-surface` thing on it (the account cards, the details panel, the two
+ * fields) is a thing to touch. That is why the instruction carries no plate of
+ * its own: a filled card on a filled plate is two borders drawn around one
+ * sentence, and it takes the raised surfaces' only job away from them.
+ *
+ * IT DRAWS IN `lp-*` TOKENS, NOT LITERAL GREYS, BECAUSE IT HAS TWO CALLERS.
+ * Checkout renders it unthemed and a CAMPAIGN page renders it inside a wrapper
+ * that redefines those tokens to the merchant's own colours. The defaults in
+ * globals.css are a faithful transcription of the greys this file used to name
+ * (`lp-text` was gray-900, `lp-surface` was white, `lp-surface-alt` was gray-50,
+ * `lp-border` was gray-200), so the shop's checkout renders EXACTLY as before
+ * while a campaign gets a panel that matches the page around it instead of a
+ * grey slab in the middle of it.
+ *
+ * Selected states name `lp-accent`, never `brand`: `brand` is the shop's colour,
+ * and on a campaign page that is precisely the colour this panel must not use —
+ * it would pick the selected card out in a hue that appears nowhere else on the
+ * page. See server/openspec/changes/add-landing-page-theme-tokens.
  *
  * The two choice cards stay OUTSIDE the plate, on the card's own white, because
  * they are the question being asked rather than the work of answering it — and
@@ -217,8 +231,8 @@ function CopyableValue({ value, label }: { value: string; label: string }) {
   return (
     <div className="flex items-center justify-between gap-3">
       <div className="min-w-0">
-        <p className="text-xs text-gray-500">{label}</p>
-        <p className="font-semibold break-words text-gray-900 tabular-nums">
+        <p className="text-xs text-lp-muted">{label}</p>
+        <p className="font-semibold break-words text-lp-text tabular-nums">
           {value}
         </p>
       </div>
@@ -226,14 +240,14 @@ function CopyableValue({ value, label }: { value: string; label: string }) {
         type="button"
         onClick={() => void copy()}
         className={clsx(
-          "flex min-h-11 shrink-0 items-center gap-1.5 rounded-lg border border-gray-300 px-3 text-xs font-semibold text-gray-700 transition-colors hover:bg-gray-50 motion-reduce:transition-none",
+          "flex min-h-11 shrink-0 items-center gap-1.5 rounded-lg border border-lp-border px-3 text-xs font-semibold text-lp-muted transition-colors hover:bg-lp-surface-alt motion-reduce:transition-none",
           FOCUS_RING,
         )}
         aria-label={`Copy ${label}`}
       >
         {copied ? (
           <>
-            <Check size={14} className="text-green-600" /> Copied
+            <Check size={14} className="text-lp-success" /> Copied
           </>
         ) : (
           <>
@@ -272,7 +286,7 @@ function CopyableValue({ value, label }: { value: string; label: string }) {
 function AccountMark({ src, fallback }: { src?: string; fallback: ReactNode }) {
   if (!src) {
     return (
-      <span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-gray-100 text-gray-500">
+      <span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-lp-surface-alt text-lp-muted">
         {fallback}
       </span>
     );
@@ -374,8 +388,8 @@ function AccountCard({
       className={clsx(
         "flex min-h-11 w-full items-center gap-2.5 rounded-lg border p-3 text-left transition-colors motion-reduce:transition-none",
         selected
-          ? "border-brand bg-brand/10 ring-1 ring-brand"
-          : "border-gray-200 bg-white hover:border-gray-300",
+          ? "border-lp-accent bg-lp-accent-soft ring-1 ring-lp-accent"
+          : "border-lp-border bg-lp-surface hover:border-lp-accent/50",
         FOCUS_RING,
       )}
     >
@@ -383,8 +397,8 @@ function AccountCard({
       {/* `min-w-0` so a long bank name wraps inside the card instead of pushing
           the card wider than the grid column it sits in. */}
       <span className="flex min-w-0 flex-col items-start gap-0.5">
-        <span className="text-sm font-semibold text-gray-900">{title}</span>
-        {note && <span className="text-xs text-gray-500">{note}</span>}
+        <span className="text-sm font-semibold text-lp-text">{title}</span>
+        {note && <span className="text-xs text-lp-muted">{note}</span>}
       </span>
     </button>
   );
@@ -397,6 +411,7 @@ export default function AdvancePaymentSection({
   errors,
   onChange,
   quoting,
+  themed = false,
 }: {
   /** The merchant's configured accounts. Only reached with `enabled` true. */
   config: AdvancePaymentConfig;
@@ -410,6 +425,17 @@ export default function AdvancePaymentSection({
   onChange: (patch: Partial<AdvanceClaimDraft>) => void;
   /** A re-quote is in flight, so the figures on screen are about to move. */
   quoting: boolean;
+  /**
+   * Draws the two claim fields in the campaign theme rather than the shop's greys.
+   *
+   * Only the landing page passes it. Everything else in this panel already names
+   * `lp-*` tokens, whose defaults transcribe the greys it used to hardcode, so
+   * checkout is unaffected by those. The two `Field` controls are the exception:
+   * `Field` is shared with the account forms and its greys (gray-700 label,
+   * gray-800 text) are NOT what the `lp-*` defaults resolve to, so theming them
+   * unconditionally would quietly restyle checkout, login and register too.
+   */
+  themed?: boolean;
 }) {
   const { mobileAccounts, bankAccounts } = config;
 
@@ -555,7 +581,7 @@ export default function AdvancePaymentSection({
       </fieldset>
 
       {claim.choice && (
-        <div className="space-y-5 rounded-xl border border-gray-200 bg-gray-50 p-4 sm:p-5">
+        <div className="space-y-5 rounded-xl border border-lp-border bg-lp-surface-alt p-4 sm:p-5">
           {/*
               WHAT TO DO, IN THE ORDER OF DOING IT — not two figures in a table.
 
@@ -579,7 +605,7 @@ export default function AdvancePaymentSection({
             */}
           <div className="space-y-3">
             <div>
-              <p className="text-center text-sm font-bold text-gray-900">
+              <p className="text-center text-sm font-bold text-lp-text">
                 কিভাবে অর্ডার কনফার্ম করবেন?
               </p>
 
@@ -588,13 +614,13 @@ export default function AdvancePaymentSection({
                   refuses a ৳0 advance because there is no transaction to check
                   against. Said here rather than left as "অগ্রিম 0.00 Tk পাঠান". */}
               {!quoting && split !== null && split.advanceAmount <= 0 ? (
-                <p className="mt-1.5 text-center text-sm leading-relaxed text-gray-700">
+                <p className="mt-1.5 text-center text-sm leading-relaxed text-lp-muted">
                   এই অর্ডারে ডেলিভারি চার্জ ফ্রি, তাই অগ্রিম পাঠানোর কিছু নেই।
                   উপরে <span className="font-semibold">Full payment</span> বেছে
                   নিন।
                 </p>
               ) : (
-                <p className="mt-1.5 text-center text-sm leading-relaxed text-gray-700">
+                <p className="mt-1.5 text-center text-sm leading-relaxed text-lp-muted">
                   {claim.choice === "FULL" ? "সম্পূর্ণ " : "অগ্রিম "}
                   <span className="text-base font-bold text-sale tabular-nums">
                     {quoting || !split ? "…" : formatPrice(split.advanceAmount)}
@@ -609,7 +635,7 @@ export default function AdvancePaymentSection({
               )}
             </div>
 
-            <p className="rounded-lg border border-green-200 bg-green-50 px-3 py-2.5 text-center text-sm leading-relaxed text-green-800">
+            <p className="rounded-lg border border-lp-success/25 bg-lp-success/10 px-3 py-2.5 text-center text-sm leading-relaxed text-lp-success">
               {quoting || !split ? (
                 "ডেলিভারির সময় কত দিতে হবে, হিসাব করা হচ্ছে…"
               ) : split.balanceAmount > 0 ? (
@@ -641,7 +667,7 @@ export default function AdvancePaymentSection({
                   pickers use.
                 */
               <div
-                className="grid grid-cols-2 gap-2 rounded-lg bg-gray-200 p-1"
+                className="grid grid-cols-2 gap-2 rounded-lg border border-lp-border bg-lp-border/45 p-1"
                 role="group"
                 aria-label="How you are paying"
               >
@@ -719,13 +745,13 @@ export default function AdvancePaymentSection({
                 shopper might send to by mistake.
               */}
             {selectedMobile && (
-              <div className="space-y-3 rounded-lg border border-gray-200 bg-white p-4">
+              <div className="space-y-3 rounded-lg border border-lp-border bg-lp-surface p-4">
                 <CopyableValue
                   label={`${PROVIDER_LABEL[selectedMobile.provider]} number (${selectedMobile.accountType})`}
                   value={selectedMobile.number}
                 />
                 {/* {selectedMobile.accountType && (
-                  <p className="text-xs text-gray-500">
+                  <p className="text-xs text-lp-muted">
                     Account type: {selectedMobile.accountType}
                   </p>
                 )} */}
@@ -739,7 +765,7 @@ export default function AdvancePaymentSection({
             )}
 
             {selectedBank && (
-              <div className="space-y-3 rounded-lg border border-gray-200 bg-white p-4">
+              <div className="space-y-3 rounded-lg border border-lp-border bg-lp-surface p-4">
                 <CopyableValue label="Bank" value={selectedBank.bankName} />
                 <CopyableValue
                   label="Account name"
@@ -750,7 +776,7 @@ export default function AdvancePaymentSection({
                   value={selectedBank.accountNumber}
                 />
                 {selectedBank.branch && (
-                  <p className="text-xs text-gray-500">
+                  <p className="text-xs text-lp-muted">
                     Branch: {selectedBank.branch}
                   </p>
                 )}
@@ -770,14 +796,26 @@ export default function AdvancePaymentSection({
               they sent. Both required — a claim missing either is one nobody can
               check against a statement.
             */}
-          {/* The inputs are painted white rather than left transparent: `Field`
-              draws no background of its own, which is right everywhere else on
-              this form and wrong on the grey plate, where a field a shopper has
-              to type into would be the same colour as the panel around it.
-              Reached from here because `Field` spreads its props onto the input
-              AFTER its own class string, so a `className` passed in replaces the
-              control instead of adding to it. */}
-          <div className="space-y-4 [&_input]:bg-white">
+          {/* THE TWO FIELDS FOLLOW THE THEME VIA `themed`, not via a class here.
+
+              `Field` is the account forms' shared primitive — login, register,
+              addresses, guest lookup, checkout — and it names literal greys that
+              are right in all of those. On a CAMPAIGN page they are wrong: the
+              plate around them follows the merchant's colours and the fields
+              would sit grey in the middle of it.
+
+              A wrapper's `[&_input]:…` was tried and does not hold: it lands at
+              the same specificity as `Field`'s own class string, so which wins is
+              decided by the order Tailwind emits them — it rendered grey. And a
+              `className` cannot do it either, because `Field` spreads a caller's
+              props AFTER its own classes, replacing the control's styling rather
+              than adding to it.
+
+              Themed, the input is also painted `lp-surface` rather than left
+              transparent: `Field` draws no background of its own, which is right
+              everywhere else and wrong on this plate, where a field a shopper has
+              to type into would otherwise be the same colour as the panel. */}
+          <div className="space-y-4">
             <Field
               label={senderLabel}
               name="advanceSender"
@@ -787,6 +825,7 @@ export default function AdvancePaymentSection({
               placeholder={senderPlaceholder}
               inputMode={channel === "BANK" ? "text" : "tel"}
               maxLength={120}
+              themed={themed}
             />
             <Field
               label={
@@ -802,6 +841,7 @@ export default function AdvancePaymentSection({
                 channel === "BANK" ? "e.g. 884512309" : "ট্রানজেকশন আইডি লিখুন"
               }
               maxLength={150}
+              themed={themed}
             />
           </div>
         </div>
@@ -846,8 +886,8 @@ function ChoiceRow({
       className={clsx(
         "flex h-full w-full items-start gap-3 rounded-xl border p-4 text-left transition-colors motion-reduce:transition-none",
         selected
-          ? "border-brand bg-brand/5 ring-1 ring-brand"
-          : "border-gray-200 hover:border-gray-300",
+          ? "border-lp-accent bg-lp-accent-soft ring-1 ring-lp-accent"
+          : "border-lp-border hover:border-lp-accent/50",
         FOCUS_RING,
       )}
     >
@@ -857,11 +897,11 @@ function ChoiceRow({
       <span
         className={clsx(
           "mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-full border-2",
-          selected ? "border-brand" : "border-gray-300",
+          selected ? "border-lp-accent" : "border-lp-border",
         )}
         aria-hidden
       >
-        {selected && <span className="size-2 rounded-full bg-brand" />}
+        {selected && <span className="size-2 rounded-full bg-lp-accent" />}
       </span>
       {/* WHAT IT IS ON THE LEFT, WHAT IT COSTS ON THE RIGHT, on one line.
 
@@ -881,14 +921,14 @@ function ChoiceRow({
           a block that grows a second line when a description is passed. */}
       <span className="flex min-w-0 flex-1 items-baseline gap-3">
         <span className="min-w-0 flex-1">
-          <span className="block text-sm font-medium text-gray-900">{title}</span>
+          <span className="block text-sm font-medium text-lp-text">{title}</span>
           {description && (
-            <span className="mt-0.5 block text-xs text-gray-500">
+            <span className="mt-0.5 block text-xs text-lp-muted">
               {description}
             </span>
           )}
         </span>
-        <span className="shrink-0 text-base font-bold text-gray-900 tabular-nums">
+        <span className="shrink-0 text-base font-bold text-lp-text tabular-nums">
           {/* Dashed rather than blank before a delivery option is chosen: there
               is genuinely no figure yet, and showing ৳0 would read as "this is
               free". */}
@@ -902,13 +942,18 @@ function ChoiceRow({
 /**
  * One half of the channel switch.
  *
- * `text-gray-600` and not `gray-500` on the inactive half: on the track, 500
- * lands at 4.4:1, which is a fail on 14px text and reads as disabled rather than
- * unselected.
+ * `text-lp-muted` and not a lighter weight on the inactive half: at gray-500 the
+ * label lands at 4.4:1, which is a fail on 14px text and reads as disabled
+ * rather than unselected. The token is the one muted weight this panel uses, so
+ * the inactive half cannot drift lighter than the rest of it.
  *
- * The track is `gray-200` rather than `gray-100` because it now sits on the
- * step's `gray-50` plate — one step of grey apart is a tint nobody sees, and a
- * switch nobody sees is a switch nobody presses.
+ * THE TRACK IS DRAWN FROM `lp-border`, NOT `lp-surface-alt`, and that is the whole
+ * reason it is visible: the plate this switch sits on is itself `lp-surface-alt`,
+ * so a track naming that same token would be the same colour as its own
+ * background at every theme — one step of grey apart is a tint nobody sees, and a
+ * switch nobody sees is a switch nobody presses. It keeps a border for the same
+ * reason, so the track still has an edge where a merchant's surface and border
+ * colours sit close together.
  */
 function ChannelTab({
   active,
@@ -927,8 +972,8 @@ function ChannelTab({
       className={clsx(
         "flex min-h-11 items-center justify-center rounded-md px-3 text-sm font-semibold transition-colors motion-reduce:transition-none",
         active
-          ? "bg-white text-gray-900 shadow-sm"
-          : "text-gray-600 hover:text-gray-900",
+          ? "bg-lp-surface text-lp-text shadow-sm"
+          : "text-lp-muted hover:text-lp-text",
         FOCUS_RING,
       )}
     >

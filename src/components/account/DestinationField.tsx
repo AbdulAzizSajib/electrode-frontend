@@ -38,6 +38,7 @@ export default function DestinationField({
   error,
   disabled,
   name,
+  themed = false,
 }: {
   id?: string;
   label?: string;
@@ -46,6 +47,8 @@ export default function DestinationField({
   error?: string;
   disabled?: boolean;
   name?: string;
+  /** Follows the campaign theme rather than the shop's greys. Landing page only. */
+  themed?: boolean;
 }) {
   const errorId = `${id}-error`;
 
@@ -88,7 +91,9 @@ export default function DestinationField({
       */}
       <label
         htmlFor={id}
-        className="mb-1.5 block text-sm font-medium text-gray-700"
+        className={`mb-1.5 block text-sm font-medium ${
+          themed ? "text-lp-muted" : "text-gray-700"
+        }`}
       >
         {label}
       </label>
@@ -105,6 +110,7 @@ export default function DestinationField({
         invalid={Boolean(error)}
         describedBy={error ? errorId : undefined}
         disabled={disabled}
+        themed={themed}
       />
 
       {error && (

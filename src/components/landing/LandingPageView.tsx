@@ -15,7 +15,13 @@ import {
   LandingUsageIdeas,
   LandingWhyUs,
 } from "@/components/landing/LandingSections";
+import LandingCustomSection from "@/components/landing/LandingCustomSection";
 import { discountPercent, galleryOf } from "@/lib/landing-page-content";
+import {
+  landingSectionHasContent,
+  landingSectionSurfaces,
+  resolveLandingSections,
+} from "@/lib/landing-sections";
 import { resolveLandingPixelId } from "@/lib/facebook-pixel";
 import { formatPrice } from "@/lib/format";
 import { isBlankHtml } from "@/lib/sanitize-html";
@@ -26,15 +32,41 @@ import type { FacebookPixel as FacebookPixelSettings } from "@/types/store-setti
  * The campaign page itself: hero and order form together, then everything that
  * argues for the purchase, then the form again within reach.
  *
- * The order is deliberate. A visitor arriving from an ad has already decided
- * they are interested — the form is beside the hero so the ones who are ready
- * never have to scroll to buy, and the highlights, quotes and FAQ below are for
- * the ones who are not. The sticky button carries the undecided back up.
+ * THE ORDER IS THE MERCHANT'S, NOT THIS FILE'S. It used to be a fixed sequence
+ * written out in JSX here, which meant "should the reviews come before the
+ * benefits" was a code change and therefore never happened. The sections below
+ * the hero are now a fold over `resolveLandingSections(page.sectionConfig)`,
+ * and the stored order decides both what renders and in what sequence.
+ *
+ * A NULL `sectionConfig` MEANS "NEVER CONFIGURED" and resolves to the default
+ * order — the same eleven bands this file used to spell out. Every campaign
+ * created before the section editor existed is in exactly that state, so they
+ * render unchanged by construction rather than by a migration. Null is not an
+ * error and must never be treated as one: resolving it to an empty list would
+ * blank every existing campaign the day it deployed.
+ *
+ * THE HERO STAYS OUTSIDE THE FOLD. The gallery, the price and the order form
+ * are the page's reason to exist, and no stored order may remove them — a
+ * campaign with nothing to buy is a paid click that buys nothing, and the ads
+ * keep running either way. The backend refuses to store an order without it;
+ * keeping it out of the loop here is the second lock rather than a duplicate.
+ *
+ * WHICH SURFACE EACH BAND TAKES IS COMPUTED, not fixed per section, because a
+ * fixed assignment cannot know what now sits next to what. See
+ * `landingSectionSurfaces`.
+ *
+ * What has NOT changed is why the default order is what it is: a visitor
+ * arriving from an ad has already decided they are interested, so the form sits
+ * beside the hero and the ones who are ready never scroll to buy; the
+ * highlights, quotes and FAQ below are for the ones who are not; and the sticky
+ * button carries the undecided back up.
  *
  * A server component. Only the gallery, the order form and the sticky button
  * are interactive, and each is its own client island, so the page's text and
  * images paint without waiting on hydration — which on ad traffic is often the
  * only paint that happens.
+ *
+ * See server/openspec/changes/add-landing-page-section-builder.
  */
 export default function LandingPageView({
   page,
@@ -123,6 +155,48 @@ export default function LandingPageView({
       ) as React.CSSProperties)
     : undefined;
 
+  /*
+   * WHAT THIS PAGE RENDERS, AND IN WHAT ORDER.
+   *
+   * `sectionConfig` is NULL on every campaign created before the section editor
+   * existed, and that resolves to the default order — the same sequence this
+   * file used to spell out in JSX. So an existing page is unaffected by
+   * construction rather than by a migration.
+   *
+   * The HERO is deliberately NOT in this list: it is rendered below, outside
+   * the fold, because the gallery and the order form are the page's reason to
+   * exist and no stored order may remove them. The backend refuses to store an
+   * order without it; this is the second lock.
+   *
+   * Sections with nothing to show are filtered out HERE rather than inside each
+   * branch, so the surface alternation below is computed over what actually
+   * renders. Computing it over the unfiltered list would leave a gap wherever a
+   * section was empty, putting two identical surfaces side by side.
+   */
+  const sections = resolveLandingSections(page.sectionConfig).filter(
+    (section) =>
+      section.key !== "HERO" &&
+      landingSectionHasContent(section, page) &&
+      // BODY defers its blank test to the caller, which holds the sanitiser.
+      (section.key !== "BODY" || !isBlankHtml(page.bodyHtml)),
+  );
+
+  /*
+   * The background each band renders on, derived from POSITION rather than
+   * fixed per section.
+   *
+   * With a hardcoded order, a literal surface per band worked because the
+   * author could see the whole sequence. Once the merchant controls the order,
+   * any fixed assignment produces two identical adjacent bands the moment they
+   * reorder — the "one long column in one colour" that
+   * add-landing-page-theme-tokens set out to remove.
+   *
+   * This also corrects a flaw in the old fixed assignment, where HERO and
+   * HIGHLIGHTS were both `surface` and sat adjacent once the accent band
+   * between them is discounted.
+   */
+  const surfaces = landingSectionSurfaces(sections);
+
   return (
     <div className="bg-lp-surface pb-24 md:pb-0" style={themeStyle}>
       {pixelId && <FacebookPixel pixelId={pixelId} />}
@@ -135,14 +209,37 @@ export default function LandingPageView({
         one colour. Each is now its own band: the background spans the viewport,
         the content stays at a readable measure inside.
 
-        THE ALTERNATION IS DECIDED HERE, where the section order already lives —
-        a band cannot see what precedes it, so it cannot decide whether to
-        differ from it. Each names a surface, never a colour, so recolouring the
-        page moves every band using that surface at once.
+        THE ALTERNATION IS STILL DECIDED OUTSIDE THE BAND — a band cannot see
+        what precedes it, so it cannot decide whether to differ from it — but it
+        is now COMPUTED from the resolved order rather than written per band.
+        See `landingSectionSurfaces`. Each band still names a surface and never
+        a colour, so recolouring the page moves every band using it at once.
       */}
-      <LandingBand surface="surface">
-        <div className="grid gap-8 md:grid-cols-2 md:gap-10">
-          <div>
+      {/*
+        WIDE, and it is the band that most needs to be. Two columns of real
+        content — a square image and the order form — at 64rem gave each about
+        30rem on a desktop while the viewport sat empty either side, which reads
+        as a phone layout stretched rather than a page built for the screen.
+      */}
+      <LandingBand surface="surface" width="wide">
+        <div className="grid gap-8 md:grid-cols-2 md:gap-10 lg:gap-14">
+          {/*
+            THE IMAGE STICKS, the form scrolls past it.
+
+            The two columns are wildly different heights — the gallery is one
+            square, the order form is name, phone, address, package, payment and
+            a summary — so on a desktop the image used to scroll away in the
+            first moment and leave the form running down a column of empty
+            surface beside nothing. Sticking it keeps the thing being bought in
+            view for the whole of the decision to buy it.
+
+            `md:` and up only: on a phone the two are stacked, there is no second
+            column for it to sit beside, and sticking it would pin the image over
+            the form the shopper is typing into. `self-start` because a grid item
+            stretches to the row height by default, and a stretched item has no
+            slack to stick within.
+          */}
+          <div className="md:sticky md:top-6 md:self-start">
             {gallery.length > 0 && (
               <LandingGallery items={gallery} productName={product.name} />
             )}
@@ -180,7 +277,15 @@ export default function LandingPageView({
               )}
               {discount !== null && (
                 <span className="rounded bg-sale/10 px-2 py-0.5 text-sm font-semibold text-sale">
-                  {discount}% ছাড়
+                  {/*
+                    Bengali-Indic digits, like every other figure on the page.
+                    This one is COMPUTED, so it used to render as ASCII "35%"
+                    directly beside a merchant-typed badge reading "৩০% ছাড়" —
+                    two scripts in one line, which reads as a rendering fault
+                    rather than as two numbers. `LandingWhyUs` and
+                    `LandingScarcity` already localise theirs the same way.
+                  */}
+                  {discount.toLocaleString("bn-BD")}% ছাড়
                 </span>
               )}
               {product.unit && (
@@ -198,95 +303,126 @@ export default function LandingPageView({
       </LandingBand>
 
       {/*
-        THE OFFER BAND, on the accent wash — the one place the page raises its
-        voice. Both halves answer "why now", which is the question a shopper has
-        immediately after "what is it". Rendered only when the merchant
-        configured at least one of them, so a page without urgency has no empty
-        coloured strip.
+        EVERY SECTION BELOW THE HERO, IN THE MERCHANT'S OWN ORDER.
+
+        This was eleven bands written out in a fixed sequence. It is now a fold
+        over the resolved order, which is what lets a merchant move the reviews
+        above the benefits, or switch the FAQ off, without a code change.
+
+        A section renders only when it has something to show. That is TWO
+        separate questions and both must be yes: `landingSectionHasContent`
+        asks whether this page holds anything for it, and the resolver has
+        already dropped the ones the merchant switched off. An empty section
+        and a disabled one look the same here and are different states in the
+        data — which is the whole point of the enabled flag.
       */}
-      {(page.offerEndsAt || page.scarcity) && (
-        <LandingBand surface="accentSoft" className="flex flex-col gap-4">
-          {page.offerEndsAt && <LandingCountdown endsAt={page.offerEndsAt} />}
-          <LandingScarcity scarcity={page.scarcity} />
-        </LandingBand>
-      )}
+      {sections.map((section, index) => {
+        const surface = surfaces[index] ?? "surface";
 
-      {page.highlights?.length ? (
-        <LandingBand surface="surface">
-          <LandingHighlights items={page.highlights} />
-        </LandingBand>
-      ) : null}
+        switch (section.key) {
+          case "OFFER":
+            /*
+              Both halves answer "why now", which is the question a shopper has
+              immediately after "what is it". Rendered only when the merchant
+              configured at least one, so a page without urgency has no empty
+              coloured strip.
+            */
+            return (
+              <LandingBand
+                key={section.id}
+                surface={surface}
+                className="flex flex-col gap-4"
+              >
+                {page.offerEndsAt && <LandingCountdown endsAt={page.offerEndsAt} />}
+                <LandingScarcity scarcity={page.scarcity} />
+              </LandingBand>
+            );
 
-      {/* The first repeat, for the shopper convinced by the benefits alone. */}
-      {product.isOrderable && (
-        <LandingBand surface="accentSoft">
-          <LandingOrderCta
-            label={page.orderForm.submitLabel}
-            phone={page.orderPhone}
-            className=""
-          />
-        </LandingBand>
-      )}
+          case "HIGHLIGHTS":
+            return (
+              <LandingBand key={section.id} surface={surface} width="wide">
+                <LandingHighlights items={page.highlights} />
+              </LandingBand>
+            );
 
-      {page.whyUs?.length ? (
-        <LandingBand surface="surfaceAlt">
-          <LandingWhyUs items={page.whyUs} />
-        </LandingBand>
-      ) : null}
+          case "WHY_US":
+            return (
+              <LandingBand key={section.id} surface={surface} width="wide">
+                <LandingWhyUs items={page.whyUs} />
+              </LandingBand>
+            );
 
-      {/*
-        Merchant-authored HTML, sanitised where it meets the browser — the
-        posture Page.body and Product.description already take. Omitted
-        entirely when the body is blank rather than rendering an empty band.
-      */}
-      {!isBlankHtml(page.bodyHtml) && (
-        <LandingBand surface="surface">
-          <RichText html={page.bodyHtml} className="text-base [&_p]:my-4 [&_li]:my-1.5" />
-        </LandingBand>
-      )}
+          case "BODY":
+            /*
+              Merchant-authored HTML, sanitised where it meets the browser — the
+              posture Page.body and Product.description already take.
+            */
+            return (
+              <LandingBand key={section.id} surface={surface}>
+                <RichText
+                  html={page.bodyHtml}
+                  className="text-base [&_p]:my-4 [&_li]:my-1.5"
+                  themed
+                />
+              </LandingBand>
+            );
 
-      {page.usageIdeas?.length ? (
-        <LandingBand surface="surfaceAlt">
-          <LandingUsageIdeas items={page.usageIdeas} />
-        </LandingBand>
-      ) : null}
+          case "USAGE_IDEAS":
+            return (
+              <LandingBand key={section.id} surface={surface} width="wide">
+                <LandingUsageIdeas items={page.usageIdeas} />
+              </LandingBand>
+            );
 
-      {/* The second repeat: after the usage ideas, which is where a shopper
-          who needed to picture using it has just done so. */}
-      {product.isOrderable && (
-        <LandingBand surface="accentSoft">
-          <LandingOrderCta
-            label={page.orderForm.submitLabel}
-            phone={page.orderPhone}
-            className=""
-          />
-        </LandingBand>
-      )}
+          case "QUOTES":
+            return (
+              <LandingBand key={section.id} surface={surface} width="wide">
+                <LandingQuotes items={page.quotes} />
+              </LandingBand>
+            );
 
-      {page.quotes?.length ? (
-        <LandingBand surface="surface">
-          <LandingQuotes items={page.quotes} />
-        </LandingBand>
-      ) : null}
+          case "FAQS":
+            return (
+              <LandingBand key={section.id} surface={surface}>
+                <LandingFaqs items={page.faqs} />
+              </LandingBand>
+            );
 
-      {page.faqs?.length ? (
-        <LandingBand surface="surfaceAlt">
-          <LandingFaqs items={page.faqs} />
-        </LandingBand>
-      ) : null}
+          case "CTA":
+            /*
+              REPEATED DOWN THE PAGE, pointing at the SAME form. The moment a
+              shopper is convinced is not predictable — it may be the price, the
+              guarantee, the reviews, or a usage idea — and a single button at
+              the bottom asks them to remember they were convinced and scroll to
+              act on it.
+            */
+            return (
+              <LandingBand key={section.id} surface={surface}>
+                <LandingOrderCta
+                  label={page.orderForm.submitLabel}
+                  phone={page.orderPhone}
+                  className=""
+                />
+              </LandingBand>
+            );
 
-      {/* The last: after the FAQ has answered whatever was still holding
-          them back. */}
-      {product.isOrderable && (
-        <LandingBand surface="accentSoft">
-          <LandingOrderCta
-            label={page.orderForm.submitLabel}
-            phone={page.orderPhone}
-            className=""
-          />
-        </LandingBand>
-      )}
+          case "CUSTOM":
+            return (
+              <LandingBand key={section.id} surface={surface}>
+                <LandingCustomSection section={section} />
+              </LandingBand>
+            );
 
+          default:
+            /*
+              HERO is rendered above, outside the fold, and anything else is a
+              key this build does not have — the resolver drops those, so this
+              is unreachable rather than a fallback. Returning null keeps the
+              switch total instead of relying on that.
+            */
+            return null;
+        }
+      })}
       {/*
         The sticky bar states the DEFAULT package's price — the same one the
         page opens showing, because `productSnapshot` is already resolved for

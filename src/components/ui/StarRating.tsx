@@ -3,9 +3,15 @@ import { Star } from "lucide-react";
 export default function StarRating({
   rating = 0,
   size = 14,
+  themed = false,
 }: {
   rating?: number;
   size?: number;
+  /**
+   * Draws the UNFILLED stars from the campaign page's border token rather than a
+   * literal grey. Opt-in, so the shop's own ratings are unchanged.
+   */
+  themed?: boolean;
 }) {
   return (
     /*
@@ -20,7 +26,13 @@ export default function StarRating({
         <Star
           key={i}
           size={size}
-          className={i < Math.round(rating) ? "fill-accent text-accent" : "fill-gray-200 text-gray-200"}
+          className={
+            i < Math.round(rating)
+              ? "fill-accent text-accent"
+              : themed
+                ? "fill-lp-border text-lp-border"
+                : "fill-gray-200 text-gray-200"
+          }
         />
       ))}
     </div>
