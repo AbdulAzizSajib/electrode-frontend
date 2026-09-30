@@ -93,6 +93,18 @@ const FALLBACK_SETTINGS: StoreSettings = {
   ],
   footerColumns: [],
   socialLinks: [],
+  /*
+   * DISABLED, and that is the only safe value here.
+   *
+   * This constant is what renders when the settings read FAILED — the backend
+   * is unreachable or returned something unusable. A bubble drawn from a
+   * fallback would point at whatever number this file happened to carry, and a
+   * shopper who taps a chat link waits for a reply that was never requested.
+   * No bubble is the truthful degradation; see the fallback convention in
+   * CLAUDE.md, and design.md in
+   * server/openspec/changes/add-footer-credit-and-chat-widget.
+   */
+  chatWidget: { enabled: false, channel: "whatsapp" },
   announcementBar: {
     enabled: true,
     text: "Free delivery & 40% discount for next 3 orders! Place your 1st order in.",
@@ -669,6 +681,20 @@ async function fetchStoreSettings(): Promise<StoreSettings> {
       socialLinks: Array.isArray(data.socialLinks)
         ? data.socialLinks
         : FALLBACK_SETTINGS.socialLinks,
+      /*
+       * Taken whole when it is an object, because the backend has already
+       * resolved it — the contact-phone fallback and the
+       * no-destination-means-disabled rule both ran server-side, and
+       * re-deriving either here is exactly the drift that keeps the admin
+       * preview and the storefront dialling different numbers.
+       *
+       * A payload that predates the column, or carries a non-object, takes the
+       * disabled fallback rather than reaching the render with no `channel`.
+       */
+      chatWidget:
+        data.chatWidget && typeof data.chatWidget === "object"
+          ? data.chatWidget
+          : FALLBACK_SETTINGS.chatWidget,
     };
   } catch {
     return FALLBACK_SETTINGS;

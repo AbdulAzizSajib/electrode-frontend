@@ -3,6 +3,7 @@ import Footer from "@/components/layout/Footer";
 import CartDrawer from "@/components/layout/CartDrawer";
 import CartRail from "@/components/layout/CartRail";
 import MobileBottomNav from "@/components/layout/MobileBottomNav";
+import ChatWidget from "@/components/layout/ChatWidget";
 import CompareBar from "@/components/layout/CompareBar";
 import StoreProvider from "@/store/StoreProvider";
 import SmoothScrollProvider from "@/components/providers/SmoothScrollProvider";
@@ -67,6 +68,11 @@ export default async function ShopLayout({ children }: LayoutProps<"/">) {
         <CartDrawer />
         <CartRail />
         <MobileBottomNav contact={settings.contact} />
+        {/* Shop chrome only. `(landing)` deliberately does NOT mount this — a
+            floating bubble on a campaign page is an exit from the one funnel
+            that page exists to serve. Takes the settings this layout already
+            fetched, so it costs no extra request. */}
+        <ChatWidget settings={settings.chatWidget} />
         <CompareBar />
       </SmoothScrollProvider>
     </StoreProvider>

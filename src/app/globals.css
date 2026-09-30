@@ -12,6 +12,7 @@
  * head of the FALLBACK stack, for the frame before that stylesheet arrives.
  */
 @import "tailwindcss";
+@plugin "daisyui";
 
 /*
  * These are now the FALLBACK theme, not the theme.

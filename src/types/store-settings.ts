@@ -109,6 +109,33 @@ export interface Newsletter {
   buttonLabel?: string;
 }
 
+/** Which service the floating chat bubble opens. One at a time, never both. */
+export type ChatWidgetChannel = "whatsapp" | "messenger";
+
+/**
+ * The floating chat bubble, as the backend SERVES it.
+ *
+ * Mirrors `IChatWidget` in server/src/app/module/store-setting — keep the two in
+ * step, as with every other limit and shape this file mirrors.
+ *
+ * `whatsappNumber` ARRIVES ALREADY RESOLVED: the backend fills a blank one from
+ * the store's contact phone and normalises it, so the storefront never
+ * implements that fallback itself. For the same reason `enabled` is the final
+ * word — the backend serves `false` when the selected channel has no reachable
+ * destination, so a truthy `enabled` here means there really is somewhere to go.
+ * The render still guards (a field can always arrive empty from an older API),
+ * but it is the last of three layers, not the only one.
+ */
+export interface ChatWidget {
+  enabled: boolean;
+  channel: ChatWidgetChannel;
+  /** E.164, e.g. `+8801782521705`. Already resolved and normalised by the backend. */
+  whatsappNumber?: string;
+  messengerUsername?: string;
+  /** The short label beside the bubble. Unset means the storefront's own wording. */
+  greeting?: string;
+}
+
 /**
  * One column of the home page's perks band.
  *
@@ -695,6 +722,12 @@ export interface StoreSettings {
   mainNav: NavItem[];
   footerColumns: FooterColumn[];
   socialLinks: SocialLink[];
+  /**
+   * The floating chat bubble. Always present in the payload — a store that has
+   * never configured one reads as `{ enabled: false }`, which is a real answer
+   * rather than a missing key the caller has to defend against.
+   */
+  chatWidget: ChatWidget;
   announcementBar: AnnouncementBar;
   /**
    * The header main row's merchant-configurable links. Capped at 4 by the
