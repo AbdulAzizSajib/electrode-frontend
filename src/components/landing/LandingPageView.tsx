@@ -1,6 +1,7 @@
 import RichText from "@/components/product/RichText";
 import FacebookPixel from "@/components/landing/FacebookPixel";
 import LandingBand from "@/components/landing/LandingBand";
+import LandingBrand from "@/components/landing/LandingBrand";
 import LandingCountdown from "@/components/landing/LandingCountdown";
 import LandingGallery from "@/components/landing/LandingGallery";
 import LandingScarcity from "@/components/landing/LandingScarcity";
@@ -23,6 +24,7 @@ import {
   resolveLandingSections,
 } from "@/lib/landing-sections";
 import { resolveLandingPixelId } from "@/lib/facebook-pixel";
+import type { BrandSettings } from "@/lib/brand-slot";
 import { formatPrice } from "@/lib/format";
 import { isBlankHtml } from "@/lib/sanitize-html";
 import type { LandingPage } from "@/types/landing-page";
@@ -45,21 +47,40 @@ import type { FacebookPixel as FacebookPixelSettings } from "@/types/store-setti
  * error and must never be treated as one: resolving it to an empty list would
  * blank every existing campaign the day it deployed.
  *
- * THE HERO STAYS OUTSIDE THE FOLD. The gallery, the price and the order form
- * are the page's reason to exist, and no stored order may remove them — a
- * campaign with nothing to buy is a paid click that buys nothing, and the ads
- * keep running either way. The backend refuses to store an order without it;
- * keeping it out of the loop here is the second lock rather than a duplicate.
+ * THE PRODUCT AND THE ORDER FORM ARE TWO SECTIONS, and both are in the fold.
+ * They were one — a HERO block rendering the gallery beside the form, drawn
+ * above the loop and unreorderable — which meant the page could not express
+ * the one arrangement campaign pages most often want: the form first, for
+ * traffic that already knows from the ad what it is buying. Splitting them
+ * makes that a drag in the section editor rather than a code change.
+ *
+ * WHAT REPLACES THE OLD LOCK. Neither may be removed, and the loop no longer
+ * guarantees that by construction, so three things do: the backend refuses to
+ * store an order missing either, the resolver puts a missing one back at its
+ * default position, and the admin offers no switch for them. A campaign with
+ * nothing to buy is a paid click that buys nothing, and the ads keep running
+ * either way.
+ *
+ * EACH SECTION IS ONE CENTRED COLUMN. The hero was two — media left, copy and
+ * form right — which put the headline the ad had just promised in the right
+ * half of a desktop screen while the left half carried a picture of something
+ * the visitor could not yet name. A campaign page is read in one direction,
+ * and that direction is the order the sale is argued in: whose shop this is,
+ * what is on offer, what it looks like, then what it costs and the form.
+ *
+ * THE BRAND IS THE ONE THING ABOVE THE LOOP. It is not a section — a merchant
+ * cannot drag their own logo below the FAQ — and it is not chrome either; see
+ * `LandingBrand`.
  *
  * WHICH SURFACE EACH BAND TAKES IS COMPUTED, not fixed per section, because a
  * fixed assignment cannot know what now sits next to what. See
  * `landingSectionSurfaces`.
  *
  * What has NOT changed is why the default order is what it is: a visitor
- * arriving from an ad has already decided they are interested, so the form sits
- * beside the hero and the ones who are ready never scroll to buy; the
- * highlights, quotes and FAQ below are for the ones who are not; and the sticky
- * button carries the undecided back up.
+ * arriving from an ad has already decided they are interested, so the form is
+ * part of the hero and the ones who are ready never reach a section to buy;
+ * the highlights, quotes and FAQ below are for the ones who are not; and the
+ * sticky button carries the undecided back up.
  *
  * A server component. Only the gallery, the order form and the sticky button
  * are interactive, and each is its own client island, so the page's text and
@@ -71,12 +92,23 @@ import type { FacebookPixel as FacebookPixelSettings } from "@/types/store-setti
 export default function LandingPageView({
   page,
   currency,
+  brand,
   shopPixel,
   trackingDisabled = false,
 }: {
   page: LandingPage;
   /** The shop's currency code, for the pixel's purchase event. */
   currency: string;
+  /**
+   * Enough of the store settings to draw the logo or the wordmark at the top
+   * of the page.
+   *
+   * Both routes already fetch the settings row for the currency and the
+   * shop-wide pixel, so the brand costs no extra request. See
+   * `LandingBrand` for why a campaign page carries this one piece of chrome
+   * and none of the rest.
+   */
+  brand: BrandSettings;
   /**
    * The shop-wide pixel, used only when this campaign has none of its own.
    *
@@ -163,10 +195,12 @@ export default function LandingPageView({
    * file used to spell out in JSX. So an existing page is unaffected by
    * construction rather than by a migration.
    *
-   * The HERO is deliberately NOT in this list: it is rendered below, outside
-   * the fold, because the gallery and the order form are the page's reason to
-   * exist and no stored order may remove them. The backend refuses to store an
-   * order without it; this is the second lock.
+   * HERO AND ORDER_FORM ARE IN THIS LIST, unlike every earlier version of this
+   * file, where the hero was drawn above the loop so that no stored order could
+   * remove it. They are reorderable now — that is the point of splitting them —
+   * so the guarantee moved rather than went away: `resolveLandingSections`
+   * restores either one a stored order has lost, and the backend refuses to
+   * store an order without them in the first place.
    *
    * Sections with nothing to show are filtered out HERE rather than inside each
    * branch, so the surface alternation below is computed over what actually
@@ -175,7 +209,6 @@ export default function LandingPageView({
    */
   const sections = resolveLandingSections(page.sectionConfig).filter(
     (section) =>
-      section.key !== "HERO" &&
       landingSectionHasContent(section, page) &&
       // BODY defers its blank test to the caller, which holds the sanitiser.
       (section.key !== "BODY" || !isBlankHtml(page.bodyHtml)),
@@ -216,91 +249,22 @@ export default function LandingPageView({
         a colour, so recolouring the page moves every band using it at once.
       */}
       {/*
-        WIDE, and it is the band that most needs to be. Two columns of real
-        content — a square image and the order form — at 64rem gave each about
-        30rem on a desktop while the viewport sat empty either side, which reads
-        as a phone layout stretched rather than a page built for the screen.
+        THE BRAND, ABOVE EVERYTHING AND OUTSIDE THE ORDER.
+
+        NOT A BAND: it takes the page's own surface and only a top padding, so
+        it reads as the top edge of whatever section follows rather than as a
+        strip of its own. That is also why it is not counted in the surface
+        alternation — it has no background to differ from.
+
+        NOT A SECTION either. Every other block on this page is the merchant's
+        to move or switch off; their own logo below the FAQ is not an
+        arrangement worth being able to express.
       */}
-      <LandingBand surface="surface" width="wide">
-        <div className="grid gap-8 md:grid-cols-2 md:gap-10 lg:gap-14">
-          {/*
-            THE IMAGE STICKS, the form scrolls past it.
-
-            The two columns are wildly different heights — the gallery is one
-            square, the order form is name, phone, address, package, payment and
-            a summary — so on a desktop the image used to scroll away in the
-            first moment and leave the form running down a column of empty
-            surface beside nothing. Sticking it keeps the thing being bought in
-            view for the whole of the decision to buy it.
-
-            `md:` and up only: on a phone the two are stacked, there is no second
-            column for it to sit beside, and sticking it would pin the image over
-            the form the shopper is typing into. `self-start` because a grid item
-            stretches to the row height by default, and a stretched item has no
-            slack to stick within.
-          */}
-          <div className="md:sticky md:top-6 md:self-start">
-            {gallery.length > 0 && (
-              <LandingGallery items={gallery} productName={product.name} />
-            )}
-          </div>
-
-          <div>
-            {page.badgeText && (
-              <span className="inline-block rounded-full bg-sale/10 px-3 py-1 text-xs font-semibold text-sale">
-                {page.badgeText}
-              </span>
-            )}
-
-            <h1 className="mt-3 text-2xl font-bold leading-snug text-lp-text md:text-3xl">
-              {page.headline}
-            </h1>
-
-            {page.subheadline && (
-              <p className="mt-2 text-base leading-relaxed text-lp-muted">
-                {page.subheadline}
-              </p>
-            )}
-
-            {/*
-              The price pair. A package's own price when one is selected —
-              `productSnapshot` is resolved for it server-side.
-            */}
-            <div className="mt-4 flex flex-wrap items-baseline gap-3">
-              <span className="text-3xl font-bold text-lp-text">
-                {formatPrice(product.unitPrice)}
-              </span>
-              {product.sellingPrice !== null && product.sellingPrice > product.unitPrice && (
-                <span className="text-lg text-lp-muted line-through">
-                  {formatPrice(product.sellingPrice)}
-                </span>
-              )}
-              {discount !== null && (
-                <span className="rounded bg-sale/10 px-2 py-0.5 text-sm font-semibold text-sale">
-                  {/*
-                    Bengali-Indic digits, like every other figure on the page.
-                    This one is COMPUTED, so it used to render as ASCII "35%"
-                    directly beside a merchant-typed badge reading "৩০% ছাড়" —
-                    two scripts in one line, which reads as a rendering fault
-                    rather than as two numbers. `LandingWhyUs` and
-                    `LandingScarcity` already localise theirs the same way.
-                  */}
-                  {discount.toLocaleString("bn-BD")}% ছাড়
-                </span>
-              )}
-              {product.unit && (
-                <span className="text-sm text-lp-muted">/ {product.unit}</span>
-              )}
-            </div>
-
-            <LandingTrustBadges items={page.trustBadges} />
-
-            <div className="mt-6">
-              <LandingOrderForm page={page} currency={currency} pixelId={pixelId} />
-            </div>
-          </div>
+      <div className="bg-lp-surface">
+        <div className="container-px mx-auto max-w-5xl pt-6 text-center">
+          <LandingBrand settings={brand} />
         </div>
-      </LandingBand>
+      </div>
 
       {/*
         EVERY SECTION BELOW THE HERO, IN THE MERCHANT'S OWN ORDER.
@@ -320,6 +284,100 @@ export default function LandingPageView({
         const surface = surfaces[index] ?? "surface";
 
         switch (section.key) {
+          case "HERO":
+            /*
+              WHAT IS BEING SOLD: the headline the ad promised, the picture, the
+              price and the badges that make the price believable.
+
+              THE PICTURE COMES AFTER THE WORDS. It is the claim's evidence, not
+              its opening: a photograph answers "what does it look like", which
+              is a question the visitor only has once the headline has told them
+              what is being sold. Held to 32rem because it is a square — at the
+              full column it would be most of a laptop screen of product shot,
+              pushing the price below a scroll of picture.
+            */
+            return (
+              <LandingBand key={section.id} surface={surface}>
+                <div className="mx-auto max-w-3xl text-center">
+                  {page.badgeText && (
+                    <span className="inline-block rounded-full bg-sale/10 px-3 py-1 text-xs font-semibold text-sale">
+                      {page.badgeText}
+                    </span>
+                  )}
+
+                  <h1 className="mt-3 text-3xl font-bold leading-snug text-lp-text md:text-3xl">
+                    {page.headline}
+                  </h1>
+
+                  {page.subheadline && (
+                    <p className="mt-2 text-base leading-relaxed text-lp-muted">
+                      {page.subheadline}
+                    </p>
+                  )}
+                </div>
+
+                {gallery.length > 0 && (
+                  <div className="mx-auto mt-8 max-w-lg">
+                    <LandingGallery items={gallery} productName={product.name} />
+                  </div>
+                )}
+
+                <div className="mx-auto mt-8 max-w-2xl">
+                  {/*
+                    The price pair. A package's own price when one is selected —
+                    `productSnapshot` is resolved for it server-side.
+                  */}
+                  <div className="flex flex-wrap items-baseline justify-center gap-3">
+                    <span className="text-3xl font-bold text-lp-text">
+                      {formatPrice(product.unitPrice)}
+                    </span>
+                    {product.sellingPrice !== null &&
+                      product.sellingPrice > product.unitPrice && (
+                        <span className="text-lg text-lp-muted line-through">
+                          {formatPrice(product.sellingPrice)}
+                        </span>
+                      )}
+                    {discount !== null && (
+                      <span className="rounded bg-sale/10 px-2 py-0.5 text-sm font-semibold text-sale">
+                        {/*
+                          Bengali-Indic digits, like every other figure on the
+                          page. This one is COMPUTED, so it used to render as ASCII "35%"
+                          directly beside a merchant-typed badge reading "৩০% ছাড়" —
+                          two scripts in one line, which reads as a rendering
+                          fault rather than as two numbers. `LandingWhyUs` and
+                          `LandingScarcity` already localise theirs the same way.
+                        */}
+                        {discount.toLocaleString("bn-BD")}% ছাড়
+                      </span>
+                    )}
+                    {product.unit && (
+                      <span className="text-sm text-lp-muted">/ {product.unit}</span>
+                    )}
+                  </div>
+
+                  <LandingTrustBadges items={page.trustBadges} className="justify-center" />
+                </div>
+              </LandingBand>
+            );
+
+          case "ORDER_FORM":
+            /*
+              THE FORM, AND NOTHING ELSE IN THE BAND. It is the only thing on
+              this page a visitor does rather than reads, and every call-to-action
+              strip down the page is an anchor to the `#order-form` id inside it.
+
+              At a form's measure rather than the heading's, and left-aligned:
+              centred labels over left-aligned inputs is the one layout a
+              multi-field form is measurably worse for.
+            */
+            return (
+              <LandingBand key={section.id} surface={surface}>
+                <div className="mx-auto max-w-2xl">
+                  <LandingOrderForm page={page} currency={currency} pixelId={pixelId} />
+                </div>
+              </LandingBand>
+            );
+
           case "OFFER":
             /*
               Both halves answer "why now", which is the question a shopper has
@@ -415,8 +473,7 @@ export default function LandingPageView({
 
           default:
             /*
-              HERO is rendered above, outside the fold, and anything else is a
-              key this build does not have — the resolver drops those, so this
+              A key this build does not have — the resolver drops those, so this
               is unreachable rather than a fallback. Returning null keeps the
               switch total instead of relying on that.
             */

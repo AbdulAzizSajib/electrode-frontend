@@ -90,6 +90,7 @@ export default async function LandingPageRoute({ params }: PageProps<"/offer/[sl
     <LandingPageView
       page={page}
       currency={settings.currency}
+      brand={settings}
       shopPixel={settings.facebookPixel}
     />
   );

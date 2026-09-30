@@ -69,11 +69,18 @@ export function LandingHighlights({ items }: { items: LandingPageHighlight[] | n
   );
 }
 
-export function LandingTrustBadges({ items }: { items: LandingPageTrustBadge[] | null }) {
+export function LandingTrustBadges({
+  items,
+  className = "",
+}: {
+  items: LandingPageTrustBadge[] | null;
+  /** Extra classes for the list itself — the hero centres its row. */
+  className?: string;
+}) {
   if (!items?.length) return null;
 
   return (
-    <ul className="mt-6 flex flex-wrap gap-2">
+    <ul className={`mt-6 flex flex-wrap gap-2 ${className}`}>
       {items.map((item, index) => (
         <li
           key={`${item.label}-${index}`}

@@ -81,6 +81,7 @@ export default async function LandingPagePreviewRoute({
     <LandingPageView
       page={page}
       currency={settings.currency}
+      brand={settings}
       shopPixel={settings.facebookPixel}
       /*
        * A preview is not traffic. Without this the merchant's every look at

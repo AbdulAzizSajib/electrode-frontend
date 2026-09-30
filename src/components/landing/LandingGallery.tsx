@@ -50,10 +50,13 @@ export default function LandingGallery({
             src={active.url}
             alt={active.alt || productName}
             fill
-            // The gallery is the full column on mobile and half of it above
-            // `md`, so the browser is told that rather than left to download a
-            // full-width image for a half-width slot.
-            sizes="(min-width: 768px) 50vw, 100vw"
+            // The hero is one column and caps this at 32rem, so past the
+            // width where that cap starts biting the slot is 512px however
+            // wide the viewport gets. Told exactly that rather than left to
+            // fetch a half-viewport image for a fixed-width box — which on a
+            // desktop is several times the pixels for no visible difference,
+            // on the page where the first paint is most often the only one.
+            sizes="(min-width: 544px) 512px, 100vw"
             className="object-contain w-full h-full"
             // The hero image is the largest thing above the fold on a page
             // whose whole job is the first impression.

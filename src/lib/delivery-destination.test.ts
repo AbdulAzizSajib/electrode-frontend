@@ -5,6 +5,7 @@ import {
   DESTINATION_RESULT_LIMIT,
   destinationFromLabel,
   findDestination,
+  placeOf,
   refusalMessage,
   resolveDeliveryOption,
   searchDestinations,
@@ -248,5 +249,41 @@ describe("destinationFromLabel", () => {
         area: entry.area,
       });
     }
+  });
+});
+
+/*
+ * REGRESSION, and it reached a shopper.
+ *
+ * A row of the picker is not a destination — it carries the label the list is
+ * searched by, and the lowercase forms the filter runs on. The order endpoints
+ * declare `destination` as a STRICT object of exactly district and area, so a
+ * row sent straight through is refused. The campaign page's order form did
+ * exactly that: the shopper filled everything in, pressed the button, and read
+ * "Zod Validation Error" — the envelope's label for a refusal whose real text,
+ * in `errorSources`, was `Unrecognized keys: "label", "districtLower",
+ * "areaLower"`.
+ *
+ * Asserting the KEY SET, not the values: the values were never wrong. What was
+ * wrong was everything else travelling with them, and only an exact key set
+ * catches a column added to the rows later.
+ */
+describe("placeOf — only what an API is allowed to receive", () => {
+  it("keeps exactly district and area from a picker row", () => {
+    const row = destinationFromLabel("Dhaka - Dhanmondi - Rd 3");
+
+    expect(row).not.toBeNull();
+    expect(Object.keys(row as object).length).toBeGreaterThan(2); // the trap
+
+    const place = placeOf(row);
+
+    expect(Object.keys(place as object).sort()).toEqual(["area", "district"]);
+    expect(place).toEqual({ district: "Dhaka", area: "Dhanmondi - Rd 3" });
+  });
+
+  it("passes null through rather than inventing a place", () => {
+    expect(placeOf(null)).toBeNull();
+    expect(placeOf(undefined)).toBeNull();
+    expect(placeOf(destinationFromLabel("Nowhere - Nothing"))).toBeNull();
   });
 });

@@ -5,9 +5,12 @@ import { useEffect, useState } from "react";
 /**
  * The mobile bar that carries an undecided reader back to the order form.
  *
- * Mobile only. On a wide screen the form sits beside the hero and is visible
- * for most of the scroll, so a fixed bar would cover content to solve a problem
- * that does not exist there.
+ * Mobile only, and no longer because the form is visible anyway on a wide
+ * screen — it was, beside the hero, until the product and the order form became
+ * two stacked sections the merchant can put anywhere. What carries a desktop
+ * reader back is the call-to-action strips, which the default order places three
+ * of down the page and which are anchors to this same form. A bar fixed over a
+ * desktop viewport would cover content to duplicate them.
  *
  * Hidden until the form has scrolled out of view. A call to action pinned over
  * the very form it points at is noise, and on a short page it would be the only

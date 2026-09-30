@@ -72,9 +72,17 @@ const MAX_QUANTITY = 99;
  * `h-12` rather than `py-3`: the primary has no icon and the secondary does, so
  * padding alone left the two a few pixels apart in height whenever the spinner
  * appeared.
+ *
+ * `flex-1` is gated behind `sm:` and must not be hoisted out of it. The row is
+ * `flex-col` below that breakpoint, where flex-basis governs HEIGHT — so an
+ * unconditional `flex-1` (basis `0%`) beat `h-12`, and with an auto-height row
+ * there was no free space to grow back into: both buttons collapsed to a single
+ * line of text on every phone. From `sm` up the row is horizontal, basis governs
+ * width again, and the two share it equally as intended. Mobile width needs no
+ * utility at all — a column flex container already stretches its children.
  */
 const BUY_BUTTON_BASE =
-  "flex h-12 flex-1 items-center justify-center gap-2 rounded-md px-4 text-sm font-semibold uppercase tracking-wide transition-colors disabled:cursor-not-allowed";
+  "flex h-12 items-center justify-center gap-2 rounded-md px-4 text-sm font-semibold uppercase tracking-wide transition-colors disabled:cursor-not-allowed sm:flex-1";
 
 export default function ProductDetail({
   product,

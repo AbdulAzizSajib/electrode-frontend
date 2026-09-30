@@ -94,6 +94,65 @@ describe("resolveLandingSections — a merchant's stored order", () => {
 
     expect(keysOf(resolveLandingSections(stored))).toContain("HERO");
   });
+
+  it("restores an ORDER_FORM that a hand-edited row dropped", () => {
+    const stored: LandingSectionConfigEntry[] = [{ key: "QUOTES", enabled: true }];
+
+    expect(keysOf(resolveLandingSections(stored))).toContain("ORDER_FORM");
+  });
+
+  /*
+   * THE MIGRATION CASE, and the reason the split needed no migration at all.
+   *
+   * Every order stored between the section editor shipping and the hero being
+   * split names HERO and knows nothing of ORDER_FORM. The restore pass has to
+   * put the form back DIRECTLY AFTER the product — which is where it rendered
+   * when the two were one block — and not at the end of the page below the
+   * last call to action.
+   */
+  it("puts the order form back after the product on an order stored before the split", () => {
+    const stored: LandingSectionConfigEntry[] = [
+      { key: "HERO", enabled: true },
+      { key: "FAQS", enabled: true },
+      { key: "QUOTES", enabled: true },
+    ];
+
+    const keys = keysOf(resolveLandingSections(stored));
+
+    expect(keys.indexOf("ORDER_FORM")).toBe(keys.indexOf("HERO") + 1);
+  });
+
+  /*
+   * And the arrangement the split exists to make possible: the form ABOVE the
+   * product, for traffic that already knows from the ad what it is buying.
+   */
+  it("renders the order form above the product when that is the stored order", () => {
+    const stored: LandingSectionConfigEntry[] = [
+      { key: "ORDER_FORM", enabled: true },
+      { key: "HERO", enabled: true },
+    ];
+
+    const keys = keysOf(resolveLandingSections(stored));
+
+    expect(keys.indexOf("ORDER_FORM")).toBeLessThan(keys.indexOf("HERO"));
+  });
+
+  /*
+   * Neither may be switched off. The backend refuses it and the admin offers
+   * no switch, but a hand-edited row goes through neither.
+   */
+  it("keeps the product and the form even when a stored row disables them", () => {
+    const stored: LandingSectionConfigEntry[] = [
+      { key: "HERO", enabled: false },
+      { key: "ORDER_FORM", enabled: false },
+      { key: "FAQS", enabled: true },
+    ];
+
+    const keys = keysOf(resolveLandingSections(stored));
+
+    expect(keys).toContain("HERO");
+    expect(keys).toContain("ORDER_FORM");
+  });
 });
 
 describe("resolveLandingSections — drift between stored order and code", () => {
@@ -270,35 +329,50 @@ describe("landingSectionSurfaces", () => {
   });
 
   /*
-   * REGRESSION. The hero renders outside the folded list but is still a
-   * `surface` band, so the count has to start at one. It started at zero, which
-   * made the first folded content band `surface` as well — the two then sat
-   * either side of the offer strip reading as one block, which is the exact
-   * defect this function exists to prevent.
+   * REGRESSION, restated for the arrangement that replaced the one that broke.
    *
-   * The other tests here all filter to the folded content bands and so were
-   * blind to it; only counting the hero catches it.
+   * The count used to start at ONE because the hero was a `surface` band drawn
+   * ABOVE this list, invisible to it: starting at zero made the first folded
+   * band `surface` too, and the two sat either side of the offer strip reading
+   * as one block. Splitting the hero into the product and the order form put
+   * every band into the list, so the whole page is now one sequence and this
+   * asserts over all of it rather than over a filtered tail.
    */
-  it("does not repeat the hero's surface on the first folded band", () => {
-    const folded = resolveLandingSections(null).filter((section) => section.key !== "HERO");
-    const surfaces = landingSectionSurfaces(folded);
+  it("alternates across the whole page, hero included", () => {
+    const surfaces = landingSectionSurfaces(resolveLandingSections(null));
 
-    const firstContent = surfaces.find((surface) => surface !== "accentSoft");
-
-    // The hero is "surface", so the first content band below it must not be.
-    expect(firstContent).toBe("surfaceAlt");
-  });
-
-  it("alternates across the whole page once the hero is counted", () => {
-    const folded = resolveLandingSections(null).filter((section) => section.key !== "HERO");
-    const wholePage = ["surface" as const, ...landingSectionSurfaces(folded)];
-
-    const content = wholePage.filter((surface) => surface !== "accentSoft");
+    const content = surfaces.filter((surface) => surface !== "accentSoft");
 
     content.forEach((surface, index) => {
       if (index === 0) return;
       expect(surface).not.toBe(content[index - 1]);
     });
+  });
+
+  /*
+   * The brand strip above the list carries the page surface and no background
+   * of its own, so the first band has to open on `surface` for the two to read
+   * as one top edge rather than as a strip over a differently coloured block.
+   */
+  it("opens the page on the plain surface", () => {
+    expect(landingSectionSurfaces(resolveLandingSections(null))[0]).toBe("surface");
+  });
+
+  /*
+   * The visible point of the split: the product and the form no longer share a
+   * band, so in the default order they must not share a surface either — they
+   * are adjacent, and two identical surfaces would put them back into the one
+   * block the split took them out of.
+   */
+  it("separates the product from the order form", () => {
+    const sections = resolveLandingSections(null);
+    const surfaces = landingSectionSurfaces(sections);
+
+    const hero = sections.findIndex((section) => section.key === "HERO");
+    const form = sections.findIndex((section) => section.key === "ORDER_FORM");
+
+    expect(form).toBe(hero + 1);
+    expect(surfaces[form]).not.toBe(surfaces[hero]);
   });
 
   it("lets a caller with no band above it start from zero", () => {

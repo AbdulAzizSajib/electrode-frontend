@@ -7,6 +7,7 @@ import SearchableSelect, {
 import {
   destinationFromLabel,
   findDestination,
+  placeOf,
   searchDestinations,
   type Destination,
 } from "@/lib/delivery-destination";
@@ -103,7 +104,7 @@ export default function DestinationField({
         name={name}
         value={selected?.label ?? null}
         selectedLabel={selected?.label ?? null}
-        onChange={(chosen) => onChange(destinationFromLabel(chosen))}
+        onChange={(chosen) => onChange(placeOf(destinationFromLabel(chosen)))}
         search={search}
         placeholder="আপনার জেলা এবং শহর নির্বাচন করুন"
         emptyMessage="কোনো জেলা বা এলাকা এর সাথে মেলে না"

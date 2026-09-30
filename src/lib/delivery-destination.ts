@@ -234,6 +234,30 @@ export function destinationFromLabel(
 }
 
 /**
+ * Just the place, with none of the picker's own columns.
+ *
+ * A row of this list is not a destination: it carries the `label` the shopper
+ * reads and the lowercase forms the filter runs on, and those are this
+ * module's business. The order endpoints declare `destination` as a STRICT
+ * object of exactly `district` and `area`, so a row passed straight through
+ * is refused — and the campaign page's order form did exactly that. The
+ * shopper filled in the whole form, pressed the button, and got "Zod
+ * Validation Error" above it; the real reason, four layers down, was
+ * `Unrecognized keys: "label", "districtLower", "areaLower"`.
+ *
+ * NARROWED HERE, at the one boundary, rather than at each send site. The
+ * trap is invisible at a send site: `DestinationEntry extends Destination`,
+ * so TypeScript accepts the wider object everywhere the narrower one is
+ * asked for, and every future caller inherits the same silent failure.
+ */
+export function placeOf(
+  entry: Destination | null | undefined,
+): Destination | null {
+  if (!entry) return null;
+  return { district: entry.district, area: entry.area };
+}
+
+/**
  * The known place a stored district and area name, or null when they are not
  * both a real pair.
  *

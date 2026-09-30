@@ -321,10 +321,20 @@ export default function LandingOrderForm({
          * mismatch in the merchant's own currency format. Replacing it with a
          * generic failure would throw away the only thing the shopper can act
          * on.
+         *
+         * `errorSources` FIRST, and that is not a preference. On a validation
+         * failure the envelope's top-level `message` is the literal string
+         * "Zod Validation Error" — an internal English label — and the reason
+         * the shopper could act on is in `errorSources[0]`. Reading `message`
+         * alone put that label above the order button of a Bangla campaign
+         * page, which is how a stray key in the destination object looked to
+         * everyone who hit it. `lib/api-client.ts` has taken this order since
+         * it was written; this path predates using it and never did.
          */
         setSubmit({
           status: "failed",
           message:
+            payload?.errorSources?.[0]?.message ||
             payload?.message ||
             "অর্ডারটি সম্পন্ন করা যায়নি। একটু পরে আবার চেষ্টা করুন।",
         });
@@ -565,9 +575,6 @@ export default function LandingOrderForm({
             themed
           />
         )}
-
-        <QuantityStepper value={quantity} onChange={setQuantity} max={productSnapshot.available} />
-
       </div>
 
       <OrderSummary
@@ -575,6 +582,9 @@ export default function LandingOrderForm({
         quoting={quoting}
         zoneLabel={selectedOption?.label}
         productName={productSnapshot.name}
+        quantity={quantity}
+        onQuantityChange={setQuantity}
+        maxQuantity={productSnapshot.available}
         packageLabel={packages.find((pkg) => pkg.key === packageKey)?.label}
         imageUrl={productSnapshot.images[0]?.url}
       />
@@ -639,6 +649,19 @@ function Field({
  * Floors at 1 — an order for nothing is not an order — and caps at what is
  * actually in stock, so the shopper is stopped here rather than by a rejection
  * after they have filled in their address.
+ *
+ * IT SITS IN THE SUMMARY, on the line that names the product, rather than as a
+ * field of its own further up. As a separate field its effect reached the
+ * figures only as a larger "পণ্যের মূল্য": a shopper who raised the count to two
+ * read a subtotal against a line naming one product and could not tell a
+ * doubled price from a wrong one. On the line it multiplies, the count and what
+ * it costs are one glance apart — the way a cart line reads.
+ *
+ * The visible "পরিমাণ" label goes with the move. On its own line a control needs
+ * a heading; beside the product and its price the stepper is self-evident, and a
+ * label there would be a third piece of text competing with the two that carry
+ * the decision. The name survives for assistive tech on the group and on each
+ * button.
  */
 function QuantityStepper({
   value,
@@ -652,9 +675,12 @@ function QuantityStepper({
   const ceiling = Math.max(1, Math.min(max, 100));
 
   return (
-    <div>
-      <span className="mb-1.5 block text-sm font-medium text-lp-text">পরিমাণ</span>
-      <div className="inline-flex items-center rounded-lg border border-lp-border">
+    <div className="ml-auto shrink-0 text-right">
+      <div
+        role="group"
+        aria-label="পরিমাণ"
+        className="inline-flex items-center rounded-lg border border-lp-border bg-lp-surface"
+      >
         <button
           type="button"
           onClick={() => onChange(Math.max(1, value - 1))}
@@ -664,7 +690,7 @@ function QuantityStepper({
         >
           −
         </button>
-        <span aria-live="polite" className="w-12 text-center text-base font-semibold">
+        <span aria-live="polite" className="w-8 text-center text-base font-semibold">
           {value}
         </span>
         <button
@@ -873,6 +899,9 @@ function OrderSummary({
   quoting,
   zoneLabel,
   productName,
+  quantity,
+  onQuantityChange,
+  maxQuantity,
   packageLabel,
   imageUrl,
 }: {
@@ -880,6 +909,11 @@ function OrderSummary({
   quoting: boolean;
   zoneLabel?: string;
   productName: string;
+  /** What the stepper is on, so the summary can say what the subtotal counts. */
+  quantity: number;
+  onQuantityChange: (next: number) => void;
+  /** Stock ceiling, passed through to the stepper. */
+  maxQuantity: number;
   /** The chosen tier, e.g. "২ পিস কম্বো". Absent on a page with no packages. */
   packageLabel?: string;
   imageUrl?: string;
@@ -887,10 +921,7 @@ function OrderSummary({
   return (
     <dl
       aria-busy={quoting}
-      className={clsx(
-        "mt-5 space-y-2 rounded-xl bg-lp-surface-alt p-4 text-sm transition-opacity",
-        quoting && "opacity-60",
-      )}
+      className="mt-5 space-y-2 rounded-xl bg-lp-surface-alt p-4 text-sm"
     >
       {/*
         NOT a <dt>/<dd> pair: this is the subject the list below describes, not
@@ -920,23 +951,34 @@ function OrderSummary({
             <p className="mt-0.5 text-xs text-lp-muted">{packageLabel}</p>
           )}
         </div>
+        <QuantityStepper value={quantity} onChange={onQuantityChange} max={maxQuantity} />
       </div>
 
-      <Row label="পণ্যের মূল্য" value={quote && formatPrice(quote.subtotal)} />
-      {quote && quote.taxAmount > 0 && (
-        <Row label="ট্যাক্স" value={formatPrice(quote.taxAmount)} />
-      )}
-      <Row
-        label={zoneLabel ? `ডেলিভারি (${zoneLabel})` : "ডেলিভারি"}
-        value={
-          quote && (quote.shippingAmount === 0 ? "ফ্রি" : formatPrice(quote.shippingAmount))
-        }
-      />
-      <div className="flex items-baseline justify-between border-t border-lp-border pt-2">
-        <dt className="text-base font-semibold text-lp-text">সর্বমোট</dt>
-        <dd className="text-lg font-bold text-lp-text">
-          {quote ? formatPrice(quote.totalAmount) : "—"}
-        </dd>
+      {/*
+        THE FIGURES DIM WHILE RE-QUOTING, the stepper above them does not.
+        The whole card used to carry the opacity, which was fine while every
+        control lived elsewhere — now the stepper sits inside it, and a shopper
+        tapping + watched the very button under their finger fade as the request
+        it fired went out. Only the numbers are stale during a quote; the control
+        that changes them is not.
+      */}
+      <div className={clsx("space-y-2 transition-opacity", quoting && "opacity-60")}>
+        <Row label="পণ্যের মূল্য" value={quote && formatPrice(quote.subtotal)} />
+        {quote && quote.taxAmount > 0 && (
+          <Row label="ট্যাক্স" value={formatPrice(quote.taxAmount)} />
+        )}
+        <Row
+          label={zoneLabel ? `ডেলিভারি (${zoneLabel})` : "ডেলিভারি"}
+          value={
+            quote && (quote.shippingAmount === 0 ? "ফ্রি" : formatPrice(quote.shippingAmount))
+          }
+        />
+        <div className="flex items-baseline justify-between border-t border-lp-border pt-2">
+          <dt className="text-base font-semibold text-lp-text">সর্বমোট</dt>
+          <dd className="text-lg font-bold text-lp-text">
+            {quote ? formatPrice(quote.totalAmount) : "—"}
+          </dd>
+        </div>
       </div>
     </dl>
   );

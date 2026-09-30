@@ -202,6 +202,7 @@ export interface LandingPageProduct {
  */
 export type LandingSectionKey =
   | "HERO"
+  | "ORDER_FORM"
   | "OFFER"
   | "HIGHLIGHTS"
   | "WHY_US"

@@ -27,12 +27,14 @@ import type { ReactNode } from "react";
  * `max-w-5xl` every band used to share was inherited from the single wrapper
  * this component replaced — that change moved the WRAPPING and never revisited
  * the number — and 64rem is the right measure for a column of prose and too
- * narrow for the rest. On a desktop it left the hero's image and order form
- * squeezed into half of 64rem each with the viewport empty on both sides, which
- * reads as a phone layout stretched rather than a page built for the screen.
+ * narrow for the rest. On a desktop it left a row of cards squeezed into a
+ * fraction of 64rem each with the viewport empty on both sides, which reads as
+ * a phone layout stretched rather than a page built for the screen.
  *
- * So `width="wide"` (80rem) for the hero and the card grids, which have real
- * content to spread across and look sparse when they cannot, and the default
+ * So `width="wide"` (80rem) for the card grids, which have real content to
+ * spread across and look sparse when they cannot — the hero took it too while
+ * it was two columns, and went back to the default when it became one — and the
+ * default
  * `"text"` (64rem) for everything that is a line of prose to read — a heading,
  * an FAQ answer, the merchant's body copy. Line length is the constraint there,
  * and wider is strictly worse: past roughly 75 characters the eye loses the

@@ -34,6 +34,7 @@ import type { LandingSurface } from "@/components/landing/LandingBand";
  */
 export const DEFAULT_LANDING_SECTION_ORDER: readonly LandingSectionKey[] = [
   "HERO",
+  "ORDER_FORM",
   "OFFER",
   "HIGHLIGHTS",
   "CTA",
@@ -55,6 +56,7 @@ export const DEFAULT_LANDING_SECTION_ORDER: readonly LandingSectionKey[] = [
  */
 const KNOWN_KEYS: ReadonlySet<string> = new Set<LandingSectionKey>([
   "HERO",
+  "ORDER_FORM",
   "OFFER",
   "HIGHLIGHTS",
   "WHY_US",
@@ -82,8 +84,13 @@ const REPEATABLE_KEYS: ReadonlySet<string> = new Set<LandingSectionKey>(["CTA", 
  * Re-asserted here and not only in the backend, because this function also
  * serves stored rows written before a rule existed, and a hand-edited row is
  * not validated by anything.
+ *
+ * ORDER_FORM joined HERO when the two were split apart. Every order stored
+ * before that split names only HERO — the restore pass below puts the form
+ * back at its default position, which is exactly where it used to render
+ * inside the hero, so those pages are unchanged.
  */
-const REQUIRED_KEYS: readonly LandingSectionKey[] = ["HERO"];
+const REQUIRED_KEYS: readonly LandingSectionKey[] = ["HERO", "ORDER_FORM"];
 
 /** One section, resolved and ready to render. */
 export interface ResolvedLandingSection {
@@ -250,27 +257,26 @@ const ACCENT_KEYS: ReadonlySet<string> = new Set<LandingSectionKey>(["OFFER", "C
  * The accent sections are skipped rather than counted, so a call to action
  * between two content bands does not flip the alternation of everything below
  * it — the two content bands either side still differ from each other.
- *
- * THE COUNT STARTS AT ONE because the hero is already a `surface` band above
- * this list. See `offset`.
  */
 export function landingSectionSurfaces(
   sections: readonly ResolvedLandingSection[],
   /**
    * How many content bands are already on the page ABOVE these.
    *
-   * ONE, not zero, and it is not an off-by-one to tidy away. The hero renders
-   * outside this list — it is not reorderable, so `LandingPageView` draws it
-   * before the fold — but it is still a band, and it is on `surface`. Starting
-   * the count at zero makes the first folded content band `surface` too, and
-   * the two then sit either side of the offer strip reading as one continuous
-   * block. That is precisely the defect this function exists to prevent, and it
-   * was live until an end-to-end check caught two `bg-lp-surface` bands two
-   * apart.
+   * ZERO, because every band is now in the list. It defaulted to ONE while
+   * the hero rendered outside it: the hero was a `surface` band the count
+   * could not see, so starting at zero made the first folded band `surface`
+   * too and the two sat either side of the offer strip reading as one
+   * continuous block — the exact defect this function exists to prevent, and
+   * it was live until an end-to-end check caught two `bg-lp-surface` bands
+   * two apart.
    *
-   * A caller that renders no band above the list passes 0.
+   * Splitting the hero into the product and the order form put both into the
+   * reorderable list, which retires the hazard by construction rather than by
+   * an offset a caller has to remember. The parameter stays for a caller that
+   * genuinely draws a band of its own above the list; nothing does today.
    */
-  offset = 1,
+  offset = 0,
 ): LandingSurface[] {
   let alternating = offset;
 
@@ -298,6 +304,15 @@ export function landingSectionHasContent(
 ): boolean {
   switch (section.key) {
     case "HERO":
+      return true;
+    case "ORDER_FORM":
+      /*
+       * Always, INCLUDING when the product cannot be ordered — unlike CTA
+       * below, which is a button and has nothing to say in that state. The
+       * form renders an out-of-stock card in its place, and a campaign page
+       * that simply omits the form leaves a visitor who arrived from an ad
+       * scrolling for a way to buy that is not there and no word of why.
+       */
       return true;
     case "OFFER":
       return Boolean(page.offerEndsAt) || Boolean(page.scarcity);
