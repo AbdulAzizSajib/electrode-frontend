@@ -45,9 +45,43 @@ const nextConfig: NextConfig = {
   /*
    * `serverExternalPackages: ["jsdom"]` was here for isomorphic-dompurify's
    * server-side DOM. Both are gone — `lib/sanitize-html.ts` now uses
-   * `sanitize-html`, which parses with htmlparser2 and needs no DOM. Leaving
-   * the entry would pin a package nothing imports.
+   * `sanitize-html`, which parses with htmlparser2 and needs no DOM.
+   *
+   * These two are BUNDLED rather than left external, and that is the whole
+   * point of the entry.
+   *
+   * Turbopack emits a server-side external under a CONTENT-HASHED specifier
+   * when the package resolves outside the app directory — which is always here,
+   * because npm workspaces hoist every shared dependency to the monorepo root.
+   * The chunk ends up holding `require("sanitize-html-6ef27188a4b3dc42")`, a
+   * name no package has. The build reports success, the standalone server
+   * boots, and then every server render of a page that touches the module dies
+   * with `Cannot find module`. The package itself is traced into the standalone
+   * `node_modules/` perfectly well — only the NAME in the bundle is
+   * unresolvable, which is why the failure survives a complete, correct
+   * dependency tree and reads as a packaging bug.
+   *
+   * `serverExternalPackages: ["sanitize-html"]` does NOT fix this. It was tried:
+   * it only moved the hash from the dependency to the parent
+   * (`postcss-9745a0d11e3197ae` became `sanitize-html-6ef27188a4b3dc42`),
+   * because marking something external is precisely what triggers the hashing.
+   * `transpilePackages` makes Turbopack compile both into the chunks instead,
+   * so there is no external specifier left to mangle. `postcss` is listed
+   * explicitly because `sanitize-html` depends on it and it is hoisted too.
+   *
+   * See server/openspec/changes/fix-cpanel-deploy-blockers/design.md Decision 1 for the
+   * failed first attempt and why it looked like it had worked.
+   *
+   * VERIFY BY BOOTING, NOT BY BUILDING. `next build` exits 0 in every broken
+   * variant above. The check that distinguishes them is:
+   *
+   *     grep -rhoE 'a\.x\("[^"]+"' .next/server/chunks/ssr/*.js | sort -u
+   *
+   * Every specifier it prints must be a real, resolvable name. A trailing
+   * 16-hex-character suffix on any of them is this bug.
    */
+  transpilePackages: ["sanitize-html", "postcss"],
+
   /*
    * Images are sized by Cloudinary, not by Next's `/_next/image` optimizer and
    * no longer left unoptimized. The loader inserts a resize-and-format
