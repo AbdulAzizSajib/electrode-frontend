@@ -146,7 +146,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
         immediately rather than waiting on this request.
       */}
       {fontHref && <link rel="stylesheet" href={fontHref} precedence="default" />}
-      <body className="flex min-h-full flex-col">
+      <body className="flex min-h-full flex-col" suppressHydrationWarning>
         {/* The store itself, on every page — which is what lets a search engine
             attach a knowledge panel to the brand rather than to one product.
             Renders nothing when the merchant has the toggle off. */}

@@ -4040,7 +4040,7 @@ const STORE_SETTINGS_CACHE_TAG = "store-settings";
    */ currencyPosition: "BEFORE",
     currencyDecimals: 2,
     contact: {
-        email: "contact@sheisite.com",
+        email: "contact@topitsolution.com",
         phone: "+8801782521705",
         address: "Electrode - Electronics Store, 507 Union Trade, Ipsum Dolor Centre"
     },
@@ -4084,8 +4084,8 @@ const STORE_SETTINGS_CACHE_TAG = "store-settings";
             },
             {
                 icon: "garden:email-stroke-16",
-                label: "contact@sheisite.com",
-                href: "mailto:contact@sheisite.com",
+                label: "contact@topitsolution.com",
+                href: "mailto:contact@topitsolution.com",
                 source: "contactEmail"
             },
             {
