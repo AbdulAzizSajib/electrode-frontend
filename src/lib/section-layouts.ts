@@ -69,12 +69,14 @@ export const SECTION_LAYOUTS = {
    */
   BEST_SELLING: ["GRID", "SLIDER"],
   FEATURED_PRODUCTS: ["GRID", "SLIDER"],
+  DEAL_OF_WEEK: ["GRID", "SLIDER"],
   NEW_ARRIVALS: ["GRID", "SLIDER"],
 } as const satisfies {
   HERO: readonly HeroVariant[];
   FEATURED_CATEGORIES: readonly FeaturedCategoriesLayout[];
   BEST_SELLING: readonly ProductRowLayout[];
   FEATURED_PRODUCTS: readonly ProductRowLayout[];
+  DEAL_OF_WEEK: readonly ProductRowLayout[];
   NEW_ARRIVALS: readonly ProductRowLayout[];
 };
 

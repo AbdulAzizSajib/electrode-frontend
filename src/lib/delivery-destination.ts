@@ -116,8 +116,8 @@ const UNSERVED_DISTRICTS: ReadonlySet<string> = new Set<string>();
  * compare these keys against Checkout Settings first.
  */
 const ZONE_OPTION_KEY: Record<DeliveryZone, string> = {
-  INSIDE_DHAKA: "option-2",
-  OUTSIDE_DHAKA: "outside-dhaka",
+  INSIDE_DHAKA: "option-1",
+  OUTSIDE_DHAKA: "option-2",
 };
 
 /* -------------------------------------------------------------------------

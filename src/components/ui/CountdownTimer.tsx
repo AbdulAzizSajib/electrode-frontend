@@ -53,13 +53,26 @@ export default function CountdownTimer({ endsAt }: { endsAt: number }) {
     : [null, null, null, null];
 
   return (
-    <div className="flex gap-2">
+    <div
+      className="flex w-full items-center justify-between gap-1.5 sm:w-auto sm:justify-start sm:gap-2"
+      role="timer"
+      aria-label="Time remaining"
+    >
       {UNIT_LABELS.map((label, i) => (
-        <div key={label} className="flex flex-col items-center">
-          <span className="flex h-8 w-8 items-center justify-center rounded border border-gray-300 text-sm font-semibold">
-            {values[i] === null ? "--" : String(values[i]).padStart(2, "0")}
-          </span>
-          <span className="mt-1 text-[10px] text-gray-500">{label}</span>
+        <div key={label} className="contents">
+          <div className="flex min-w-13 flex-1 flex-col items-center justify-center rounded-xl border border-brand/15 bg-white px-2.5 py-2.5 shadow-xs sm:min-w-15 sm:flex-none sm:px-3.5 sm:py-2.5">
+            <span className="text-lg font-extrabold leading-none tabular-nums text-gray-900 sm:text-xl">
+              {values[i] === null ? "--" : String(values[i]).padStart(2, "0")}
+            </span>
+            <span className="mt-1 text-[10px] font-semibold tracking-wider text-gray-500 uppercase sm:text-[11px]">
+              {label}
+            </span>
+          </div>
+          {i < UNIT_LABELS.length - 1 && (
+            <span aria-hidden="true" className="text-base font-bold text-brand/60 sm:text-lg">
+              :
+            </span>
+          )}
         </div>
       ))}
     </div>

@@ -1,64 +1,122 @@
+"use client";
+
+import { useState } from "react";
 import Image from "next/image";
-import { Quote } from "lucide-react";
+import { ChevronLeft, ChevronRight, Quote } from "lucide-react";
+import { Swiper, SwiperSlide } from "swiper/react";
+import type { Swiper as SwiperInstance } from "swiper";
+
+import "swiper/css";
+
 import StarRating from "@/components/ui/StarRating";
 import { authorInitials } from "@/services/testimonials";
 import type { Testimonial } from "@/types/testimonial";
 
+/** Cards across per breakpoint: 1 on mobile, 2 on sm (640px), 4 on lg (1024px). */
+const COLUMNS = { base: 1, sm: 2, lg: 4 } as const;
+const GAP = 24;
+const BREAKPOINT = { sm: 640, lg: 1024 } as const;
+
+const ARROW_CLASS =
+  "flex size-9 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-700 transition hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand disabled:pointer-events-none disabled:opacity-40";
+
 /**
- * The homepage's "What Our Clients Say" row.
- *
- * Takes its entries as a prop for the same reason `BlogSection` does, and
- * renders nothing when there are none — a heading over an empty grid is worse
- * than a shorter page.
+ * The homepage's "What Our Clients Say" carousel on both mobile and desktop.
  */
 export default function Testimonials({ testimonials }: { testimonials: Testimonial[] }) {
+  const [swiper, setSwiper] = useState<SwiperInstance | null>(null);
+  const [edges, setEdges] = useState({ atStart: true, atEnd: false });
+
   if (testimonials.length === 0) return null;
 
+  const syncEdges = (instance: SwiperInstance) =>
+    setEdges((current) =>
+      current.atStart === instance.isBeginning && current.atEnd === instance.isEnd
+        ? current
+        : { atStart: instance.isBeginning, atEnd: instance.isEnd },
+    );
+
   return (
-    <section className=" py-12">
+    <section className="py-12">
       <div className="container-px site-container">
-        <h2 className="mb-8 text-center text-2xl font-bold text-gray-900">What Our Clients Say</h2>
-        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="mb-8 flex items-center justify-between gap-4">
+          <h2 className="flex items-center gap-2.5 text-xl font-bold text-gray-900 sm:text-2xl">
+            <span aria-hidden="true" className="h-5 w-1.5 shrink-0 rounded-full bg-brand sm:h-6" />
+            <span>What Our Clients Say</span>
+          </h2>
+          <div className="flex shrink-0 gap-2">
+            <button
+              type="button"
+              aria-label="Previous testimonials"
+              disabled={edges.atStart}
+              onClick={() => swiper?.slidePrev()}
+              className={ARROW_CLASS}
+            >
+              <ChevronLeft className="size-5" aria-hidden />
+            </button>
+            <button
+              type="button"
+              aria-label="Next testimonials"
+              disabled={edges.atEnd}
+              onClick={() => swiper?.slideNext()}
+              className={ARROW_CLASS}
+            >
+              <ChevronRight className="size-5" aria-hidden />
+            </button>
+          </div>
+        </div>
+
+        <Swiper
+          slidesPerView={COLUMNS.base}
+          spaceBetween={GAP}
+          breakpoints={{
+            [BREAKPOINT.sm]: { slidesPerView: COLUMNS.sm },
+            [BREAKPOINT.lg]: { slidesPerView: COLUMNS.lg },
+          }}
+          onSwiper={(instance) => {
+            setSwiper(instance);
+            syncEdges(instance);
+          }}
+          onSlideChange={syncEdges}
+          onBreakpoint={syncEdges}
+          onResize={syncEdges}
+          onUpdate={syncEdges}
+          aria-label="What Our Clients Say"
+        >
           {testimonials.map((t) => (
-            <div key={t.id} className="rounded-xl bg-white p-6 shadow-sm">
-              <Quote className="mb-3 text-brand" size={22} />
-              <p className="text-sm text-gray-600">{t.quote}</p>
-              <div className="mt-4">
-                {/* The stored rating, not a hardcoded 5. A section where every
-                    card shows five stars regardless of what it says is not
-                    showing a rating. */}
-                <StarRating rating={t.rating} />
-              </div>
-              <div className="mt-3 flex items-center gap-2.5">
-                {/*
-                  Photo when there is one, initials when there is not — never a
-                  gap and never a stock silhouette. Both occupy the same
-                  footprint, so a mixed row does not stagger.
-                */}
-                {t.photoUrl ? (
-                  <Image
-                    src={t.photoUrl}
-                    alt=""
-                    width={40}
-                    height={40}
-                    className="size-10 shrink-0 rounded-full object-cover"
-                  />
-                ) : (
-                  <span
-                    className="flex size-10 shrink-0 items-center justify-center rounded-full bg-gray-100 text-xs font-semibold text-gray-500"
-                    aria-hidden
-                  >
-                    {authorInitials(t.authorName)}
-                  </span>
-                )}
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-semibold text-gray-900">{t.authorName}</p>
-                  <p className="truncate text-xs text-gray-500">{t.authorRole}</p>
+            <SwiperSlide key={t.id} className="!flex !h-auto [&>div]:flex-1">
+              <div className="flex flex-col rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
+                <Quote className="mb-3 text-brand" size={22} />
+                <p className="flex-1 text-sm text-gray-600">{t.quote}</p>
+                <div className="mt-4">
+                  <StarRating rating={t.rating} />
+                </div>
+                <div className="mt-3 flex items-center gap-2.5">
+                  {t.photoUrl ? (
+                    <Image
+                      src={t.photoUrl}
+                      alt=""
+                      width={40}
+                      height={40}
+                      className="size-10 shrink-0 rounded-full object-cover"
+                    />
+                  ) : (
+                    <span
+                      className="flex size-10 shrink-0 items-center justify-center rounded-full bg-gray-100 text-xs font-semibold text-gray-500"
+                      aria-hidden
+                    >
+                      {authorInitials(t.authorName)}
+                    </span>
+                  )}
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-semibold text-gray-900">{t.authorName}</p>
+                    <p className="truncate text-xs text-gray-500">{t.authorRole}</p>
+                  </div>
                 </div>
               </div>
-            </div>
+            </SwiperSlide>
           ))}
-        </div>
+        </Swiper>
       </div>
     </section>
   );

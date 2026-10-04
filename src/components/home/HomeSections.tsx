@@ -64,11 +64,11 @@ export async function ProductRow({
  * sellingPrice" under a countdown would put a deadline on products that have
  * none.
  */
-export async function DealOfWeekRow() {
+export async function DealOfWeekRow({ layout = "GRID" }: { layout?: ProductRowLayout }) {
   const campaign = await getCampaignByPlacement("DEAL_OF_WEEK");
   if (!campaign) return null;
 
-  return <DealOfWeek campaign={campaign} />;
+  return <DealOfWeek campaign={campaign} layout={layout} />;
 }
 
 /** Omitted entirely when the merchant has published none. */

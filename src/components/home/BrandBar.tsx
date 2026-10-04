@@ -27,9 +27,9 @@ export default async function BrandBar() {
    * the rest of the page down once the logos appear.
    */
   return (
-    <section className=" container-px site-container min-h-40 py-8">
+    <section className=" container-px site-container min-h-30 py-0">
       <Marquee>
-        <div className="flex flex-wrap items-center justify-between gap-6 border-gray-100 py-6">
+        <div className="flex flex-wrap items-center justify-between gap-6 border-gray-100 pt-10 ">
           {brands.map((brand) => (
             <div key={brand.id} className="flex h-12 w-32  items-center justify-center">
               <Image

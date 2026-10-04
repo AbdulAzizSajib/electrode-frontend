@@ -907,8 +907,12 @@ export default function ProductDetail({
               reaches from here (checkout, orders). The marketing sections on
               the homepage still use Title Case; unifying the two is a
               copy decision for the whole storefront, not this page. */}
-          <h2 id="related-heading" className="mb-6 text-xl font-bold text-gray-900">
-            You may also like
+          <h2
+            id="related-heading"
+            className="mb-6 flex items-center gap-2.5 text-xl font-bold text-gray-900 sm:text-2xl"
+          >
+            <span aria-hidden="true" className="h-5 w-1.5 shrink-0 rounded-full bg-brand sm:h-6" />
+            <span>You may also like</span>
           </h2>
           <div className="grid grid-cols-2 gap-x-5 gap-y-8 sm:grid-cols-3 lg:grid-cols-6">
             {related.map((p) => (

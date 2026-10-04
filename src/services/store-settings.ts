@@ -266,12 +266,7 @@ const FALLBACK_SETTINGS: StoreSettings = {
      */
     { key: "FEATURED_PRODUCTS", enabled: true, variant: "GRID" },
     { key: "PERKS_BAR", enabled: true },
-    /*
-     * No `variant`: DEAL_OF_WEEK offers no choice. Its products share a grid
-     * with a countdown panel, so it is absent from `SECTION_LAYOUTS` and a
-     * layout here would be a value nothing reads.
-     */
-    { key: "DEAL_OF_WEEK", enabled: true },
+    { key: "DEAL_OF_WEEK", enabled: true, variant: "GRID" },
     { key: "NEW_ARRIVALS", enabled: true, variant: "GRID" },
     { key: "TESTIMONIALS", enabled: true },
     { key: "BLOG", enabled: true },

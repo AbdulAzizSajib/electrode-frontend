@@ -199,6 +199,10 @@ export default async function Home() {
   const bestSelling = productRow("BEST_SELLING");
   const featuredProducts = productRow("FEATURED_PRODUCTS");
   const newArrivals = productRow("NEW_ARRIVALS");
+  const dealOfWeekLayout = resolveSectionLayout(
+    "DEAL_OF_WEEK",
+    settings.homeConfig.find((section) => section.key === "DEAL_OF_WEEK")?.variant,
+  );
 
   /*
    * THE PROMO STRIPS, BUILT PER ENTRY — not from the map below.
@@ -264,7 +268,7 @@ export default async function Home() {
     PERKS_BAR: <PerksBar perks={settings.perks} />,
     DEAL_OF_WEEK: (
       <Suspense fallback={<DealOfWeekSkeleton />}>
-        <DealOfWeekRow />
+        <DealOfWeekRow layout={dealOfWeekLayout} />     
       </Suspense>
     ),
     NEW_ARRIVALS: (

@@ -248,13 +248,26 @@ export function ProductSliderSkeleton() {
   );
 }
 
-/** Mirrors `DealOfWeek`: the countdown panel, then five cards beside it. */
+/** Mirrors `DealOfWeek`: the unified promotional container with header bar and five product cards. */
 export function DealOfWeekSkeleton() {
   return (
     <section aria-hidden className="container-px site-container py-8">
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-6">
-        <SkeletonBlock className="min-h-48 rounded-xl lg:col-span-1" />
-        <div className="grid grid-cols-2 gap-x-5 gap-y-8 sm:grid-cols-5 lg:col-span-5">
+      <div className="rounded-2xl border border-gray-100 bg-gray-50/70 p-5 sm:p-7 lg:p-8">
+        <div className="mb-6 flex flex-col gap-4 border-b border-gray-200/60 pb-6 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex flex-col gap-2.5">
+            <SkeletonBlock className="h-6 w-28 rounded-full" />
+            <SkeletonBlock className="h-8 w-64 max-w-full" />
+          </div>
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="flex gap-2">
+              {Array.from({ length: 4 }, (_, index) => (
+                <SkeletonBlock key={index} className="h-14 w-14 rounded-xl" />
+              ))}
+            </div>
+            <SkeletonBlock className="h-11 w-36 rounded-xl" />
+          </div>
+        </div>
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 sm:gap-5 lg:grid-cols-5">
           {Array.from({ length: 5 }, (_, index) => (
             <ProductCardSkeleton key={index} />
           ))}

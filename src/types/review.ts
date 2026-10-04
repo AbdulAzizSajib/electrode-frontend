@@ -21,7 +21,8 @@ export interface ApiReviewCustomer {
 export interface ApiReview {
   id: string;
   productId: string;
-  customerId: string;
+  customerId: string | null;
+  authorName?: string | null;
   rating: number;
   title: string | null;
   comment: string | null;
@@ -29,8 +30,8 @@ export interface ApiReview {
   adminReply: string | null;
   createdAt: string;
   updatedAt: string;
-  /** Present on the public product-review listing. */
-  customer?: ApiReviewCustomer;
+  /** Present on the public product-review listing when authored by a customer. */
+  customer?: ApiReviewCustomer | null;
   /** Present on `GET /reviews/me`, which lists across products. */
   product?: { id: string; name: string; slug: string };
 }
@@ -73,8 +74,11 @@ export interface CreateReviewPayload {
 
 export type UpdateReviewPayload = Partial<CreateReviewPayload>;
 
-function displayName(customer: ApiReviewCustomer | undefined): string {
-  const full = [customer?.firstName, customer?.lastName]
+function displayName(review: ApiReview): string {
+  const custom = review.authorName?.trim();
+  if (custom) return custom;
+
+  const full = [review.customer?.firstName, review.customer?.lastName]
     .filter(Boolean)
     .join(" ")
     .trim();
@@ -94,7 +98,7 @@ export function toReview(review: ApiReview): Review {
     status: review.status,
     adminReply: review.adminReply ?? undefined,
     createdAt: review.createdAt,
-    authorName: displayName(review.customer),
+    authorName: displayName(review),
     authorAvatar: review.customer?.avatar ?? undefined,
     product: review.product,
   };

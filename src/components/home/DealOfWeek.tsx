@@ -2,26 +2,40 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { ArrowRight, ChevronLeft, ChevronRight, Zap } from "lucide-react";
+import { Swiper, SwiperSlide } from "swiper/react";
+import type { Swiper as SwiperInstance } from "swiper";
+
+import "swiper/css";
+
 import CountdownTimer from "@/components/ui/CountdownTimer";
 import ProductCard from "@/components/product/ProductCard";
 import type { Campaign } from "@/types/campaign";
+import type { ProductRowLayout } from "@/types/store-settings";
+
+const COLUMNS = { base: 2, sm: 3, lg: 5 } as const;
+const GAP = 20;
+const BREAKPOINT = { sm: 640, lg: 1024 } as const;
+
+const ARROW_CLASS =
+  "flex size-11 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-700 shadow-xs transition hover:border-brand/40 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand disabled:pointer-events-none disabled:opacity-40";
 
 /**
- * The campaign occupying the DEAL_OF_WEEK slot.
- *
- * Renders the campaign's own name and description rather than hardcoded "DEAL
- * OF / THE WEEK!" copy, and its real deadline rather than a countdown invented
- * on mount. The page omits this section entirely when no campaign occupies the
- * slot — there is deliberately no fallback to "any product with a
- * sellingPrice", which would put a countdown beside products that are not on
- * a deadline.
- *
- * A client component only so it can notice its own deadline passing: the
- * response is cached for five minutes, so it can outlive `endsAt` by up to that
- * long, and a visitor may sit on the page through the expiry.
+ * The campaign occupying the DEAL_OF_WEEK slot, rendered inside a unified
+ * promotional showcase with a responsive header bar (title, countdown timer,
+ * CTA and slider controls) above a wrapping grid ("GRID") or horizontal Swiper
+ * carousel ("SLIDER").
  */
-export default function DealOfWeek({ campaign }: { campaign: Campaign }) {
+export default function DealOfWeek({
+  campaign,
+  layout = "GRID",
+}: {
+  campaign: Campaign;
+  layout?: ProductRowLayout;
+}) {
   const [expired, setExpired] = useState(false);
+  const [swiper, setSwiper] = useState<SwiperInstance | null>(null);
+  const [edges, setEdges] = useState({ atStart: true, atEnd: false });
 
   useEffect(() => {
     if (campaign.endsAt === null) return;
@@ -35,43 +49,113 @@ export default function DealOfWeek({ campaign }: { campaign: Campaign }) {
 
   if (expired || campaign.products.length === 0) return null;
 
+  const syncEdges = (instance: SwiperInstance) =>
+    setEdges((current) =>
+      current.atStart === instance.isBeginning && current.atEnd === instance.isEnd
+        ? current
+        : { atStart: instance.isBeginning, atEnd: instance.isEnd },
+    );
+
   return (
-    <section className="container-px sm:container-px site-container py-8">
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-6">
-        <div className="flex flex-col justify-center rounded-xl bg-[#eef1fb] p-6 lg:col-span-1">
-          <p className="mb-3 inline-block w-fit rounded bg-sale px-3 py-1 text-xs font-bold text-white">
-            {campaign.name}
-          </p>
-          {campaign.description ? (
-            <p className="mb-4 text-sm text-gray-600">{campaign.description}</p>
-          ) : null}
-          {/* No deadline means no countdown — never a computed one. */}
-          {campaign.endsAt !== null ? (
-            <>
-              <CountdownTimer endsAt={campaign.endsAt} />
-              <p className="mb-4 mt-2 text-xs text-gray-500">
-                Remains until the end of the offer
-              </p>
-            </>
-          ) : null}
-          {/*
-            Points at the catalog, not at the campaign: neither the products
-            page nor the API has a campaign filter, so a `?campaign=` link would
-            silently render the unfiltered catalog — worse than an honest one.
-            Adding that filter is its own change.
-          */}
-          <Link
-            href="/products"
-            className="rounded bg-brand px-4 py-2.5 text-center text-sm font-semibold text-white hover:bg-brand-dark"
-          >
-            Shop Now
-          </Link>
+    <section className="container-px site-container py-8">
+      <div className="rounded-2xl border border-brand/15 bg-linear-to-br from-[#eef2fc] via-[#f4f7fe] to-[#e9effd] p-5 shadow-xs sm:p-7 lg:p-8">
+        {/* Header Bar: Campaign Title + Countdown + CTA / Slider Arrows */}
+        <div className="mb-6 flex flex-col gap-5 border-b border-brand/10 pb-6 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex flex-col gap-2">
+            <div className="flex flex-wrap items-center gap-2.5">
+              <span className="inline-flex items-center gap-1 rounded-full bg-sale px-3 py-1 text-xs font-bold tracking-wide text-white uppercase shadow-xs">
+                <Zap className="size-3.5 fill-current" aria-hidden />
+                Flash Deal
+              </span>
+              {campaign.endsAt !== null && (
+                <span className="text-xs font-medium text-gray-600 sm:text-sm">
+                  Limited-time offer — grab yours before it ends!
+                </span>
+              )}
+            </div>
+
+            <h2 className="flex items-center gap-2.5 text-xl font-bold text-gray-900 sm:text-2xl lg:text-3xl">
+              <span aria-hidden="true" className="h-5 w-1.5 shrink-0 rounded-full bg-brand sm:h-6" />
+              <span>{campaign.name}</span>
+            </h2>
+
+            {campaign.description ? (
+              <p className="max-w-2xl text-sm text-gray-600 sm:text-base">{campaign.description}</p>
+            ) : null}
+          </div>
+
+          <div className="flex w-full flex-col gap-4 lg:w-auto lg:flex-row lg:items-center lg:justify-end">
+            {campaign.endsAt !== null ? <CountdownTimer endsAt={campaign.endsAt} /> : null}
+
+            <div className="flex w-full items-center justify-between gap-3 lg:w-auto lg:justify-end lg:gap-4">
+              <Link
+                href="/products"
+                className="inline-flex items-center justify-center gap-2.5 rounded-xl bg-brand px-6 py-3.5 text-base font-bold text-white shadow-sm transition hover:bg-brand-dark focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand sm:px-7"
+              >
+                <span>Shop All Deals</span>
+                <ArrowRight className="size-5 shrink-0" aria-hidden />
+              </Link>
+
+              {layout === "SLIDER" && (
+                <div className="ms-auto flex shrink-0 items-center gap-2.5 lg:ms-0">
+                  <button
+                    type="button"
+                    aria-label="Previous deal products"
+                    disabled={edges.atStart}
+                    onClick={() => swiper?.slidePrev()}
+                    className={ARROW_CLASS}
+                  >
+                    <ChevronLeft className="size-5" aria-hidden />
+                  </button>
+                  <button
+                    type="button"
+                    aria-label="Next deal products"
+                    disabled={edges.atEnd}
+                    onClick={() => swiper?.slideNext()}
+                    className={ARROW_CLASS}
+                  >
+                    <ChevronRight className="size-5" aria-hidden />
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
-        <div className="grid grid-cols-2 gap-x-5 gap-y-8 sm:grid-cols-5 lg:col-span-5">
-          {campaign.products.map((product) => (
-            <ProductCard key={product.id} product={product} />
-          ))}
-        </div>
+
+        {/* Products Grid or Slider */}
+        {layout === "SLIDER" ? (
+          <div className="min-w-0">
+            <Swiper
+              slidesPerView={COLUMNS.base}
+              spaceBetween={GAP}
+              breakpoints={{
+                [BREAKPOINT.sm]: { slidesPerView: COLUMNS.sm },
+                [BREAKPOINT.lg]: { slidesPerView: COLUMNS.lg },
+              }}
+              onSwiper={(instance) => {
+                setSwiper(instance);
+                syncEdges(instance);
+              }}
+              onSlideChange={syncEdges}
+              onBreakpoint={syncEdges}
+              onResize={syncEdges}
+              onUpdate={syncEdges}
+              aria-label={campaign.name}
+            >
+              {campaign.products.map((product) => (
+                <SwiperSlide key={product.id} className="!flex !h-auto [&>div]:flex-1">
+                  <ProductCard product={product} />
+                </SwiperSlide>
+              ))}
+            </Swiper>
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 sm:gap-5 lg:grid-cols-5">
+            {campaign.products.map((product) => (
+              <ProductCard key={product.id} product={product} />
+            ))}
+          </div>
+        )}
       </div>
     </section>
   );

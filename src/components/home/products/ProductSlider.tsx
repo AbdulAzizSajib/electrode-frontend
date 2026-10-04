@@ -114,7 +114,10 @@ export default function ProductSlider({
         space first, so leaving it would be a rule that never applies.
       */}
       <div className="mb-8 flex flex-wrap items-center gap-x-4 gap-y-3">
-        <h2 className="text-xl font-bold text-gray-900 sm:text-2xl">{title}</h2>
+        <h2 className="flex items-center gap-2.5 text-xl font-bold text-gray-900 sm:text-2xl">
+          <span aria-hidden="true" className="h-5 w-1.5 shrink-0 rounded-full bg-brand sm:h-6" />
+          <span>{title}</span>
+        </h2>
 
         <Link
           href={viewAllHref}

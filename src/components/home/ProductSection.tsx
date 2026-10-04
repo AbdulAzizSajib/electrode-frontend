@@ -14,9 +14,11 @@ export default function ProductSection({
   viewAllHref?: string;
 }) {
   return (
-    <section className=" container-px  site-container py-8  ">
-      <div className="mb-8 flex flex-wrap items-center justify-between gap-4 ">
-        <h2 className="text-xl flex items-center gap-12 font-bold text-gray-900 sm:text-2xl">{title}
+    <section className="container-px site-container py-8">
+      <div className="mb-8 flex flex-wrap items-center justify-between gap-4">
+        <h2 className="flex items-center gap-2.5 text-xl font-bold text-gray-900 sm:text-2xl">
+          <span aria-hidden="true" className="h-5 w-1.5 shrink-0 rounded-full bg-brand sm:h-6" />
+          <span>{title}</span>
         </h2>
         <Link href={viewAllHref} className="text-sm font-semibold text-brand hover:underline">
           See all products

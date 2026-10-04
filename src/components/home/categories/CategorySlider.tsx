@@ -107,7 +107,10 @@ export default function CategorySlider({ title, categories }: CategoriesLayoutPr
   return (
     <section className="container-px site-container pb-8">
       <div className="mb-8 flex items-center justify-between gap-4">
-        <h2 className="text-xl font-bold text-gray-900 sm:text-2xl">{title}</h2>
+        <h2 className="flex items-center gap-2.5 text-xl font-bold text-gray-900 sm:text-2xl">
+          <span aria-hidden="true" className="h-5 w-1.5 shrink-0 rounded-full bg-brand sm:h-6" />
+          <span>{title}</span>
+        </h2>
         <div className="flex shrink-0 gap-2">
           <button
             type="button"

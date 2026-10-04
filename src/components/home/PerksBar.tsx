@@ -33,7 +33,9 @@ export default function PerksBar({ perks }: { perks: Perk[] }) {
         left. The backend caps the list at four, so these are all the cases.
       */}
       <div
-        className={`container-px grid site-container grid-cols-1 gap-6 py-8 sm:grid-cols-2 ${
+        className={`container-px site-container grid gap-4 py-8 sm:gap-6 ${
+          perks.length === 1 ? "grid-cols-1" : "grid-cols-2"
+        } ${
           perks.length >= 4 ? "lg:grid-cols-4" : perks.length === 3 ? "lg:grid-cols-3" : ""
         }`}
       >
@@ -43,11 +45,11 @@ export default function PerksBar({ perks }: { perks: Perk[] }) {
             columns may legitimately share one while a merchant is part-way
             through renaming them.
           */
-          <div key={i} className="flex items-center gap-4">
-            <Icon icon={perk.icon} width={30} height={30} className="shrink-0" aria-hidden />
-            <div>
-              <p className="font-semibold">{perk.title}</p>
-              <p className="text-sm text-white/80">{perk.description}</p>
+          <div key={i} className="flex items-start gap-2.5 sm:items-center sm:gap-4">
+            <Icon icon={perk.icon} width={30} height={30} className="mt-0.5 shrink-0 sm:mt-0" aria-hidden />
+            <div className="min-w-0">
+              <p className="text-sm font-semibold sm:text-base">{perk.title}</p>
+              <p className="text-xs text-white/80 sm:text-sm">{perk.description}</p>
             </div>
           </div>
         ))}
