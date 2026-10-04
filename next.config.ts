@@ -40,7 +40,30 @@ const nextConfig: NextConfig = {
    */
   output: "standalone",
   outputFileTracingRoot: tracingRoot,
-  turbopack: { root: tracingRoot },
+  /*
+   * Turbopack bundles PostCSS under an internal hashed module name
+   * (e.g. `postcss-9745a0d11e3197ae`) that is NOT a real npm package.
+   * The standalone output file-tracer never finds it in node_modules, so
+   * the server crashes at runtime with "Cannot find module 'postcss-<hash>'".
+   * `turbopack` config key is intentionally absent here.
+   *
+   * When NEXT_TURBOPACK=0, Next falls back to Webpack which resolves PostCSS
+   * as a real dependency and includes it in the standalone trace correctly.
+   * Keep Turbopack for `dev` (fast HMR) and disable it only for the
+   * `build:cpanel` script (set via cross-env in package.json).
+   * Having `turbopack: { root }` in next.config makes `next build` use
+   * Turbopack, which bundles PostCSS under an internal hashed module name
+   * (e.g. `postcss-9745a0d11e3197ae`). That name is not a real npm package,
+   * so the standalone file-tracer never copies it — the server crashes at
+   * runtime with "Cannot find module 'postcss-<hash>'".
+   *
+   * `next build` always uses Webpack when this key is absent.
+   * Turbopack is enabled for local dev only via `--turbopack` in the
+   * `dev` script in package.json.
+   */
+  ...(process.env.NEXT_TURBOPACK !== "0" && {
+    turbopack: { root: tracingRoot },
+  }),
 
   /*
    * `serverExternalPackages: ["jsdom"]` was here for isomorphic-dompurify's

@@ -28,7 +28,7 @@ import { HERO_VARIANTS } from "@/components/home/hero/registry";
 import { resolveSectionLayout } from "@/lib/section-layouts";
 
 /** Products per merchandising row, matching the five-across deal layout. */
-const SECTION_SIZE = 6;
+const SECTION_SIZE = 12;
 
 /**
  * The homepage inherits its title and description from the root layout, but not

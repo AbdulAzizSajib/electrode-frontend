@@ -42,13 +42,13 @@ export default function CategoryTile({ category }: { category: CategoryGridItem 
       href={`/products?category=${encodeURIComponent(category.slug)}`}
       className="flex flex-col items-center gap-3 rounded-xl bg-gray-50 p-5 text-center hover:bg-gray-100"
     >
-      <div className="relative h-20 w-full overflow-hidden lg:h-28 lg:w-28">
+      <div className="relative h-20 w-full overflow-hidden lg:h-20 lg:w-20">
         <Image
           src={category.image!}
           alt={category.name}
           width={500}
           height={400}
-          className="h-full w-full object-contain"
+          className="h-full w-full   object-contain"
         />
       </div>
       <div className="flex min-h-10 items-center">

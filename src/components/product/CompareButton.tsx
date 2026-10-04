@@ -43,6 +43,21 @@ export default function CompareButton({
 
   const isCompared = slugs.includes(slug);
 
+  // `mounted` gates all client-only derived state so the first render that
+  // React uses for hydration is byte-for-byte identical to the server HTML.
+  // Without this, Redux's post-hydration values (`isHydrated=true`) reach the
+  // component before React has committed the tree, causing aria-pressed to
+  // differ between the SSR pass (undefined/null) and the client pass (false).
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  // Effective hydration state: only trust Redux after the component has mounted
+  // client-side. This keeps SSR ↔ first-paint consistent.
+  const effectivelyHydrated = mounted && isHydrated;
+  const effectivelyCompared = mounted && isCompared;
+
   // Transient acknowledgement, so a click is never silent. There is no toast
   // system in this app; the compare bar is the durable feedback and this covers
   // the moment before the eye reaches it.
@@ -62,7 +77,7 @@ export default function CompareButton({
   }
 
   function handleToggle() {
-    if (isCompared) {
+    if (effectivelyCompared) {
       dispatch(removeFromCompare(slug));
       setNotice(null);
       return;
@@ -79,9 +94,9 @@ export default function CompareButton({
     flash("added");
   }
 
-  const label = !isHydrated
+  const label = !effectivelyHydrated
     ? "Compare"
-    : isCompared
+    : effectivelyCompared
       ? "Comparing"
       : notice === "full"
         ? `Compare list full (${COMPARE_LIMIT})`
@@ -91,19 +106,19 @@ export default function CompareButton({
     <button
       type="button"
       onClick={handleToggle}
-      aria-pressed={isHydrated ? isCompared : undefined}
+      aria-pressed={effectivelyHydrated ? effectivelyCompared : undefined}
       aria-label={
-        isCompared ? "Remove from comparison" : "Add to comparison"
+        effectivelyCompared ? "Remove from comparison" : "Add to comparison"
       }
       title={label}
       className={clsx(
         "flex items-center gap-1.5 transition-colors",
-        isHydrated && isCompared && "text-brand",
+        effectivelyHydrated && effectivelyCompared && "text-brand",
         notice === "full" && "text-sale",
         className,
       )}
     >
-      {isHydrated && isCompared ? (
+      {effectivelyHydrated && effectivelyCompared ? (
         <Check size={size} />
       ) : (
         <Repeat size={size} />
