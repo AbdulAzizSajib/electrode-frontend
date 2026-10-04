@@ -167,7 +167,8 @@ export default function CartDrawer() {
   if (!isVisible) return null;
 
   return (
-    <div className="fixed inset-0 z-50" role="dialog" aria-modal="true" aria-label="Your cart">
+    <div className="fixed inset-0 z-50" role="dialog" aria-modal="true" aria-label="Shopping cart
+">
       <div
         className={clsx(
           "absolute inset-0 bg-black/40 transition-opacity duration-300 ease-out motion-reduce:transition-none",
@@ -192,9 +193,11 @@ export default function CartDrawer() {
         )}
       >
         <div className="flex items-center justify-between border-b px-5 py-4">
-          <h2 className="text-lg font-semibold uppercase">Your Cart</h2>
-          <button onClick={close} aria-label="Close cart">
-            <X size={22} />
+          <h2 className="text-lg font-semibold uppercase">Shopping cart
+</h2>
+          <button className="flex items-center gap-1"  onClick={close} aria-label="Close cart">
+            <X size={22} /> 
+            Close
           </button>
         </div>
 
@@ -206,13 +209,20 @@ export default function CartDrawer() {
           </div>
         ) : cart.lines.length === 0 ? (
           <div className="flex flex-1 flex-col items-center justify-center gap-4 p-8 text-center">
-            <p className="text-gray-500">Your cart is empty.</p>
+            <Image
+              src="/empty_cart.png"
+              alt="Empty cart"
+              width={128}
+              height={128}
+              className="h-32 w-32 text-gray-300"
+            />
+            <p className="text-gray-500">No products in the cart.</p>
             <button
               onClick={close}
               className="rounded bg-brand px-5 py-2.5 text-sm font-semibold text-white"
             >
-              Continue shopping
-            </button>
+              Return to shop
+            </button> 
           </div>
         ) : (
           <>
@@ -273,7 +283,7 @@ export default function CartDrawer() {
               )}
               <div className="mb-3 flex items-center justify-between text-base font-semibold">
                 <span>Total</span>
-                <span className="text-sale">{formatPrice(cart.total)} BDT</span>
+                <span className="text-sale">{formatPrice(cart.total)} </span>
               </div>
               <p className="mb-4 text-xs text-gray-500">
                 Taxes and shipping calculated at checkout

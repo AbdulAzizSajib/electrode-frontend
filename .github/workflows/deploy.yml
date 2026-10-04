@@ -1,0 +1,95 @@
+# Builds the standalone storefront on a Linux runner and releases it to cPanel
+# over SSH. Setup (SSH key, secrets, variables) is in CICD-topitsolution.md.
+name: Deploy storefront
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-storefront
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - run: npm test
+
+      - name: Build archive
+        run: npm run build:cpanel
+        env:
+          NEXT_PUBLIC_API_BASE_URL: ${{ vars.NEXT_PUBLIC_API_BASE_URL }}
+
+      # `next build` exits 0 with this bug — see transpilePackages in next.config.ts.
+      - name: Hashed external module guard
+        run: |
+          if grep -rhoE --include='*.js' 'a\.x\("[^"]*-[0-9a-f]{16}"' .next/server | sort -u | grep .; then
+            echo "::error::Hashed external module name in server chunks — add the package to transpilePackages"
+            exit 1
+          fi
+
+      - name: SSH setup
+        run: |
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          printf '%s\n' "${{ secrets.SSH_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
+          cat > ~/.ssh/config <<EOF
+          Host cpanel
+            HostName ${{ secrets.SSH_HOST }}
+            Port ${{ secrets.SSH_PORT }}
+            User ${{ secrets.SSH_USER }}
+            IdentityFile ~/.ssh/deploy_key
+            IdentitiesOnly yes
+            ServerAliveInterval 30
+          EOF
+
+      - name: Upload
+        run: |
+          ssh cpanel 'mkdir -p ~/deploy'
+          scp storefront.tar.gz cpanel:deploy/storefront.tar.gz
+
+      - name: Release
+        run: |
+          ssh cpanel 'bash -s' <<'REMOTE'
+          set -eo pipefail
+          APP="$HOME/storefront"
+          NEW="$HOME/storefront.new"
+          OLD="$HOME/storefront.old"
+
+          # A fresh directory, so no stale chunks from the previous build survive.
+          rm -rf "$NEW" && mkdir -p "$NEW"
+          tar -xzf "$HOME/deploy/storefront.tar.gz" -C "$NEW"
+          rm -f "$HOME/deploy/storefront.tar.gz"
+          mkdir -p "$NEW/tmp"
+          test -f "$NEW/server.js" || { echo "server.js missing in archive"; exit 1; }
+
+          rm -rf "$OLD"
+          mv "$APP" "$OLD"
+          mv "$NEW" "$APP"
+          touch "$APP/tmp/restart.txt"
+          echo "Released."
+          REMOTE
+
+      - name: Health check
+        run: |
+          curl -fsS -o /dev/null -w '%{http_code}\n' \
+            --retry 6 --retry-delay 10 --retry-all-errors \
+            https://topitsolution.com
+
+      - name: Server log on failure
+        if: failure()
+        run: ssh cpanel 'tail -60 ~/storefront/stderr.log 2>/dev/null || echo "no stderr.log"'
