@@ -199,7 +199,7 @@ export function ProductSectionSkeleton() {
         <SkeletonBlock className="h-7 w-64 max-w-[60%]" />
         <SkeletonBlock className="h-5 w-32" />
       </div>
-      <div className="grid grid-cols-2 gap-x-5 gap-y-8 sm:grid-cols-3 lg:grid-cols-6">
+      <div className="grid grid-cols-2 gap-x-3 gap-y-4 sm:gap-x-5 sm:gap-y-8 sm:grid-cols-3 lg:grid-cols-6">
         {Array.from({ length: 6 }, (_, index) => (
           <ProductCardSkeleton key={index} />
         ))}
@@ -234,11 +234,11 @@ export function ProductSliderSkeleton() {
           </div>
         </div>
       </div>
-      <div className="flex gap-x-5 overflow-hidden">
+      <div className="flex gap-x-3 overflow-hidden sm:gap-x-5">
         {Array.from({ length: 6 }, (_, index) => (
           <div
             key={index}
-            className="w-[calc((100%-1.25rem)/2)] shrink-0 sm:w-[calc((100%-2.5rem)/3)] lg:w-[calc((100%-6.25rem)/6)]"
+            className="w-[calc((100%-0.75rem)/2)] shrink-0 sm:w-[calc((100%-2.5rem)/3)] lg:w-[calc((100%-6.25rem)/6)]"
           >
             <ProductCardSkeleton />
           </div>
@@ -267,7 +267,7 @@ export function DealOfWeekSkeleton() {
             <SkeletonBlock className="h-11 w-36 rounded-xl" />
           </div>
         </div>
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 sm:gap-5 lg:grid-cols-5">
+        <div className="grid grid-cols-2 gap-x-3 gap-y-4 sm:grid-cols-3 sm:gap-5 lg:grid-cols-5">
           {Array.from({ length: 5 }, (_, index) => (
             <ProductCardSkeleton key={index} />
           ))}

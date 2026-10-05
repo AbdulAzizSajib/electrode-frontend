@@ -14,7 +14,7 @@ export default function ShopLoading() {
     <SkeletonPage>
       <SkeletonBlock className="mb-6 h-5 w-48" />
       <SkeletonBlock className="mb-8 h-8 w-72 max-w-full" />
-      <div className="grid grid-cols-2 gap-x-5 gap-y-8 sm:grid-cols-3 xl:grid-cols-4">
+      <div className="grid grid-cols-2 gap-x-3 gap-y-4 sm:gap-x-5 sm:gap-y-8 sm:grid-cols-3 xl:grid-cols-4">
         {Array.from({ length: 8 }, (_, index) => (
           <ProductCardSkeleton key={index} />
         ))}

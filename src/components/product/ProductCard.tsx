@@ -21,7 +21,7 @@ import clsx from "clsx";
 
 
 const ACTION_BASE =
-  "flex min-h-11 w-full items-center justify-center gap-2 rounded-3xl  border py-2.5 text-xs font-semibold uppercase tracking-wide transition-colors motion-reduce:transition-none";
+  "flex min-h-11 w-full items-center justify-center gap-2 rounded-3xl  border py-2.5  text-xs font-semibold uppercase tracking-wide transition-colors motion-reduce:transition-none";
 
 
 const ACTION_IDLE =

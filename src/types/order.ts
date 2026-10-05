@@ -452,3 +452,44 @@ function toAdvancePayment(order: ApiOrder): Order["advancePayment"] {
     balanceAmount: Math.max(0, Math.round((total - amount) * 100) / 100),
   };
 }
+
+/**
+ * One row of the signed-in customer's order history.
+ *
+ * Deliberately NOT an `Order` run through `toOrder`: the list endpoint returns a
+ * lighter row than the detail, and `toOrder` defaults anything missing — a
+ * total quietly read as 0 on a list is exactly the kind of wrong that looks
+ * right. This reads only what the list shows. See
+ * server/openspec/changes/add-storefront-order-history, design.md Decision 2.
+ */
+export interface OrderListItem {
+  id: string;
+  orderNumber: string;
+  status: OrderStatus;
+  createdAt: string;
+  /** Units, not lines: "3 items" is what a shopper means by it. */
+  itemCount: number;
+  total: number;
+}
+
+export function toOrderListItem(order: ApiOrder): OrderListItem {
+  return {
+    id: order.id,
+    orderNumber: order.orderNumber,
+    status: order.status,
+    createdAt: order.createdAt,
+    itemCount: (order.items ?? []).reduce((sum, item) => sum + item.quantity, 0),
+    total: Number(order.totalAmount) || 0,
+  };
+}
+
+/**
+ * The statuses a customer may cancel their own order in.
+ *
+ * MIRRORS `CUSTOMER_CANCELLABLE_STATUSES` in
+ * `server/src/app/module/order/order.service.ts` and must be kept in step with
+ * it. It decides only whether the cancel button is SHOWN — the backend refuses
+ * any other status regardless, so a stale copy can at worst show a button whose
+ * click is refused with a reason, never cancel an order it should not.
+ */
+export const CUSTOMER_CANCELLABLE_STATUSES: readonly OrderStatus[] = ["PENDING", "CONFIRMED"];

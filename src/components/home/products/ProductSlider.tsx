@@ -21,13 +21,13 @@ import type { ProductRowLayoutProps } from "@/components/home/products/types";
  *
  * ── The numbers below MUST MATCH the grid ────────────────────────────────
  *
- * `ProductSection` is `grid-cols-2 gap-x-5 gap-y-8 sm:grid-cols-3 lg:grid-cols-6`:
+ * `ProductSection` is `grid-cols-2 gap-x-3 sm:gap-x-5 sm:grid-cols-3 lg:grid-cols-6`:
  * two, three and six cards across at Tailwind's `sm` (640px) and `lg` (1024px),
- * 20px apart horizontally. `slidesPerView` and `spaceBetween` are those same
+ * 12px apart horizontally on a phone and 20px from `sm` up. `slidesPerView` and `spaceBetween` are those same
  * figures, so a card is the SAME WIDTH in both layouts at every viewport and
  * switching reads as a rearrangement, not as a different section.
  *
- * Note the gap is the grid's `gap-x-5` — 20px — and NOT the 16px the category
+ * Note the gap from `sm` up is the grid's `gap-x-5` — 20px — and NOT the 16px the category
  * slider uses; the two grids differ. Nothing in the test suite can measure
  * this (jsdom does no layout), so it is held by these constants being the only
  * place the numbers appear on this side, and by a human comparing the two.
@@ -58,8 +58,8 @@ import type { ProductRowLayoutProps } from "@/components/home/products/types";
 
 /** Cards across, per breakpoint — the grid's `grid-cols-2 sm:grid-cols-3 lg:grid-cols-6`. */
 const COLUMNS = { base: 2, sm: 3, lg: 6 } as const;
-/** The grid's `gap-x-5`, in pixels. NOT the categories' 16 — the two grids differ. */
-const GAP = 20;
+/** The grid's `gap-x-3 sm:gap-x-5`, in pixels. NOT the categories' 16 — the two grids differ. */
+const GAP = { base: 12, sm: 20 } as const;
 /** Tailwind's `sm` and `lg` breakpoints, in pixels. */
 const BREAKPOINT = { sm: 640, lg: 1024 } as const;
 
@@ -150,10 +150,10 @@ export default function ProductSlider({
 
       <Swiper
         slidesPerView={COLUMNS.base}
-        spaceBetween={GAP}
+        spaceBetween={GAP.base}
         breakpoints={{
-          [BREAKPOINT.sm]: { slidesPerView: COLUMNS.sm },
-          [BREAKPOINT.lg]: { slidesPerView: COLUMNS.lg },
+          [BREAKPOINT.sm]: { slidesPerView: COLUMNS.sm, spaceBetween: GAP.sm },
+          [BREAKPOINT.lg]: { slidesPerView: COLUMNS.lg, spaceBetween: GAP.sm },
         }}
         onSwiper={(instance) => {
           setSwiper(instance);

@@ -32,6 +32,7 @@ import type { CategoryNode } from "@/types/category";
 import { filterNavForFeatures } from "@/lib/catalog-features";
 import { filterNavForSections } from "@/lib/nav-sections";
 import { resolveBrandSlot } from "@/lib/brand-slot";
+import { useStickyReveal } from "@/components/layout/useStickyReveal";
 
 /**
  * Focus treatment for controls sitting on the brand bar.
@@ -157,6 +158,8 @@ export default function Header({
   // The whole nav row, not just the categories block: an outside click has to
   // close whichever menu is open, and they do not share a container otherwise.
   const navRef = useRef<HTMLDivElement>(null);
+  const headerRef = useRef<HTMLElement>(null);
+  const headerPinned = useStickyReveal(headerRef);
   const categoriesButtonRef = useRef<HTMLButtonElement>(null);
 
   const closeMenus = useCallback(() => {
@@ -256,7 +259,22 @@ export default function Header({
 
   return (
     <>
-      <header className="bg-brand shadow-sm">
+      {/*
+        On a phone the whole header is the sticky row, with an effect rather than
+        a plain pin: it scrolls away with the page, and once it is fully out of
+        view it slides back down from the top and stays — see `useStickyReveal`
+        for why, and for why it unpins only at the very top. Every one of these
+        classes is `max-md:`, so the desktop header is untouched: there it scrolls
+        away and the nav below pins instead.
+      */}
+      <header
+        ref={headerRef}
+        className={clsx(
+          "bg-brand shadow-sm",
+          headerPinned &&
+            "max-md:sticky max-md:top-0 max-md:z-40 max-md:shadow-lg max-md:will-change-transform max-md:animate-header-in motion-reduce:animate-none",
+        )}
+      >
         {/* Announcement bar. Rendered only when the merchant has switched it on —
             and omitted entirely rather than emptied, so the header below it does
             not sit on a stray border or a collapsed row. */}
@@ -522,9 +540,10 @@ export default function Header({
       </header>
 
       {/*
-        Nav — the only header row that stays pinned. The announcement bar and the
-        main row above it scroll away, so browsing keeps the category menu within
-        reach without the full header eating the viewport.
+        Nav — on desktop, the only header row that stays pinned. The announcement
+        bar and the main row above it scroll away, so browsing keeps the category
+        menu within reach without the full header eating the viewport. (On a phone
+        this nav is hidden and the <header> itself is the sticky row.)
 
         Deliberately a SIBLING of <header>, not a child of it. A sticky element can
         only travel inside its own parent's box, and <header> is exactly as tall as

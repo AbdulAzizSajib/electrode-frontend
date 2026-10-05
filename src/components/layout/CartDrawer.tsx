@@ -186,8 +186,10 @@ export default function CartDrawer() {
             setExiting(false);
           }
         }}
+        // Three-quarters of the screen on phones, so the page stays visible behind
+        // the backdrop and the drawer reads as dismissable rather than a new page.
         className={clsx(
-          "absolute right-0 top-0 flex h-full w-full max-w-md flex-col bg-white shadow-xl",
+          "absolute right-0 top-0 flex h-full w-3/4 max-w-md flex-col bg-white shadow-xl sm:w-full",
           "transition-transform duration-300 ease-out motion-reduce:transition-none",
           entered ? "translate-x-0" : "translate-x-full",
         )}
@@ -248,45 +250,56 @@ export default function CartDrawer() {
                     {line.variantName && (
                       <p className="mt-0.5 text-xs text-gray-500">{line.variantName}</p>
                     )}
-                    <p className="mt-0.5 text-xs text-gray-500">
-                      {formatPrice(line.unitPrice)}
+                    {/*
+                     * "qty × unit" then the line total, stacked under the name
+                     * rather than in a column beside it: a total floating next
+                     * to a unit price read as two prices for one item.
+                     */}
+                    <p className="mt-0.5 text-xs tabular-nums text-gray-500">
+                      {line.quantity} × {formatPrice(line.unitPrice)}
                       {/* Only set while a campaign is cutting this line's price. */}
                       {line.compareAtPrice !== undefined && (
                         <span className="ml-1 text-gray-400 line-through">
                           {formatPrice(line.compareAtPrice)}
                         </span>
-                      )}{" "}
-                      each
+                      )}
+                    </p>
+                    <p className="mt-0.5 whitespace-nowrap text-sm font-semibold tabular-nums text-sale">
+                      {formatPrice(line.lineTotal)}
                     </p>
                     <div className="mt-2 flex items-center justify-between">
                       <CartQuantityControl line={line} />
                       <CartRemoveButton line={line} />
                     </div>
                   </div>
-                  <p className="whitespace-nowrap text-sm font-semibold text-sale">
-                    {formatPrice(line.lineTotal)}
-                  </p>
                 </div>
               ))}
             </div>
 
             <div className="border-t px-5 py-4">
-              <div className="mb-1 flex items-center justify-between text-sm text-gray-600">
+              {/*
+               * Subtotal is the headline figure. With no discount, a "Total"
+               * row beneath it only repeated the same number, so it appears
+               * solely when a discount makes the two differ.
+               */}
+              <div className="mb-1 flex items-center justify-between text-base font-semibold">
                 <span>Subtotal</span>
-                <span>{formatPrice(cart.subtotal)}</span>
+                <span className="text-sale">{formatPrice(cart.subtotal)}</span>
               </div>
               {cart.discountAmount > 0 && (
-                <div className="mb-1 flex items-center justify-between text-sm text-green-700">
-                  <span>Discount{cart.discountCode ? ` (${cart.discountCode})` : ""}</span>
-                  <span>-{formatPrice(cart.discountAmount)}</span>
-                </div>
+                <>
+                  <div className="mb-1 flex items-center justify-between text-sm text-green-700">
+                    <span>Discount{cart.discountCode ? ` (${cart.discountCode})` : ""}</span>
+                    <span>-{formatPrice(cart.discountAmount)}</span>
+                  </div>
+                  <div className="mb-1 flex items-center justify-between text-sm font-semibold">
+                    <span>Total</span>
+                    <span>{formatPrice(cart.total)}</span>
+                  </div>
+                </>
               )}
-              <div className="mb-3 flex items-center justify-between text-base font-semibold">
-                <span>Total</span>
-                <span className="text-sale">{formatPrice(cart.total)} </span>
-              </div>
-              <p className="mb-4 text-xs text-gray-500">
-                Taxes and shipping calculated at checkout
+              <p className="mb-4 mt-2 text-xs text-gray-500">
+             শিপিং খরচ চেকআউট করার সময় দেখতে পাবেন
               </p>
               <div className="flex flex-col gap-2">
                 <Link

@@ -138,12 +138,90 @@
    * information — untouched.
    */
   --animate-tick-in: tick-in 220ms cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  /*
+   * The mobile header arriving from the top edge once the shopper has scrolled
+   * it out of view (`useStickyReveal`). Decelerating, with no overshoot: it is
+   * chrome returning to its place, not a confirmation. Callers pair it with
+   * `motion-reduce:animate-none`, which simply pins it.
+   *
+   * An ease-out CUBIC, not the quint `menu-in` uses: the quint covers most of
+   * its distance in the first few frames, which on a ~130px header read as a
+   * pop rather than a slide. The cubic spreads the travel across the whole
+   * duration, and the fade softens the leading edge entering the viewport.
+   */
+  --animate-header-in: header-in 450ms cubic-bezier(0.33, 1, 0.68, 1);
+
+  /*
+   * The chat bubble's idle bob. Animates the `translate` PROPERTY, not
+   * `transform`: the bubble's hover and press feedback is Tailwind's `scale`
+   * utility, which is its own property in v4, so the two compose instead of
+   * the animation overriding the press. Slow and small so it reads as floating,
+   * not as something demanding a tap.
+   */
+  --animate-float: float 3s ease-in-out infinite;
+
+  /*
+   * The chat bubble's greeting, beside it: hidden for 6s, then grows out of the
+   * icon, holds long enough to read (~2s) and shrinks back into it — on a loop. Hidden FIRST, so the
+   * first appearance is 6s after load rather than competing with the page's own
+   * first paint for attention. Moves on `translate` and `scale` for the same
+   * reason as `float`: its positioning uses no transform, so nothing is
+   * overridden. Easing is set per keyframe in `@keyframes chat-hint`.
+   */
+  --animate-chat-hint: chat-hint 9s infinite;
 }
 
 @keyframes menu-in {
   from {
     opacity: 0;
     transform: translateY(-0.375rem);
+  }
+}
+
+@keyframes float {
+  0%,
+  100% {
+    translate: 0 0;
+  }
+  50% {
+    translate: 0 -6px;
+  }
+}
+
+/*
+ * Grows OUT of the chat icon and shrinks back INTO it. Scaled from its right
+ * edge (`origin-right` on the element) and shifted across the gap to the icon,
+ * so at rest it is a point at the icon's edge — the message reads as coming
+ * from the bubble, not appearing beside it. A slight overshoot on the way out,
+ * a plain ease-in on the way back.
+ */
+@keyframes chat-hint {
+  0%,
+  66.7% {
+    opacity: 0;
+    scale: 0.2;
+    translate: 0.75rem 0;
+    animation-timing-function: cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  72%,
+  94% {
+    opacity: 1;
+    scale: 1;
+    translate: 0 0;
+    animation-timing-function: cubic-bezier(0.55, 0, 1, 0.45);
+  }
+  100% {
+    opacity: 0;
+    scale: 0.2;
+    translate: 0.75rem 0;
+  }
+}
+
+@keyframes header-in {
+  from {
+    transform: translateY(-100%);
+    opacity: 0;
   }
 }
 

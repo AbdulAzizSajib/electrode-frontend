@@ -111,6 +111,21 @@ function trimZero(value: number) {
 }
 
 /**
+ * A calendar date as "5 Oct 2026".
+ *
+ * A fixed locale so the server and the browser print the same string. No time
+ * zone is pinned: the store has no time-zone setting to read one from, so this
+ * follows the runtime's, as every other order date on the storefront does.
+ */
+export function formatDate(value: string | Date) {
+  return new Date(value).toLocaleDateString("en-GB", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+}
+
+/**
  * Rounds a money value to whole cents.
  *
  * Float multiplication drifts (79.99 * 3 === 239.96999999999997), which is

@@ -914,7 +914,7 @@ export default function ProductDetail({
             <span aria-hidden="true" className="h-5 w-1.5 shrink-0 rounded-full bg-brand sm:h-6" />
             <span>You may also like</span>
           </h2>
-          <div className="grid grid-cols-2 gap-x-5 gap-y-8 sm:grid-cols-3 lg:grid-cols-6">
+          <div className="grid grid-cols-2 gap-x-3 gap-y-4 sm:gap-x-5 sm:gap-y-8 sm:grid-cols-3 lg:grid-cols-6">
             {related.map((p) => (
               <ProductCard key={p.id} product={p} />
             ))}

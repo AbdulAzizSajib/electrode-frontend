@@ -14,7 +14,8 @@ import type { Campaign } from "@/types/campaign";
 import type { ProductRowLayout } from "@/types/store-settings";
 
 const COLUMNS = { base: 2, sm: 3, lg: 5 } as const;
-const GAP = 20;
+/** 12px on a phone, 20px from `sm` up — the same as the other product rows. */
+const GAP = { base: 12, sm: 20 } as const;
 const BREAKPOINT = { sm: 640, lg: 1024 } as const;
 
 const ARROW_CLASS =
@@ -69,7 +70,7 @@ export default function DealOfWeek({
               </span>
               {campaign.endsAt !== null && (
                 <span className="text-xs font-medium text-gray-600 sm:text-sm">
-                  Limited-time offer — grab yours before it ends!
+                  Limited time offer, grab yours before it ends!
                 </span>
               )}
             </div>
@@ -90,7 +91,7 @@ export default function DealOfWeek({
             <div className="flex w-full items-center justify-between gap-3 lg:w-auto lg:justify-end lg:gap-4">
               <Link
                 href="/products"
-                className="inline-flex items-center justify-center gap-2.5 rounded-xl bg-brand px-6 py-3.5 text-base font-bold text-white shadow-sm transition hover:bg-brand-dark focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand sm:px-7"
+                className="inline-flex items-center justify-center gap-2.5 rounded-xl bg-brand px-4 py-2 text-base font-bold text-white shadow-sm transition hover:bg-brand-dark focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand sm:px-7"
               >
                 <span>Shop All Deals</span>
                 <ArrowRight className="size-5 shrink-0" aria-hidden />
@@ -127,10 +128,10 @@ export default function DealOfWeek({
           <div className="min-w-0">
             <Swiper
               slidesPerView={COLUMNS.base}
-              spaceBetween={GAP}
+              spaceBetween={GAP.base}
               breakpoints={{
-                [BREAKPOINT.sm]: { slidesPerView: COLUMNS.sm },
-                [BREAKPOINT.lg]: { slidesPerView: COLUMNS.lg },
+                [BREAKPOINT.sm]: { slidesPerView: COLUMNS.sm, spaceBetween: GAP.sm },
+                [BREAKPOINT.lg]: { slidesPerView: COLUMNS.lg, spaceBetween: GAP.sm },
               }}
               onSwiper={(instance) => {
                 setSwiper(instance);
@@ -150,7 +151,7 @@ export default function DealOfWeek({
             </Swiper>
           </div>
         ) : (
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 sm:gap-5 lg:grid-cols-5">
+          <div className="grid grid-cols-2 gap-x-3 gap-y-4 sm:grid-cols-3 sm:gap-5 lg:grid-cols-5">
             {campaign.products.map((product) => (
               <ProductCard key={product.id} product={product} />
             ))}

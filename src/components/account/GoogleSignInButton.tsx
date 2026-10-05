@@ -19,9 +19,9 @@ import { API_BASE_URL } from "@/lib/api-client";
  *
  * `redirect` is always sent explicitly, never left to the backend: its default
  * is `/dashboard`, which is not a route on this storefront. It points at our
- * own callback, which is what converts the backend's session into this app's
- * cookies (see the callback route for why that step is required), and the real
- * destination rides along in `next`.
+ * own callback, which redeems the one-time code the backend adds to that URL
+ * for this app's cookies (see the callback route for why that step is
+ * required), and the real destination rides along in `next`.
  */
 export default function GoogleSignInButton({
   redirectTo,

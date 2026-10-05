@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Heart, KeyRound, MapPin, Package, ShoppingBag, Star } from "lucide-react";
+import { Heart, KeyRound, MapPin, Package, ReceiptText, ShoppingBag, Star } from "lucide-react";
 import LogoutButton from "@/components/account/LogoutButton";
 import { getCurrentUser } from "@/lib/current-user";
 import { getStoreSettings } from "@/services/store-settings";
@@ -18,6 +18,8 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 const shortcuts = [
+  // First: the most common reason a signed-in customer opens their account.
+  { href: "/account/orders", label: "My Orders", icon: ReceiptText },
   { href: "/account/addresses", label: "Addresses", icon: MapPin },
   { href: "/account/reviews", label: "My Reviews", icon: Star },
   { href: "/account/password", label: "Change Password", icon: KeyRound },

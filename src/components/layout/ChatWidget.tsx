@@ -4,9 +4,11 @@ import type { ChatWidget as ChatWidgetSettings } from "@/types/store-settings";
  * The floating chat bubble: one tap from any shop page into a conversation with
  * the seller.
  *
- * A LINK, NOT AN EMBEDDED CHAT. There is no message thread here, no transcript
- * and no unread badge — the conversation lives in WhatsApp or Messenger, which
- * is where the merchant already answers. That also means no third-party chat
+ * A LINK, NOT AN EMBEDDED CHAT. There is no message thread here and no
+ * transcript — the conversation lives in WhatsApp or Messenger, which is where
+ * the merchant already answers. The red "1" on the bubble is therefore a fixed
+ * attention cue the merchant asked for, NOT an unread count: nothing here knows
+ * whether a message is waiting, so do not wire it to anything as though it did. That also means no third-party chat
  * SDK: a Customer Chat plugin or a Tawk/Crisp embed ships a script tag that
  * reads the page and tracks the visitor, and a link needs neither. Being a
  * plain anchor, it costs nothing on first paint and works before hydration,
@@ -136,26 +138,48 @@ export default function ChatWidget({ settings }: { settings: ChatWidgetSettings 
             target="_blank"
             rel="noopener noreferrer"
             aria-label={`${label} on ${meta.label}`}
-            className={`fixed bottom-20 right-4 z-30 flex size-12 items-center justify-center rounded-full text-white shadow-[0_4px_14px_rgba(0,0,0,0.25)] ring-2 ring-white/90 transition-transform duration-200 hover:scale-105 active:scale-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand sm:size-auto sm:gap-2.5 sm:py-3 sm:pl-3.5 sm:pr-4 md:bottom-20 md:right-4 ${meta.className}`}
+            className={`fixed bottom-20 right-4 z-30 flex size-12 animate-float items-center justify-center rounded-full text-white shadow-[0_4px_14px_rgba(0,0,0,0.25)] transition-transform duration-200 motion-reduce:animate-none hover:scale-105 active:scale-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand md:bottom-20 md:right-4 ${meta.className}`}
             style={{ marginBottom: "env(safe-area-inset-bottom)" }}
         >
-            {/* Mobile-only slow pulse/ping aura so the icon-only bubble gently catches the eye */}
+            {/* Slow pulse/ping aura so the icon-only bubble gently catches the eye */}
             <span
                 aria-hidden="true"
-                className={`pointer-events-none absolute inset-0 rounded-full opacity-50 animate-ping [animation-duration:2.8s] motion-reduce:animate-none sm:hidden ${meta.pulseClassName}`}
+                className={`pointer-events-none absolute inset-0 rounded-full opacity-50 animate-ping [animation-duration:2.8s] motion-reduce:animate-none ${meta.pulseClassName}`}
             />
             <span
                 aria-hidden="true"
-                className={`pointer-events-none absolute -inset-1.5 rounded-full opacity-35 animate-pulse [animation-duration:3.2s] motion-reduce:animate-none sm:hidden ${meta.pulseClassName}`}
+                className={`pointer-events-none absolute -inset-1.5 rounded-full opacity-35 animate-pulse [animation-duration:3.2s] motion-reduce:animate-none ${meta.pulseClassName}`}
             />
             <ChannelIcon className="relative size-6 shrink-0" />
             {/*
-              Hidden below `sm` rather than dropped: on a phone the bubble is a
-              clean circular FAB, while on wider screens it expands into a pill
-              with the greeting label beside the icon.
+              The greeting, as a speech bubble to the LEFT of the icon that grows
+              out of it and shrinks back into it on a loop (`chat-hint` in
+              globals.css; `origin-right` is what anchors that to the icon side) —
+              the bubble itself is a plain circle at every width, never a pill.
+
+              Centred with `inset-y-0 my-auto h-fit`, not a translate, because the
+              animation moves the `translate` property and would undo one.
+              Purely decorative: the link's `aria-label` already carries the
+              greeting, and `pointer-events-none` keeps it from intercepting taps
+              on whatever it floats over. Reduced motion keeps it hidden — a label
+              that appeared without moving would still be a flashing element.
             */}
-            <span className="relative hidden text-sm font-semibold tracking-tight whitespace-nowrap sm:inline">
+            <span
+                aria-hidden="true"
+                className="pointer-events-none absolute inset-y-0 right-full my-auto mr-3 h-fit max-w-56 origin-right animate-chat-hint truncate rounded-lg bg-white px-3 py-2 text-sm font-semibold whitespace-nowrap text-gray-800 opacity-0 shadow-[0_4px_14px_rgba(0,0,0,0.18)] motion-reduce:hidden"
+            >
                 {label}
+            </span>
+            {/*
+              The badge — a fixed "1", not a count (see the header comment).
+              The white ring separates it from the bubble's own colour, and it
+              sits outside the circle's edge so the icon stays centred.
+            */}
+            <span
+                aria-hidden="true"
+                className="absolute -right-1 -top-1 flex size-4 items-center justify-center rounded-full bg-red-500 text-[11px] font-bold leading-none text-white ring-2 ring-white"
+            >
+                1
             </span>
         </a>
     );
