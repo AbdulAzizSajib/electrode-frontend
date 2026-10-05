@@ -55,10 +55,25 @@ interface ExchangedTokens {
   sessionToken: string;
 }
 
-function failed(request: NextRequest, reason: string) {
-  const url = new URL("/account/login", request.url);
-  url.searchParams.set("error", reason);
-  return NextResponse.redirect(url);
+/**
+ * A redirect to a path on THIS storefront, sent as a RELATIVE `Location`.
+ *
+ * Never built from `request.url`. Behind cPanel the Next server listens on
+ * `0.0.0.0:3000`, and that internal address is what `request.url` carries — so
+ * an absolute redirect built from it sent customers to `http://0.0.0.0:3000/…`
+ * after a successful Google sign-in (the cookies had been written; only the
+ * destination was wrong). A relative `Location` is resolved by the browser
+ * against the address it actually requested, so no host is guessed at all.
+ *
+ * `NextResponse.redirect` rejects relative URLs, hence the plain response.
+ * `path` is always one of ours: a literal, or `next` after `safeRedirect`.
+ */
+function redirectTo(path: string) {
+  return new NextResponse(null, { status: 307, headers: { Location: path } });
+}
+
+function failed(reason: string) {
+  return redirectTo(`/account/login?${new URLSearchParams({ error: reason })}`);
 }
 
 export async function GET(request: NextRequest) {
@@ -75,7 +90,7 @@ export async function GET(request: NextRequest) {
 
   // No code means the handshake never completed on the backend, or the
   // customer arrived here directly.
-  if (!code) return failed(request, "no_session_found");
+  if (!code) return failed("no_session_found");
 
   let tokens: ExchangedTokens;
 
@@ -86,7 +101,7 @@ export async function GET(request: NextRequest) {
     });
 
     if (!data?.accessToken || !data.refreshToken || !data.sessionToken) {
-      return failed(request, "no_session_found");
+      return failed("no_session_found");
     }
 
     tokens = data;
@@ -97,7 +112,6 @@ export async function GET(request: NextRequest) {
     // sign-in did not complete. Either way no cookie is written, so no
     // half-session is left behind.
     return failed(
-      request,
       error instanceof ApiError && error.status === 401
         ? "no_session_found"
         : "oauth_failed",
@@ -106,11 +120,11 @@ export async function GET(request: NextRequest) {
 
   // Written onto the redirect response rather than through `next/headers`
   // `cookies().set()`. This handler's only output IS a redirect, and a redirect
-  // built by `NextResponse.redirect` carries its own headers — cookies set on
+  // response carries its own headers — cookies set on
   // the ambient store are not guaranteed to reach it. `proxy.ts` writes renewed
   // cookies the same way, for the same reason, using the same attributes from
   // `auth-cookies.ts` so the two writers can never disagree about a cookie.
-  const response = NextResponse.redirect(new URL(next, request.url));
+  const response = redirectTo(next);
 
   for (const [name, value] of [
     [ACCESS_TOKEN_COOKIE, tokens.accessToken],

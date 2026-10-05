@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef, type RefObject } from "react";
 
 /**
- * Drives the mobile header's sticky behaviour.
+ * Drives the mobile header's pinned behaviour.
  *
  * The header starts in the page's flow and scrolls away with it like any other
  * content. Once the page has scrolled past the header's own height — the point
@@ -11,10 +11,13 @@ import { useEffect, useState, useRef, type RefObject } from "react";
  * top edge (the `header-in` keyframe in `globals.css`) rather than snapping into
  * place. It then stays pinned while the shopper keeps scrolling.
  *
- * Plain `sticky` from the first pixel was rejected: the header would never leave
- * at all, and a header that is already there when it pins gives no sense that
- * anything happened. Letting it scroll out first is what makes its return read
- * as a deliberate arrival.
+ * PINNED WITH `position: fixed`, NOT `sticky`. A sticky header made Android
+ * Chrome paint smeared, repeated copies of the content scrolling beneath it
+ * (seen on the Flash Deal section, gone the moment the header stopped sticking).
+ * `fixed` is the path that phone already renders cleanly — the bottom nav is
+ * fixed. Fixed takes the header OUT of the flow, so the caller renders a spacer
+ * of `height` in its place while pinned; without it the page would jump up by
+ * the header's height at the moment of pinning.
  *
  * UNPINNED ONLY AT THE VERY TOP, not when the shopper scrolls back above the
  * header's height. Between the top and that height, a pinned header and an
@@ -28,6 +31,8 @@ import { useEffect, useState, useRef, type RefObject } from "react";
  */
 export function useStickyReveal(headerRef: RefObject<HTMLElement | null>) {
   const [pinned, setPinned] = useState(false);
+  /** The header's height, read while it is still in the flow — what the spacer must fill. */
+  const [height, setHeight] = useState(0);
   const frame = useRef<number | null>(null);
 
   useEffect(() => {
@@ -37,8 +42,12 @@ export function useStickyReveal(headerRef: RefObject<HTMLElement | null>) {
       const y = Math.max(window.scrollY, 0);
       const headerHeight = headerRef.current?.offsetHeight ?? 0;
 
-      if (y > headerHeight) setPinned(true);
-      else if (y <= 0) setPinned(false);
+      if (y > headerHeight) {
+        setHeight(headerHeight);
+        setPinned(true);
+      } else if (y <= 0) {
+        setPinned(false);
+      }
     }
 
     function onScroll() {
@@ -54,5 +63,5 @@ export function useStickyReveal(headerRef: RefObject<HTMLElement | null>) {
     };
   }, [headerRef]);
 
-  return pinned;
+  return { pinned, height };
 }

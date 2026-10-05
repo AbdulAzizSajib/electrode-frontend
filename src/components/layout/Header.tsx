@@ -159,7 +159,7 @@ export default function Header({
   // close whichever menu is open, and they do not share a container otherwise.
   const navRef = useRef<HTMLDivElement>(null);
   const headerRef = useRef<HTMLElement>(null);
-  const headerPinned = useStickyReveal(headerRef);
+  const { pinned: headerPinned, height: headerHeight } = useStickyReveal(headerRef);
   const categoriesButtonRef = useRef<HTMLButtonElement>(null);
 
   const closeMenus = useCallback(() => {
@@ -260,19 +260,27 @@ export default function Header({
   return (
     <>
       {/*
-        On a phone the whole header is the sticky row, with an effect rather than
+        On a phone the whole header is the pinned row, with an effect rather than
         a plain pin: it scrolls away with the page, and once it is fully out of
         view it slides back down from the top and stays — see `useStickyReveal`
         for why, and for why it unpins only at the very top. Every one of these
         classes is `max-md:`, so the desktop header is untouched: there it scrolls
         away and the nav below pins instead.
+
+        `fixed`, never `sticky`, and NO `will-change`: both made Android Chrome
+        paint smeared, repeated copies of the content scrolling beneath the
+        header. The spacer below holds the header's place in the flow while it
+        is fixed, so pinning does not pull the page up by its height.
       */}
+      {headerPinned && (
+        <div aria-hidden="true" className="md:hidden" style={{ height: headerHeight }} />
+      )}
       <header
         ref={headerRef}
         className={clsx(
           "bg-brand shadow-sm",
           headerPinned &&
-            "max-md:sticky max-md:top-0 max-md:z-40 max-md:shadow-lg max-md:will-change-transform max-md:animate-header-in motion-reduce:animate-none",
+            "max-md:fixed max-md:inset-x-0 max-md:top-0 max-md:z-40 max-md:shadow-lg max-md:animate-header-in motion-reduce:animate-none",
         )}
       >
         {/* Announcement bar. Rendered only when the merchant has switched it on —

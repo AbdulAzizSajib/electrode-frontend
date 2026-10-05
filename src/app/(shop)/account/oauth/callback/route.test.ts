@@ -21,7 +21,11 @@ vi.mock("@/lib/api-client", async (importActual) => ({
 const { GET } = await import("./route");
 const { ApiError } = await import("@/lib/api-client");
 
-const ORIGIN = "https://shop.example.test";
+/*
+ * The address the Next server itself listens on behind cPanel. Requests reach
+ * the handler carrying it, and it must never appear in a redirect.
+ */
+const ORIGIN = "http://0.0.0.0:3000";
 
 const callback = (query: string) =>
   GET(new NextRequest(`${ORIGIN}/account/oauth/callback?${query}`));
@@ -51,7 +55,7 @@ describe("Google OAuth callback", () => {
       method: "POST",
       body: { code: "abc123" },
     });
-    expect(response.headers.get("location")).toBe(`${ORIGIN}/checkout`);
+    expect(response.headers.get("location")).toBe("/checkout");
     expect(setCookieNames(response)).toEqual(
       expect.arrayContaining(["accessToken", "refreshToken", "better-auth.session_token"]),
     );
@@ -61,9 +65,7 @@ describe("Google OAuth callback", () => {
     const response = await callback("next=%2Fcheckout");
 
     expect(apiFetch).not.toHaveBeenCalled();
-    expect(response.headers.get("location")).toBe(
-      `${ORIGIN}/account/login?error=no_session_found`,
-    );
+    expect(response.headers.get("location")).toBe("/account/login?error=no_session_found");
     expect(setCookieNames(response)).toEqual([]);
   });
 
@@ -72,9 +74,7 @@ describe("Google OAuth callback", () => {
 
     const response = await callback("code=replayed");
 
-    expect(response.headers.get("location")).toBe(
-      `${ORIGIN}/account/login?error=no_session_found`,
-    );
+    expect(response.headers.get("location")).toBe("/account/login?error=no_session_found");
     expect(setCookieNames(response)).toEqual([]);
   });
 
@@ -83,9 +83,7 @@ describe("Google OAuth callback", () => {
 
     const response = await callback("code=abc123");
 
-    expect(response.headers.get("location")).toBe(
-      `${ORIGIN}/account/login?error=oauth_failed`,
-    );
+    expect(response.headers.get("location")).toBe("/account/login?error=oauth_failed");
     expect(setCookieNames(response)).toEqual([]);
   });
 
@@ -94,9 +92,7 @@ describe("Google OAuth callback", () => {
 
     const response = await callback("code=abc123");
 
-    expect(response.headers.get("location")).toBe(
-      `${ORIGIN}/account/login?error=no_session_found`,
-    );
+    expect(response.headers.get("location")).toBe("/account/login?error=no_session_found");
     expect(setCookieNames(response)).toEqual([]);
   });
 
@@ -105,6 +101,18 @@ describe("Google OAuth callback", () => {
 
     const response = await callback("next=%2F%2Fevil.example&code=abc123");
 
-    expect(response.headers.get("location")).toBe(`${ORIGIN}/account`);
+    expect(response.headers.get("location")).toBe("/account");
+  });
+
+  it("never redirects to the server's own internal address", async () => {
+    apiFetch.mockResolvedValue({ data: TRIO });
+
+    const success = await callback("next=%2Fcheckout&code=abc123");
+    const failure = await callback("next=%2Fcheckout");
+
+    for (const response of [success, failure]) {
+      expect(response.headers.get("location")).not.toContain("0.0.0.0");
+      expect(response.headers.get("location")?.startsWith("/")).toBe(true);
+    }
   });
 });
