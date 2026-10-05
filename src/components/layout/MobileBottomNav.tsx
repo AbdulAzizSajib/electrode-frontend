@@ -2,7 +2,9 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Icon } from "@iconify/react";
+import type { IconifyIcon } from "@iconify/react";
+import MerchantIcon from "@/components/ui/MerchantIcon";
+import { WHATSAPP_ICON } from "@/lib/icon-names";
 import { Home, Phone, Repeat, ShoppingBag, Store } from "lucide-react";
 import clsx from "clsx";
 import type { StoreSettings } from "@/types/store-settings";
@@ -26,9 +28,12 @@ import { getCatalogFeatures } from "@/lib/catalog-features";
  */
 export default function MobileBottomNav({
   contact,
+  icons,
 }: {
   /** The store's contact details, from the settings fetched in the root layout. */
   contact: StoreSettings["contact"];
+  /** Server-resolved icon data, keyed by Iconify name. */
+  icons: Record<string, IconifyIcon>;
 }) {
   const dispatch = useAppDispatch();
   const pathname = usePathname();
@@ -71,7 +76,7 @@ export default function MobileBottomNav({
               rel="noopener noreferrer"
               className={itemClass(false)}
             >
-              <Icon icon="akar-icons:whatsapp-fill" width={20} height={20} />
+              <MerchantIcon name={WHATSAPP_ICON} data={icons[WHATSAPP_ICON]} width={20} height={20} />
               WhatsApp
             </a>
           </>

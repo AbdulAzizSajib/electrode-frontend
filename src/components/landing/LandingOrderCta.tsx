@@ -1,4 +1,4 @@
-import { Icon } from "@iconify/react";
+import ServerIcon from "@/components/ui/ServerIcon";
 
 /**
  * A mid-page call to action: one button back to the order form, and — when the
@@ -48,7 +48,7 @@ export default function LandingOrderCta({
           href={`tel:${phone}`}
           className="inline-flex items-center justify-center gap-2 rounded-xl border border-lp-accent bg-lp-surface px-8 py-3.5 text-base font-semibold text-lp-accent transition hover:-translate-y-0.5"
         >
-          <Icon icon="lucide:phone" aria-hidden className="size-4" />
+          <ServerIcon name="lucide:phone" aria-hidden className="size-4" />
           ফোনে অর্ডার করুন
         </a>
       )}

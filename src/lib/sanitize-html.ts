@@ -1,4 +1,5 @@
 import sanitize from "sanitize-html";
+import { cloudinaryUrl } from "@/lib/cloudinary-url";
 
 /**
  * The allowlist merchant-authored HTML is filtered through before it reaches a
@@ -103,7 +104,14 @@ const ALLOWED_ATTR = [
   "alt",
   "width",
   "height",
+  // Set on every content image by `transformTags` below (and harmless if a
+  // merchant wrote them): how the browser should load it, not what it shows.
+  "loading",
+  "decoding",
 ];
+
+/** Widest a content image is delivered at: the prose column at 2x. */
+const CONTENT_IMAGE_MAX_WIDTH = 1200;
 
 /*
  * `target` and `rel` are deliberately absent, and their absence is asserted by
@@ -189,6 +197,21 @@ export function sanitizeHtml(html: string): string {
             continue;
           }
           safe[name] = value;
+        }
+
+        /*
+         * An image in merchant content is delivered at a bounded size and
+         * loads lazily. Content images used to download the original upload —
+         * often a multi-megabyte photo — at full size, all of them at once,
+         * however far down the description they sat. 1200px covers the widest
+         * prose column at 2x. Applied here, on the already-checked `src`, so it
+         * runs exactly once, on the sanitised tree; a non-Cloudinary image is
+         * left as written.
+         */
+        if (tagName === "img" && safe.src) {
+          safe.src = cloudinaryUrl(safe.src, { width: CONTENT_IMAGE_MAX_WIDTH });
+          safe.loading = "lazy";
+          safe.decoding = "async";
         }
 
         return { tagName, attribs: safe };

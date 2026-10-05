@@ -93,7 +93,15 @@ export default async function BlogPostRoute({ params }: PageProps<"/blogs/[slug]
       */}
       {post.mediaType === "IMAGE" && post.imageUrl && (
         <div className="relative mt-6 aspect-video overflow-hidden rounded-xl bg-gray-100">
-          <Image src={post.imageUrl} alt={post.title} fill className="object-cover" priority />
+          <Image
+            src={post.imageUrl}
+            alt={post.title}
+            fill
+            // The article is max-w-4xl (896px).
+            sizes="(min-width: 960px) 896px, 100vw"
+            className="object-cover"
+            preload
+          />
         </div>
       )}
       {post.mediaType === "VIDEO" && post.videoUrl && (

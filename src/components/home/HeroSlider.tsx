@@ -1,5 +1,5 @@
 "use client";
-import Image from "next/image";
+import Image, { getImageProps } from "next/image";
 import Link from "next/link";
 import { Swiper, SwiperSlide } from "swiper/react";
 
@@ -85,51 +85,58 @@ export default function HeroSlider({
          */
         const common = { fill: true, className: "object-cover", sizes };
 
+        const isFirst = index === 0;
+
         /*
-         * TWO SOURCES, and only when there is genuinely a second one to show.
-         * Next's own art-direction guidance is `getImageProps()` into a
-         * `<picture>`, which cannot be used here: it needs explicit width and
-         * height, and every box in this hero is a ratio the slide fills with
-         * `fill`. So the two are rendered as siblings and hidden by breakpoint.
+         * TWO SOURCES, and only when there is genuinely a second one to show:
+         * one `<img>` inside a `<picture>`, with the desktop artwork as a
+         * `<source>` for `lg` and up. That is Next's art-direction pattern
+         * (`getImageProps`), and it works with `fill` — `getImageProps` shares
+         * `<Image>`'s prop handling, `fill` included.
          *
-         * That is safe because `loading` defaults to `lazy`, so the browser
-         * fetches only the one its media query actually shows — the same reason
-         * Next's light/dark example works. It is also why the first slide gets
-         * `fetchPriority` here instead of the eager preload below: an eager
-         * hint would defeat the laziness and pull down BOTH files.
+         * It replaces two sibling `<Image>`s hidden by breakpoint. Those had to
+         * stay lazy, because an eager hint on both would download both files —
+         * so on a phone the LCP image waited for layout before it was even
+         * requested. With one `<img>` the browser picks exactly one source, so
+         * the first slide can load eagerly at high priority on every screen.
          */
-        const hasMobileArtwork = useMobileArtwork && slide.mobileImage !== null;
+        if (useMobileArtwork && slide.mobileImage) {
+          const art = {
+            alt: slide.title,
+            fill: true,
+            sizes,
+            loading: isFirst ? ("eager" as const) : ("lazy" as const),
+            fetchPriority: isFirst ? ("high" as const) : ("auto" as const),
+          };
+          const {
+            props: { srcSet: desktopSrcSet },
+          } = getImageProps({ ...art, src: slide.image });
+          const { props: mobile } = getImageProps({ ...art, src: slide.mobileImage });
+
+          return (
+            <SwiperSlide key={slide.id}>
+              <Link href={slide.href} className="relative block h-full w-full">
+                <picture>
+                  <source media="(min-width: 1024px)" srcSet={desktopSrcSet} sizes={sizes} />
+                  <img {...mobile} alt={slide.title} className={common.className} />
+                </picture>
+              </Link>
+            </SwiperSlide>
+          );
+        }
 
         return (
           <SwiperSlide key={slide.id}>
             <Link href={slide.href} className="relative block h-full w-full">
-              {hasMobileArtwork ? (
-                <>
-                  <Image
-                    {...common}
-                    alt={slide.title}
-                    src={slide.mobileImage as string}
-                    className={`${common.className} lg:hidden`}
-                    fetchPriority={index === 0 ? "high" : "auto"}
-                  />
-                  <Image
-                    {...common}
-                    alt={slide.title}
-                    src={slide.image}
-                    className={`${common.className} hidden lg:block`}
-                    fetchPriority={index === 0 ? "high" : "auto"}
-                  />
-                </>
-              ) : (
-                <Image
-                  {...common}
-                  alt={slide.title}
-                  src={slide.image}
-                  // Only the first slide is above the fold; preloading the rest
-                  // would compete with it for bandwidth.
-                  priority={index === 0}
-                />
-              )}
+              <Image
+                {...common}
+                alt={slide.title}
+                src={slide.image}
+                // Only the first slide is above the fold; preloading the rest
+                // would compete with it for bandwidth. (`preload` is Next 16's
+                // name for the deprecated `priority`.)
+                preload={isFirst}
+              />
             </Link>
           </SwiperSlide>
         );

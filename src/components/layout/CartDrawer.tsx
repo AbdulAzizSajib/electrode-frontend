@@ -237,7 +237,7 @@ export default function CartDrawer() {
               {cart.lines.map((line) => (
                 <div key={line.id} className="flex gap-3 border-b py-4">
                   <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded bg-gray-100">
-                    <Image src={line.image} alt={line.name} fill className="object-cover" />
+                    <Image src={line.image} alt={line.name} fill sizes="80px" className="object-cover" />
                   </div>
                   <div className="flex flex-1 flex-col">
                     <Link

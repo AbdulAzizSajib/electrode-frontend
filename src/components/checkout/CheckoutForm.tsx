@@ -1747,7 +1747,7 @@ export default function CheckoutForm({
               <div key={line.id} className="flex gap-3 py-4">
                 <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-lg border border-gray-200 bg-white">
                   {line.image && (
-                    <Image src={line.image} alt={line.name} fill className="object-cover" />
+                    <Image src={line.image} alt={line.name} fill sizes="64px" className="object-cover" />
                   )}
                   {/*
                     The badge stays for a DIRECT order, which has no cart line to

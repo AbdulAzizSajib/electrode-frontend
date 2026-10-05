@@ -1,4 +1,3 @@
-import { DEMO_KEY_HEADER, demoKey, scopeTags } from "@/lib/demo";
 import type { ApiResponse } from "@/types/auth";
 
 export const API_BASE_URL =
@@ -98,32 +97,16 @@ export async function apiFetch<TData>(
   if (body !== undefined) headers["Content-Type"] = "application/json";
   if (cookie) headers.Cookie = cookie;
 
-  /*
-   * Which demonstration shop this call is for, resolved once and used twice:
-   * once to tell the API which database to read, and once to keep this call's
-   * cache entry from being served to another demo. See @/lib/demo.
-   *
-   * Both are no-ops on a single-shop installation — the key is the constant
-   * `default`, and an API with no demo map ignores the header entirely.
-   */
-  const demo = await demoKey();
-  headers[DEMO_KEY_HEADER] = demo;
-
   const url = `${API_BASE_URL.replace(/\/$/, "")}${
     path.startsWith("/") ? path : `/${path}`
   }`;
 
   // `cache` and `next.revalidate` cannot both be set, so a caller asking for
   // revalidation opts out of the `no-store` default entirely.
-  //
-  // Tags are scoped HERE rather than at the ~17 services that pass them, so a
-  // service added later cannot forget and leak one demo's content into
-  // another's cache.
-  const scopedTags = scopeTags(tags, demo);
   const cacheOptions =
     revalidate === undefined
       ? { cache }
-      : { next: { revalidate, ...(scopedTags ? { tags: scopedTags } : {}) } };
+      : { next: { revalidate, ...(tags ? { tags } : {}) } };
 
   let response: Response;
   try {

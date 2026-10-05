@@ -96,3 +96,29 @@ describe("isBlankHtml", () => {
     expect(isBlankHtml("<script>alert(1)</script>")).toBe(true);
   });
 });
+
+describe("sanitizeHtml — content images", () => {
+  const upload = "https://res.cloudinary.com/demo/image/upload/v1/Bariyan/images/spec-sheet.jpg";
+
+  it("delivers a Cloudinary image bounded to 1200px, lazily", () => {
+    const clean = sanitizeHtml(`<p>Specs</p><img src="${upload}" alt="Spec sheet">`);
+    expect(clean).toContain(
+      'src="https://res.cloudinary.com/demo/image/upload/f_auto,c_limit,w_1200,q_auto/v1/Bariyan/images/spec-sheet.jpg"',
+    );
+    expect(clean).toContain('loading="lazy"');
+    expect(clean).toContain('decoding="async"');
+    expect(clean).toContain('alt="Spec sheet"');
+  });
+
+  it("leaves another host's image source as written, but still lazy", () => {
+    const clean = sanitizeHtml('<img src="https://cdn.example.com/a.jpg">');
+    expect(clean).toContain('src="https://cdn.example.com/a.jpg"');
+    expect(clean).toContain('loading="lazy"');
+  });
+
+  it("still drops an unsafe source rather than rewriting it", () => {
+    const clean = sanitizeHtml('<img src="data:image/svg+xml;base64,PHN2Zz4=">');
+    expect(clean).not.toContain("data:");
+    expect(clean).not.toContain("res.cloudinary.com");
+  });
+});

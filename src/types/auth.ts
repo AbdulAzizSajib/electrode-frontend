@@ -36,6 +36,19 @@ export interface AuthData {
   user: AuthUser;
 }
 
+/**
+ * Who is signed in, as far as page chrome needs to know: enough to say
+ * "Hello, Name" and link to the account. Read from the access token's claims
+ * by `getSessionUser`, with no backend call — the full profile (`AuthUser`)
+ * is for the pages that show or edit it.
+ */
+export interface SessionUser {
+  id: string;
+  name: string;
+  email: string;
+  role: UserRole;
+}
+
 /** Claims the backend signs into the access token (see auth.service.ts). */
 export interface AccessTokenClaims {
   userId: string;

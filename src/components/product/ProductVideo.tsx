@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Image from "next/image";
 import { Play } from "lucide-react";
+import { cloudinaryUrl, cloudinaryVideoUrl } from "@/lib/cloudinary-url";
 
 /**
  * The product's video, shown beneath the gallery.
@@ -33,8 +34,9 @@ export default function ProductVideo({
   if (playing) {
     return (
       <video
-        src={url}
-        poster={thumbnail}
+        // Automatic quality and codec rather than the upload's own bitrate.
+        src={cloudinaryVideoUrl(url)}
+        poster={thumbnail && cloudinaryUrl(thumbnail, { width: 1280 })}
         controls
         autoPlay
         className="mt-4 w-full rounded-lg border border-gray-100 bg-black"
@@ -57,6 +59,10 @@ export default function ProductVideo({
           alt=""
           width={800}
           height={450}
+          // Full width of the description column, which stops growing at
+          // 768px; without `sizes` a fixed-width image is fetched at 1x/2x of
+          // 800 whatever the screen.
+          sizes="(min-width: 1024px) 768px, 100vw"
           className="h-auto w-full object-cover"
         />
       ) : (

@@ -4,6 +4,7 @@ import { useState } from "react";
 import Image from "next/image";
 import clsx from "clsx";
 import type { LandingPageMedia } from "@/types/landing-page";
+import { cloudinaryUrl, cloudinaryVideoUrl } from "@/lib/cloudinary-url";
 
 /**
  * The campaign gallery: images and video, in the merchant's own order.
@@ -38,8 +39,9 @@ export default function LandingGallery({
         {active.type === "VIDEO" ? (
           <video
             key={active.url}
-            src={active.url}
-            poster={active.thumbnailUrl}
+            src={cloudinaryVideoUrl(active.url)}
+            // The frame is capped at 512px; 2x for retina.
+            poster={active.thumbnailUrl && cloudinaryUrl(active.thumbnailUrl, { width: 1024 })}
             controls
             playsInline
             preload="metadata"

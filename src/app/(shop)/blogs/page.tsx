@@ -64,7 +64,14 @@ export default async function BlogsPage({ searchParams }: PageProps<"/blogs">) {
                       href={`/blogs/${post.slug}`}
                       className="relative aspect-4/3 overflow-hidden rounded-xl bg-gray-100"
                     >
-                      <Image src={image} alt={post.title} fill className="object-cover" />
+                      <Image
+                        src={image}
+                        alt={post.title}
+                        fill
+                        // One, two, then three columns — see the grid above.
+                        sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
+                        className="object-cover"
+                      />
                       {/* Poster frame plus a play affordance — the video plays
                           on the post's own page, not in a listing. */}
                       {post.mediaType === "VIDEO" && (

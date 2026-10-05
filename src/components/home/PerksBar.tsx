@@ -1,4 +1,4 @@
-import { Icon } from "@iconify/react";
+import ServerIcon from "@/components/ui/ServerIcon";
 import type { Perk } from "@/types/store-settings";
 
 /**
@@ -6,14 +6,15 @@ import type { Perk } from "@/types/store-settings";
  *
  * Its four columns were four objects in `data/content.ts` and four `lucide-react`
  * imports here until add-perks-strip-content; both are merchant-owned now and
- * arrive on the settings payload the home page already holds, so this fetches
- * nothing and stays a server component.
+ * arrive on the settings payload the home page already holds, so it fetches
+ * no content and stays a server component.
  *
  * ICONS ARE RESOLVED BY NAME, through `@iconify/react`, the same way the
  * header's announcement and middle-bar links already resolve theirs. That is
  * what makes the mark editable at all: a fixed array of imported components
  * could only ever be changed by a deploy, and there is no fifth icon in it for
- * a merchant who renames a column.
+ * a merchant who renames a column. `ServerIcon` resolves each name's SVG on
+ * the server, so the marks are in the HTML rather than fetched after paint.
  *
  * RETURNS NULL ON AN EMPTY LIST rather than an empty band. A merchant who
  * removed every column asked for no band, and `bg-brand` with nothing in it is
@@ -46,7 +47,7 @@ export default function PerksBar({ perks }: { perks: Perk[] }) {
             through renaming them.
           */
           <div key={i} className="flex items-start gap-2.5 sm:items-center sm:gap-4">
-            <Icon icon={perk.icon} width={30} height={30} className="mt-0.5 shrink-0 sm:mt-0" aria-hidden />
+            <ServerIcon name={perk.icon} width={30} height={30} className="mt-0.5 shrink-0 sm:mt-0" aria-hidden />
             <div className="min-w-0">
               <p className="text-sm font-semibold sm:text-base">{perk.title}</p>
               <p className="text-xs text-white/80 sm:text-sm">{perk.description}</p>

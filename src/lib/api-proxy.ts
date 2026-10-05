@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { API_BASE_URL } from "@/lib/api-client";
-import { DEMO_KEY_HEADER, demoKeyFromHost } from "@/lib/demo";
 
 /**
  * Shared plumbing for every `/api/*` route handler that proxies the backend.
@@ -113,22 +112,6 @@ export async function proxyRequest(
     const value = request.headers.get(name);
     if (value) headers[name] = value;
   }
-
-  /*
-   * Which demonstration shop this request belongs to, taken from the hostname
-   * the browser asked for rather than from the incoming headers.
-   *
-   * Deliberately NOT in FORWARDED_HEADERS: forwarding a caller-supplied demo
-   * key would let a browser name a shop the subdomain it is on does not serve.
-   * On the demo host that only reaches other demonstration data, but there is
-   * no reason to hand it over, and deriving it here keeps the storefront's key
-   * and its URL in agreement.
-   *
-   * A single-shop installation sends `default`, which its API ignores.
-   */
-  headers[DEMO_KEY_HEADER] = demoKeyFromHost(
-    request.headers.get("x-forwarded-host") ?? request.headers.get("host"),
-  );
 
   let body: string | undefined;
   if (method !== "GET" && method !== "DELETE") {

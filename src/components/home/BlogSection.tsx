@@ -101,7 +101,14 @@ export default function BlogSection({ posts }: { posts: BlogPostSummary[] }) {
                     href={`/blogs/${post.slug}`}
                     className="relative aspect-4/3 overflow-hidden rounded-xl bg-gray-100"
                   >
-                    <Image src={image} alt={post.title} fill className="object-cover" />
+                    <Image
+                      src={image}
+                      alt={post.title}
+                      fill
+                      // COLUMNS: one, two, then four slides across.
+                      sizes="(min-width: 1024px) 25vw, (min-width: 640px) 50vw, 100vw"
+                      className="object-cover"
+                    />
                     {post.mediaType === "VIDEO" && (
                       <span
                         className="absolute inset-0 flex items-center justify-center bg-black/15"

@@ -7,7 +7,9 @@ import ChatWidget from "@/components/layout/ChatWidget";
 import CompareBar from "@/components/layout/CompareBar";
 import StoreProvider from "@/store/StoreProvider";
 import SmoothScrollProvider from "@/components/providers/SmoothScrollProvider";
-import { getCurrentUser } from "@/lib/current-user";
+import { getSessionUser } from "@/lib/current-user";
+import { WHATSAPP_ICON } from "@/lib/icon-names";
+import { resolveIcons } from "@/lib/iconify";
 import { getCategoryTree } from "@/services/category";
 import { getStoreSettings } from "@/services/store-settings";
 import FacebookPixel from "@/components/landing/FacebookPixel";
@@ -38,8 +40,12 @@ export default async function ShopLayout({ children }: LayoutProps<"/">) {
   // `getStoreSettings` is also called by the root layout above. That is one
   // cached read, not two requests: it is a tagged fetch over a singleton row,
   // deduped within the render pass.
+  //
+  // The user comes from the access token's claims, not `/auth/me`: a
+  // backend round trip here sat in front of every signed-in page view. See
+  // `getSessionUser`.
   const [user, categories, settings] = await Promise.all([
-    getCurrentUser(),
+    getSessionUser(),
     getCategoryTree(),
     getStoreSettings(),
   ]);
@@ -54,6 +60,18 @@ export default async function ShopLayout({ children }: LayoutProps<"/">) {
    */
   const shopPixelId = resolveShopPixelId(settings.facebookPixel);
 
+  /*
+   * The chrome's merchant-configured icons, resolved here so their SVG is in
+   * the HTML. Header and the mobile nav are client components and cannot
+   * resolve their own; a name missing from the map falls back to loading in
+   * the browser, as before. Cached per name for a week — see @/lib/iconify.
+   */
+  const icons = await resolveIcons([
+    ...(settings.announcementBar.links ?? []).map((link) => link.icon),
+    ...settings.middleBarLinks.map((link) => link.icon),
+    WHATSAPP_ICON,
+  ]);
+
   return (
     <StoreProvider isSignedIn={Boolean(user)}>
       {/* Nothing is emitted when no pixel is configured or it is switched off —
@@ -62,12 +80,12 @@ export default async function ShopLayout({ children }: LayoutProps<"/">) {
       {/* Inside StoreProvider so the drawers can read both the cart state and
           the scroll authority that locks the page behind them. */}
       <SmoothScrollProvider>
-        <Header user={user} categories={categories} settings={settings} />
+        <Header user={user} categories={categories} settings={settings} icons={icons} />
         <main className="flex-1">{children}</main>
         <Footer settings={settings} />
         <CartDrawer />
         <CartRail />
-        <MobileBottomNav contact={settings.contact} />
+        <MobileBottomNav contact={settings.contact} icons={icons} />
         {/* Shop chrome only. `(landing)` deliberately does NOT mount this — a
             floating bubble on a campaign page is an exit from the one funnel
             that page exists to serve. Takes the settings this layout already

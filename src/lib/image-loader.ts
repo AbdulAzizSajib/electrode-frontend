@@ -21,6 +21,10 @@
  *   w_<n>    the width this `srcset` entry is for
  *   q_<n>    the `quality` prop when one is set, otherwise Cloudinary's q_auto
  *
+ * The rewrite itself lives in `@/lib/cloudinary-url`, shared with the images
+ * and videos that are not `next/image`. It also covers a poster frame under
+ * `/video/upload/…jpg`, which Cloudinary renders from the video.
+ *
  * Anything else is left as it is, because it cannot be resized this way: the
  * local placeholder is resized by its own `w`/`h` parameters, and an image from
  * any other host is passed through untouched rather than broken.
@@ -29,8 +33,7 @@
  * config docs, "Example Loader Configuration → Cloudinary".
  */
 
-/** `https://res.cloudinary.com/<cloud>/image/upload/` and everything after it. */
-const CLOUDINARY_UPLOAD = /^(https:\/\/res\.cloudinary\.com\/[^/]+\/image\/upload\/)(.+)$/;
+import { cloudinaryUrl } from "@/lib/cloudinary-url";
 
 /** The placeholder route clamps to this, so scaling past it would only distort the ratio. */
 const PLACEHOLDER_MAX = 1600;
@@ -38,11 +41,8 @@ const PLACEHOLDER_MAX = 1600;
 type ImageLoaderInput = { src: string; width: number; quality?: number };
 
 export default function imageLoader({ src, width, quality }: ImageLoaderInput): string {
-  const cloudinary = CLOUDINARY_UPLOAD.exec(src);
-  if (cloudinary) {
-    const transformation = ["f_auto", "c_limit", `w_${width}`, `q_${quality ?? "auto"}`].join(",");
-    return `${cloudinary[1]}${transformation}/${cloudinary[2]}`;
-  }
+  const resized = cloudinaryUrl(src, { width, quality });
+  if (resized !== src) return resized;
 
   // Keeps the placeholder's aspect ratio while honouring the requested width.
   // It is SVG, so no size looks worse — this only stops every srcset entry

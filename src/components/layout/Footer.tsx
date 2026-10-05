@@ -11,6 +11,7 @@ import {
   YoutubeIcon,
 } from "@/components/ui/SocialIcons";
 import type { SocialPlatform, StoreSettings } from "@/types/store-settings";
+import { cloudinaryUrl } from "@/lib/cloudinary-url";
 
 /**
  * The storefront footer, rendered entirely from merchant-managed settings.
@@ -129,7 +130,8 @@ export default function Footer({ settings }: { settings: StoreSettings }) {
                 */
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
-                  src={brand.src}
+                  // 2x the drawn height: sharp on a retina screen, never the original.
+                  src={cloudinaryUrl(brand.src, { height: brand.height * 2 })}
                   alt={brand.alt}
                   style={{ height: brand.height }}
                   className="max-w-full w-auto object-contain"

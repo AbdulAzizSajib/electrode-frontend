@@ -116,6 +116,9 @@ const nextConfig: NextConfig = {
   images: {
     loader: "custom",
     loaderFile: "./src/lib/image-loader.ts",
+    // Next's defaults plus 160: the cart and checkout thumbnails are 64–80px,
+    // and without 160 a 2x screen jumps from 128 straight to 256.
+    imageSizes: [32, 48, 64, 96, 128, 160, 256, 384],
   },
 };
 

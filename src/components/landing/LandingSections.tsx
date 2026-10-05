@@ -1,4 +1,4 @@
-import { Icon } from "@iconify/react";
+import ServerIcon from "@/components/ui/ServerIcon";
 import LandingHeading from "@/components/landing/LandingHeading";
 import StarRating from "@/components/ui/StarRating";
 import type {
@@ -9,6 +9,7 @@ import type {
   LandingPageUsageIdea,
   LandingPageWhyUs,
 } from "@/types/landing-page";
+import { cloudinaryUrl } from "@/lib/cloudinary-url";
 
 /**
  * The repeating content blocks of a campaign page.
@@ -53,7 +54,7 @@ export function LandingHighlights({ items }: { items: LandingPageHighlight[] | n
                 aria-hidden
                 className="grid size-10 shrink-0 place-items-center rounded-full bg-lp-accent-soft"
               >
-                <Icon icon={item.icon} className="size-5 text-lp-accent" />
+                <ServerIcon name={item.icon} className="size-5 text-lp-accent" />
               </span>
             )}
             <div>
@@ -86,7 +87,7 @@ export function LandingTrustBadges({
           key={`${item.label}-${index}`}
           className="inline-flex items-center gap-1.5 rounded-full border border-lp-border bg-lp-surface-alt px-3 py-1.5 text-xs font-medium text-lp-muted"
         >
-          {item.icon && <Icon icon={item.icon} aria-hidden className="size-4 text-lp-accent" />}
+          {item.icon && <ServerIcon name={item.icon} aria-hidden className="size-4 text-lp-accent" />}
           {item.label}
         </li>
       ))}
@@ -132,7 +133,8 @@ export function LandingQuotes({ items }: { items: LandingPageQuote[] | null }) {
             {item.imageUrl && (
               // eslint-disable-next-line @next/next/no-img-element -- merchant-supplied host, not in next.config's allow-list
               <img
-                src={item.imageUrl}
+                // A review card is at most ~400px wide; 2x for retina.
+                src={cloudinaryUrl(item.imageUrl, { width: 800 })}
                 alt={`${item.name} — রিভিউ`}
                 className="mb-3 w-full rounded-lg border border-lp-border object-cover"
                 loading="lazy"
@@ -149,7 +151,7 @@ export function LandingQuotes({ items }: { items: LandingPageQuote[] | null }) {
               {item.photoUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element -- merchant-supplied host, not in next.config's allow-list
                 <img
-                  src={item.photoUrl}
+                  src={cloudinaryUrl(item.photoUrl, { width: 64, height: 64 })}
                   alt=""
                   className="size-8 rounded-full object-cover"
                   loading="lazy"
@@ -291,7 +293,7 @@ export function LandingUsageIdeas({ items }: { items: LandingPageUsageIdea[] | n
                 aria-hidden
                 className="grid size-9 place-items-center rounded-full bg-lp-accent-soft"
               >
-                <Icon icon={item.icon} className="size-4.5 text-lp-accent" />
+                <ServerIcon name={item.icon} className="size-4.5 text-lp-accent" />
               </span>
             )}
             {item.label}

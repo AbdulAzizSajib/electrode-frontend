@@ -1,5 +1,4 @@
 import { revalidateTag } from "next/cache";
-import { DEFAULT_DEMO_KEY, DEMO_KEY_HEADER, scopeTags } from "@/lib/demo";
 import { STORE_SETTINGS_CACHE_TAG } from "@/services/store-settings";
 import { BLOG_POSTS_CACHE_TAG } from "@/services/blog";
 import { TESTIMONIALS_CACHE_TAG } from "@/services/testimonials";
@@ -118,26 +117,12 @@ export async function POST(request: Request) {
   }
 
   /*
-   * The tag is scoped to the demo it belongs to, because that is how it was
-   * written — `apiFetch` suffixes every tag with the demo key, so an unscoped
-   * `revalidateTag("products")` here would expire nothing at all.
-   *
-   * The key comes from the backend rather than from this request's hostname:
-   * the backend posts to one fixed STOREFRONT_URL, so every demo's
-   * invalidation arrives at the same host and the hostname says nothing. A
-   * single-shop installation sends no header and gets the same constant its
-   * fetches used.
-   */
-  const demo = request.headers.get(DEMO_KEY_HEADER)?.trim().toLowerCase() || DEFAULT_DEMO_KEY;
-  const [scoped] = scopeTags([tag], demo) ?? [tag];
-
-  /*
    * `{ expire: 0 }` rather than a named cacheLife profile: the point is to
    * expire the entry now, so the very next request re-fetches. `updateTag`
    * would be the read-your-own-writes equivalent, but it is only callable from
    * a Server Action, and the caller here is the backend over HTTP.
    */
-  revalidateTag(scoped, { expire: 0 });
+  revalidateTag(tag, { expire: 0 });
 
-  return Response.json({ revalidated: true, tag: scoped });
+  return Response.json({ revalidated: true, tag });
 }

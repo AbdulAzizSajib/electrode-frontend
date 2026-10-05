@@ -46,9 +46,11 @@ export default function CategoryTile({ category }: { category: CategoryGridItem 
         <Image
           src={category.image!}
           alt={category.name}
-          width={500}
-          height={400}
-          className="h-full w-full   object-contain"
+          fill
+          // An 80px-tall box (80px square from lg up). It claimed 500x400,
+          // which fetched 640px and 1080px images for it.
+          sizes="(min-width: 1024px) 80px, 120px"
+          className="object-contain"
         />
       </div>
       <div className="flex min-h-10 items-center">

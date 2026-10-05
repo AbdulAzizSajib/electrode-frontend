@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import ProductDetail from "@/components/product/ProductDetail";
 import RecordProductView from "@/components/product/RecordProductView";
-import { getCurrentUser } from "@/lib/current-user";
+import { getSessionUser } from "@/lib/current-user";
 import { getProductBySlug, getRelatedProducts } from "@/services/product";
 import { getProductReviews } from "@/services/review";
 import { getStoreSettings } from "@/services/store-settings";
@@ -72,7 +72,7 @@ export default async function ProductPage({
    * while they are still in flight cannot surface one as an unhandled rejection.
    */
   const relatedPromise = getRelatedProducts(handle, 6);
-  const userPromise = getCurrentUser();
+  const userPromise = getSessionUser();
   const settingsPromise = getStoreSettings();
   for (const pending of [relatedPromise, userPromise, settingsPromise]) {
     pending.catch(() => {});

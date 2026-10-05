@@ -1,4 +1,5 @@
 import { resolveBrandSlot, type BrandSettings } from "@/lib/brand-slot";
+import { cloudinaryUrl } from "@/lib/cloudinary-url";
 
 /**
  * Who is selling this, at the very top of the campaign page.
@@ -42,7 +43,8 @@ export default function LandingBrand({ settings }: { settings: BrandSettings }) 
       */
       // eslint-disable-next-line @next/next/no-img-element -- merchant-supplied host, not in next.config's allow-list
       <img
-        src={brand.src}
+        // 2x the drawn height: sharp on a retina screen, never the original.
+        src={cloudinaryUrl(brand.src, { height: brand.height * 2 })}
         alt={brand.alt}
         style={{ height: brand.height }}
         className="mx-auto w-auto max-w-full object-contain"

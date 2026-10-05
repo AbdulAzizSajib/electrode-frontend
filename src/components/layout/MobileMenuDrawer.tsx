@@ -6,7 +6,7 @@ import { ChevronDown, ChevronRight, X } from "lucide-react";
 import clsx from "clsx";
 import SearchBox from "@/components/layout/SearchBox";
 import { useScrollLock } from "@/components/providers/SmoothScrollProvider";
-import type { AuthUser } from "@/types/auth";
+import type { SessionUser } from "@/types/auth";
 import type { CategoryNode } from "@/types/category";
 import type { NavItem } from "@/types/store-settings";
 
@@ -32,7 +32,7 @@ export default function MobileMenuDrawer({
 }: {
   open: boolean;
   onClose: () => void;
-  user: AuthUser | null;
+  user: SessionUser | null;
   categories: CategoryNode[];
   /** The same merchant-managed nav the desktop header renders. */
   mainNav: NavItem[];

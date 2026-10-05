@@ -22,6 +22,7 @@ import type {
   LandingPage,
   LandingPageQuoteResult,
 } from "@/types/landing-page";
+import { cloudinaryUrl } from "@/lib/cloudinary-url";
 
 /**
  * The whole checkout for a campaign page: a quantity, a delivery area, three
@@ -932,7 +933,7 @@ function OrderSummary({
         {imageUrl && (
           // eslint-disable-next-line @next/next/no-img-element -- merchant-supplied host, not in next.config's allow-list
           <img
-            src={imageUrl}
+            src={cloudinaryUrl(imageUrl, { width: 96, height: 96 })}
             alt=""
             className="size-12 shrink-0 rounded-lg border border-lp-border bg-lp-surface object-cover"
             loading="lazy"

@@ -1,5 +1,6 @@
 "use client";
-import { Icon } from "@iconify/react";
+import type { IconifyIcon } from "@iconify/react";
+import MerchantIcon from "@/components/ui/MerchantIcon";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -27,12 +28,13 @@ import {
 } from "@/store/compareSlice";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { openCart } from "@/store/uiSlice";
-import type { AuthUser } from "@/types/auth";
+import type { SessionUser } from "@/types/auth";
 import type { CategoryNode } from "@/types/category";
 import { filterNavForFeatures } from "@/lib/catalog-features";
 import { filterNavForSections } from "@/lib/nav-sections";
 import { resolveBrandSlot } from "@/lib/brand-slot";
 import { useStickyReveal } from "@/components/layout/useStickyReveal";
+import { cloudinaryUrl } from "@/lib/cloudinary-url";
 
 /**
  * Focus treatment for controls sitting on the brand bar.
@@ -83,9 +85,12 @@ export default function Header({
   user,
   categories,
   settings,
+  icons,
 }: {
-  user: AuthUser | null;
+  user: SessionUser | null;
   categories: CategoryNode[];
+  /** Server-resolved data for the links' icons, keyed by Iconify name. */
+  icons: Record<string, IconifyIcon>;
   /** Merchant-managed chrome, fetched once in the root layout. */
   settings: StoreSettings;
 }) {
@@ -165,7 +170,9 @@ export default function Header({
   const closeMenus = useCallback(() => {
     setOpenMenu(null);
     setOpenCategory(null);
-  }, []);
+    // The setters are stable; listed because the React Compiler infers them as
+    // dependencies and skips the whole component when the list disagrees.
+  }, [setOpenMenu, setOpenCategory]);
 
   useEffect(() => {
     if (!openMenu) return;
@@ -308,7 +315,9 @@ export default function Header({
 
                   const body = (
                     <>
-                      {link.icon && <Icon icon={link.icon} className="shrink-0" aria-hidden />}
+                      {link.icon && (
+                        <MerchantIcon name={link.icon} data={icons[link.icon]} className="shrink-0" aria-hidden />
+                      )}
                       {label}
                     </>
                   );
@@ -393,7 +402,8 @@ export default function Header({
                 */
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
-                  src={brand.src}
+                  // 2x the drawn height: sharp on a retina screen, never the original.
+                  src={cloudinaryUrl(brand.src, { height: brand.height * 2 })}
                   alt={brand.alt}
                   style={{ height: brand.height }}
                   className="max-w-full w-auto object-contain max-md:mx-auto"
@@ -460,7 +470,9 @@ export default function Header({
               */}
               {settings.middleBarLinks.map((link) => (
                 <Link key={link.href} href={link.href} className={clsx("flex", HEADER_ACTION)}>
-                  {link.icon && <Icon icon={link.icon} width={22} height={22} aria-hidden />}
+                  {link.icon && (
+                    <MerchantIcon name={link.icon} data={icons[link.icon]} width={22} height={22} aria-hidden />
+                  )}
                   <span className="whitespace-nowrap font-semibold">{link.label}</span>
                 </Link>
               ))}
