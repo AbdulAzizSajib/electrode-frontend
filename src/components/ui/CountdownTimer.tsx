@@ -53,8 +53,15 @@ export default function CountdownTimer({ endsAt }: { endsAt: number }) {
     : [null, null, null, null];
 
   return (
+    /*
+     * `transform-gpu` gives the timer its own layer, so the repaint it causes
+     * every second stays inside its own box. Without it, the repaint spread to
+     * the section around it, and on Android Chrome — with the pinned mobile
+     * header overlapping that section — it came out as smeared, repeated copies
+     * of the campaign text above the timer.
+     */
     <div
-      className="flex w-full items-center justify-between gap-1.5 sm:w-auto sm:justify-start sm:gap-2"
+      className="flex w-full transform-gpu items-center justify-between gap-1.5 sm:w-auto sm:justify-start sm:gap-2"
       role="timer"
       aria-label="Time remaining"
     >

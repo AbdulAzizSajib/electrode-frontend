@@ -269,7 +269,9 @@ export default function Header({
 
         `fixed`, never `sticky`, and NO `will-change`: both made Android Chrome
         paint smeared, repeated copies of the content scrolling beneath the
-        header. The spacer below holds the header's place in the flow while it
+        header. The shadow is kept to `shadow-md` for the same reason — a large
+        one spills far over the content below and widens the area that has to
+        be repainted under it. The spacer below holds the header's place in the flow while it
         is fixed, so pinning does not pull the page up by its height.
       */}
       {headerPinned && (
@@ -280,7 +282,7 @@ export default function Header({
         className={clsx(
           "bg-brand shadow-sm",
           headerPinned &&
-            "max-md:fixed max-md:inset-x-0 max-md:top-0 max-md:z-40 max-md:shadow-lg max-md:animate-header-in motion-reduce:animate-none",
+            "max-md:fixed max-md:inset-x-0 max-md:top-0 max-md:z-40 max-md:shadow-md max-md:animate-header-in motion-reduce:animate-none",
         )}
       >
         {/* Announcement bar. Rendered only when the merchant has switched it on —

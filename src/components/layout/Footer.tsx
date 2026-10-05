@@ -233,8 +233,12 @@ export default function Footer({ settings }: { settings: StoreSettings }) {
       {/*
         Two halves, centred and stacked on phones and pushed apart from `sm` up.
         The social icons are NOT here any more — see the header comment.
+
+        Tighter on a phone (`gap-2.5`, `py-4`) than from `sm` up: stacked, the
+        desktop spacing left the copyright, the credit and the logo floating in
+        a tall empty band above the bottom nav.
       */}
-      <div className="container-px flex site-container flex-col items-center justify-between gap-4 border-t border-white/10 py-6 text-sm text-white/80 sm:flex-row">
+      <div className="container-px flex site-container flex-col items-center justify-between gap-2.5 border-t border-white/10 py-4 text-sm text-white/80 sm:flex-row sm:gap-4 sm:py-6">
         {/*
           The store's own name, not `copyrightText`. `brandName` is the same
           composition the brand slot above uses, so the two cannot disagree —
@@ -256,8 +260,12 @@ export default function Footer({ settings }: { settings: StoreSettings }) {
           mark's two halves sit to each other, so "by" read as part of the logo.
           The outer gap has to be the larger of the two for the eye to group the
           lockup before it groups the sentence.
+
+          STACKED on a phone — the prefix on its own line, the lockup centred
+          under it — and side by side from `sm`. On one line at phone width the
+          lockup ran off the right edge of the screen.
         */}
-        <p className="flex items-center gap-2.5">
+        <p className="flex flex-col items-center gap-1.5 sm:flex-row sm:gap-2.5">
           <span>{AGENCY_CREDIT.prefix}</span>
           {/*
             daisyUI's `aura-gold`: an animated conic-gradient ring with a blurred
