@@ -126,9 +126,10 @@ export default function ChatWidget({ settings }: { settings: ChatWidgetSettings 
          * gap, and both share `right-4` so they read as one column rather than
          * two things that missed each other.
          *
-         * Below `md`, `bottom-20` clears the fixed `MobileBottomNav` (3.75rem
-         * tall) plus `env(safe-area-inset-bottom)` without floating up into the
-         * middle of page section headers.
+         * Below `md` it sits 1rem above the fixed `MobileBottomNav`, whose
+         * height is `--mobile-nav-height` (globals.css) — read here rather than
+         * restated, so a taller bar can never swallow the bubble. The
+         * `env(safe-area-inset-bottom)` margin below clears the gesture bar.
          *
          * `z-30` sits under the cart drawer and the header's own overlays (z-40+)
          * so an open drawer is never competing with a floating button.
@@ -138,7 +139,7 @@ export default function ChatWidget({ settings }: { settings: ChatWidgetSettings 
             target="_blank"
             rel="noopener noreferrer"
             aria-label={`${label} on ${meta.label}`}
-            className={`fixed bottom-20 right-4 z-30 flex size-12 animate-float items-center justify-center rounded-full text-white shadow-[0_4px_14px_rgba(0,0,0,0.25)] transition-transform duration-200 motion-reduce:animate-none hover:scale-105 active:scale-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand md:bottom-20 md:right-4 ${meta.className}`}
+            className={`fixed bottom-[calc(var(--mobile-nav-height)+1rem)] right-4 z-30 flex size-12 animate-float items-center justify-center rounded-full text-white shadow-[0_4px_14px_rgba(0,0,0,0.25)] transition-transform duration-200 motion-reduce:animate-none hover:scale-105 active:scale-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand md:bottom-20 md:right-4 ${meta.className}`}
             style={{ marginBottom: "env(safe-area-inset-bottom)" }}
         >
             {/* Slow pulse/ping aura so the icon-only bubble gently catches the eye */}

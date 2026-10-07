@@ -299,7 +299,12 @@ export default function SearchableSelect({
           /* Capped, not tall: on a phone an open keyboard takes the bottom half
              of the screen, and a list taller than this puts its own rows behind
              it. `overscroll-contain` keeps a flick inside the list from
-             scrolling the checkout page underneath it. */
+             scrolling the checkout page underneath it.
+
+             `data-lenis-prevent` keeps Lenis from claiming the mouse wheel
+             here, as on the cart drawer and mobile menu — without it a wheel
+             over the open list scrolled the page and the list never moved. */
+          data-lenis-prevent
           className={clsx(
             "absolute z-20 mt-1 max-h-60 w-full overflow-y-auto overscroll-contain rounded border py-1 shadow-lg",
             themed
@@ -326,12 +331,20 @@ export default function SearchableSelect({
                   data-index={index}
                   role="option"
                   aria-selected={selected}
-                  /* `pointerdown`, not `click`: the input's blur would close
-                     the list first and the click would land on nothing. */
-                  onPointerDown={(e) => {
-                    e.preventDefault();
-                    choose(option);
-                  }}
+                  /*
+                    Chosen on CLICK, with `mousedown` only cancelled.
+
+                    Cancelling `mousedown` is what keeps focus in the input, so
+                    its blur cannot close the list before the click lands. The
+                    choice itself must wait for the click: it was made on
+                    `pointerdown`, which on a phone fires the instant a finger
+                    touches the list — so every attempt to SCROLL the options
+                    picked whichever one the finger started on. A browser only
+                    fires `click` for a tap, never for a scroll, so choosing
+                    there lets the list scroll and still selects on a tap.
+                  */
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => choose(option)}
                   onMouseEnter={() => setActiveIndex(index)}
                   className={clsx(
                     "flex cursor-pointer items-center justify-between gap-2 px-4 py-2.5 text-sm",

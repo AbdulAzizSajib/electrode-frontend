@@ -48,7 +48,10 @@ export default function MobileBottomNav({
 
   const itemClass = (active: boolean) =>
     clsx(
-      "flex flex-1 flex-col items-center justify-center gap-1 py-2 text-[11px] font-medium transition-colors",
+      // The height is `--mobile-nav-height` in globals.css, which also sizes the
+      // room `body` reserves for this bar. Change it THERE, never here, or the
+      // last row of every page hides behind the bar.
+      "flex h-(--mobile-nav-height) flex-1 flex-col items-center justify-center gap-1 text-xs font-medium transition-colors",
       active ? "text-brand" : "text-gray-500",
     );
 
@@ -66,7 +69,7 @@ export default function MobileBottomNav({
         {contact.phone && (
           <>
             <a href={`tel:${contact.phone}`} className={itemClass(false)}>
-              <Phone size={20} strokeWidth={1.75} />
+              <Phone size={22} strokeWidth={1.75} />
               Phone
             </a>
 
@@ -76,21 +79,21 @@ export default function MobileBottomNav({
               rel="noopener noreferrer"
               className={itemClass(false)}
             >
-              <MerchantIcon name={WHATSAPP_ICON} data={icons[WHATSAPP_ICON]} width={20} height={20} />
+              <MerchantIcon name={WHATSAPP_ICON} data={icons[WHATSAPP_ICON]} width={22} height={22} />
               WhatsApp
             </a>
           </>
         )}
 
         <Link href="/" className={itemClass(pathname === "/")}>
-          <Home size={20} strokeWidth={1.75} />
+          <Home size={22} strokeWidth={1.75} />
           Home
         </Link>
 
         {/* `/shop` is not a route in this app — this link 404'd. The catalog
             lives at `/products`, same as the desktop nav. */}
         <Link href="/products" className={itemClass(pathname.startsWith("/products"))}>
-          <Store size={20} strokeWidth={1.75} />
+          <Store size={22} strokeWidth={1.75} />
           Shop
         </Link>
 
@@ -100,7 +103,7 @@ export default function MobileBottomNav({
           className={itemClass(false)}
         >
           <span className="relative">
-            <ShoppingBag size={20} strokeWidth={1.75} />
+            <ShoppingBag size={22} strokeWidth={1.75} />
             {itemCount > 0 && (
               <span className="absolute -right-2 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-sale px-1 text-[10px] font-bold text-white">
                 {itemCount}
@@ -116,7 +119,7 @@ export default function MobileBottomNav({
         {showCompare && isCompareHydrated && compareCount > 0 && (
           <Link href="/compare" className={itemClass(pathname === "/compare")}>
             <span className="relative">
-              <Repeat size={20} strokeWidth={1.75} />
+              <Repeat size={22} strokeWidth={1.75} />
               <span className="absolute -right-2 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-sale px-1 text-[10px] font-bold text-white">
                 {compareCount}
               </span>

@@ -263,12 +263,15 @@ export default function Footer({ settings }: { settings: StoreSettings }) {
           The outer gap has to be the larger of the two for the eye to group the
           lockup before it groups the sentence.
 
-          STACKED on a phone — the prefix on its own line, the lockup centred
-          under it — and side by side from `sm`. On one line at phone width the
-          lockup ran off the right edge of the screen.
+          ONE ROW at every width. On a phone the prefix drops to `text-xs` and
+          the gap to `gap-2`, which is what lets prefix and lockup share a line
+          at 360px; the lockup is `shrink-0` so it is never the thing squeezed.
+          `flex-wrap` is the fallback for the narrowest phones — the lockup
+          drops under the prefix rather than running off the screen edge, which
+          is what an unwrappable row did at phone width before.
         */}
-        <p className="flex flex-col items-center gap-1.5 sm:flex-row sm:gap-2.5">
-          <span>{AGENCY_CREDIT.prefix}</span>
+        <p className="flex flex-wrap items-center justify-center gap-2 sm:gap-2.5">
+          <span className="whitespace-nowrap text-xs sm:text-sm">{AGENCY_CREDIT.prefix}</span>
           {/*
             daisyUI's `aura-gold`: an animated conic-gradient ring with a blurred
             glow behind it, wrapping the mark. daisyUI is already a plugin on this
@@ -283,7 +286,7 @@ export default function Footer({ settings }: { settings: StoreSettings }) {
             `prefers-reduced-motion` by quartering the speed rather than stopping,
             which is its call and not one to override here.
           */}
-        <span className="aura">
+        <span className="aura shrink-0">
             <a
               href={AGENCY_CREDIT.href}
               target="_blank"

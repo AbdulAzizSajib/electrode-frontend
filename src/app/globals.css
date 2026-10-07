@@ -268,14 +268,24 @@ body {
 }
 
 /*
+ * The mobile bottom nav's row height — THE one place it is set. The bar itself
+ * (`MobileBottomNav`), the room reserved for it below, and the chat bubble that
+ * floats above it all read this, so changing it here moves all three together.
+ * Setting the height anywhere else is how the bar ended up covering the footer.
+ */
+:root {
+  --mobile-nav-height: 78px;
+}
+
+/*
  * Room for the fixed mobile bottom nav, reserved here rather than per page so
- * no route can leave its last row of content trapped underneath it. Matches the
- * bar's own height plus the device's safe-area inset; released at `md`, where
- * the bar is hidden and the header's nav takes over.
+ * no route can leave its last row of content trapped underneath it. The bar's
+ * row height, plus its 1px top border, plus the device's safe-area inset;
+ * released at `md`, where the bar is hidden and the header's nav takes over.
  */
 @media (max-width: 767px) {
   body {
-    padding-bottom: calc(3.75rem + env(safe-area-inset-bottom));
+    padding-bottom: calc(var(--mobile-nav-height) + 1px + env(safe-area-inset-bottom));
   }
 }
 
