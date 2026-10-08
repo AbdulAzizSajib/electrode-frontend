@@ -57,8 +57,15 @@ export default async function BlogsPage({ searchParams }: PageProps<"/blogs">) {
             {posts.map((post) => {
               const image = listingImage(post);
 
+              /*
+               * A card surface in the merchant's card colour (white until one is
+               * chosen, with the product card's light border) — the blog list
+               * used to sit straight on the page, so the card colour had nothing
+               * to apply to. Kept identical on the home slider. See
+               * server/openspec/changes/add-card-background-theme-color.
+               */
               return (
-                <article key={post.id} className="flex flex-col">
+                <article key={post.id} className="flex flex-col rounded-xl border border-gray-200 bg-(--color-card,#ffffff) p-3">
                   {image && (
                     <Link
                       href={`/blogs/${post.slug}`}

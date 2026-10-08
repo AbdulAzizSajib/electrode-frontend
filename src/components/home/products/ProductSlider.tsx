@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import Link from "next/link";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ArrowRight, ChevronLeft, ChevronRight } from "lucide-react";
 import { Swiper, SwiperSlide } from "swiper/react";
 import type { Swiper as SwiperInstance } from "swiper";
 
@@ -96,22 +96,14 @@ export default function ProductSlider({
   return (
     <section className="container-px site-container py-8">
       {/*
-        THREE ITEMS IN ONE WRAPPING ROW, not a title beside a grouped pair.
-        Grouping the link and the arrows in a div is what put them BOTH on the
-        second line on a phone, left-aligned under the heading, leaving the
-        space beside the heading empty — so the row read as two ragged
-        left-aligned lines rather than as a heading with its controls.
+        The heading and its arrows only. The arrows are auto-margined to the
+        right edge at every width, so they sit beside the heading on a phone as
+        on a desktop; the heading's own width decides whether they fit beside
+        it, so nothing here assumes a title length.
 
-        The arrows are auto-margined to the right edge instead, at every width.
-        Below `sm` that lands them beside the heading and the link takes a line
-        of its own (`w-full`); at `sm` and up `order` puts the link back in
-        front of them and the two auto margins collapse to one gap, which is
-        the arrangement this row has always had on a desktop. The heading's own
-        width is what decides whether the arrows fit beside it, so nothing here
-        assumes a title length.
-
-        `justify-between` is gone deliberately: an auto margin absorbs the free
-        space first, so leaving it would be a rule that never applies.
+        "See all products" is NOT in this row: it sits under the cards (below).
+        Read after the row, it is the next step once a shopper has browsed it;
+        up here it competed with the arrows for the same corner.
       */}
       <div className="mb-8 flex flex-wrap items-center gap-x-4 gap-y-3">
         <h2 className="flex items-center gap-2.5 text-xl font-bold text-gray-900 sm:text-2xl">
@@ -119,14 +111,7 @@ export default function ProductSlider({
           <span>{title}</span>
         </h2>
 
-        <Link
-          href={viewAllHref}
-          className="order-2 w-full text-sm font-semibold text-brand hover:underline sm:order-1 sm:ms-auto sm:w-auto"
-        >
-          See all products
-        </Link>
-
-        <div className="order-1 ms-auto flex shrink-0 gap-2 sm:order-2">
+        <div className="ms-auto flex shrink-0 gap-2">
           <button
             type="button"
             aria-label={`Previous ${title.toLowerCase()}`}
@@ -189,6 +174,16 @@ export default function ProductSlider({
           </SwiperSlide>
         ))}
       </Swiper>
+
+      <div className="mt-5 flex justify-end">
+        <Link
+          href={viewAllHref}
+          className="inline-flex items-center gap-1.5 text-sm font-semibold text-brand hover:underline"
+        >
+          See all products
+          <ArrowRight className="size-4" aria-hidden />
+        </Link>
+      </div>
     </section>
   );
 }

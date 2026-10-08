@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { ChevronLeft, ChevronRight, Play } from "lucide-react";
+import { ArrowRight, ChevronLeft, ChevronRight, Play } from "lucide-react";
 import { Swiper, SwiperSlide } from "swiper/react";
 import type { Swiper as SwiperInstance } from "swiper";
 
@@ -44,14 +44,9 @@ export default function BlogSection({ posts }: { posts: BlogPostSummary[] }) {
           <span>Our Latest Blog</span>
         </h2>
 
-        <Link
-          href="/blogs"
-          className="order-2 w-full text-sm font-semibold text-brand hover:underline sm:order-1 sm:ms-auto sm:w-auto"
-        >
-          See all posts
-        </Link>
-
-        <div className="order-1 ms-auto flex shrink-0 gap-2 sm:order-2">
+        {/* "See all posts" sits under the cards, as on the product sliders —
+            the next step after browsing the row, not a rival for the arrows. */}
+        <div className="ms-auto flex shrink-0 gap-2">
           <button
             type="button"
             aria-label="Previous blog posts"
@@ -95,7 +90,14 @@ export default function BlogSection({ posts }: { posts: BlogPostSummary[] }) {
 
           return (
             <SwiperSlide key={post.id} className="!flex !h-auto [&>article]:flex-1">
-              <article className="flex flex-col">
+              {/*
+                A card surface in the merchant's card colour (white until one is chosen,
+                with the product card's light border) — the blog list used to sit straight
+                on the page, so the card colour had nothing to apply to. Kept identical on
+                the home slider and the /blogs index. See
+                server/openspec/changes/add-card-background-theme-color.
+              */}
+              <article className="flex flex-col rounded-xl border border-gray-200 bg-(--color-card,#ffffff) p-3">
                 {image && (
                   <Link
                     href={`/blogs/${post.slug}`}
@@ -140,6 +142,16 @@ export default function BlogSection({ posts }: { posts: BlogPostSummary[] }) {
           );
         })}
       </Swiper>
+
+      <div className="mt-5 flex justify-end">
+        <Link
+          href="/blogs"
+          className="inline-flex items-center gap-1.5 text-sm font-semibold text-brand hover:underline"
+        >
+          See all posts
+          <ArrowRight className="size-4" aria-hidden />
+        </Link>
+      </div>
     </section>
   );
 }

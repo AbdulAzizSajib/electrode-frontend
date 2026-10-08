@@ -105,6 +105,15 @@ export function themeStyle(theme: Theme | undefined): CSSProperties {
     "--color-brand-dark": colour(t.brandDark, "#133f9e"),
     "--color-accent": colour(t.accent, "#f5b301"),
     "--color-sale": colour(t.sale, "#e02020"),
+    /*
+     * ONLY WHEN SET. Every card reads `var(--color-card, <its own default>)`,
+     * so leaving the property off is what keeps an unconfigured shop's cards
+     * exactly as they were. There is deliberately no `:root` value in
+     * globals.css either — one would make those fallbacks unreachable.
+     */
+    ...(typeof t.cardBackground === "string" && HEX.test(t.cardBackground)
+      ? { "--color-card": t.cardBackground }
+      : {}),
     "--font-sans": resolveFontStack(t.font?.family),
     "--site-max-width": resolveMaxWidth(t.maxWidth),
   } as CSSProperties;

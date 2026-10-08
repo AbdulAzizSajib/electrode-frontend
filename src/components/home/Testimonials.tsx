@@ -85,7 +85,7 @@ export default function Testimonials({ testimonials }: { testimonials: Testimoni
         >
           {testimonials.map((t) => (
             <SwiperSlide key={t.id} className="!flex !h-auto [&>div]:flex-1">
-              <div className="flex flex-col rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
+              <div className="flex flex-col rounded-xl border border-gray-100 bg-(--color-card,#ffffff) p-6 shadow-sm">
                 <Quote className="mb-3 text-brand" size={22} />
                 <p className="flex-1 text-sm text-gray-600">{t.quote}</p>
                 <div className="mt-4">

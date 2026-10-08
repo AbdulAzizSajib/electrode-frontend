@@ -626,6 +626,13 @@ export interface Theme {
   brandDark: string;
   accent: string;
   sale: string;
+  /**
+   * The browsing cards' background, or absent when the merchant has not chosen
+   * one — in which case each card keeps its own default (white product cards,
+   * grey category tiles). Never defaulted here or in FALLBACK_SETTINGS: unset
+   * is a real state. See server/openspec/changes/add-card-background-theme-color.
+   */
+  cardBackground?: string | null;
   /** Pixels, or `"full"` for an unconstrained content width. */
   maxWidth: number | "full";
   /** The storefront's typeface — the one this app renders in. */

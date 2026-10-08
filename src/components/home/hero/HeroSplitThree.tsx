@@ -61,13 +61,17 @@ export default function HeroSplitThree({
            * one being told a pixel value.
            */
           <div className="relative aspect-4/3 w-full overflow-hidden rounded-sm bg-[#f2efe9] lg:aspect-auto lg:min-w-0 lg:flex-1">
-            <HeroSlider slides={slides} sizes={sizes.slider} />
+            <HeroSlider slides={slides} sizes={sizes.slider} useMobileArtwork />
           </div>
         )}
 
         {/* 43% of the row — see the note above on why this is a share and not
             the 570px it used to be. */}
-        <div className="flex w-full flex-col gap-4 lg:w-[43%] lg:flex-none">
+        {/* Tiles are desktop-only: below `lg` the hero is the slider alone, on
+            request — a phone gets one story instead of a long stack of promotions
+            pushing the products down. The tiles' images are lazy, so a hidden tile
+            is not downloaded either. */}
+        <div className="hidden w-full flex-col gap-4 lg:flex lg:w-[43%] lg:flex-none">
           {sideBanners.length > 0 && (
             <div className="grid grid-cols-2 gap-4">
               {sideBanners.map((b) => (

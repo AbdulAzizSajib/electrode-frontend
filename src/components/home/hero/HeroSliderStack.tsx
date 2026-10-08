@@ -67,9 +67,12 @@ export default function HeroSliderStack({
         )}
 
         {tiles.length > 0 && (
-          // One column on a phone rather than three 100px-wide slivers.
-          // `lg:shrink-0` so the tiles keep their ratio and the slider absorbs.
-          <div className="grid grid-cols-1 gap-4 lg:shrink-0 lg:grid-cols-3">
+          // Desktop-only (`hidden lg:grid`): below `lg` the hero is the slider
+          // alone, on request — a phone gets one story, not three promotions
+          // pushing the products down. The tiles' images are lazy, so hidden
+          // tiles are not downloaded. `lg:shrink-0` so the tiles keep their
+          // ratio and the slider absorbs.
+          <div className="hidden grid-cols-1 gap-4 lg:grid lg:shrink-0 lg:grid-cols-3">
             {tiles.map(({ banner, sizes: tileSizes, tint }) => (
               <HeroTile
                 key={banner.id}

@@ -20,7 +20,7 @@ import type { CategoryGridItem } from "@/types/category";
  * left the contents landing at three different places, with a faint grey
  * background that did not show where any box ended. So both are pinned:
  *
- *  - the image sits in a box of FIXED HEIGHT (`h-16`) and is
+ *  - the image sits in a box of FIXED HEIGHT (`h-24`, `lg:h-28`) and is
  *    `object-contain`, so a tall picture and a wide one occupy the same band;
  *  - the name gets a block the height of TWO LINES (`min-h-10` at `text-sm`),
  *    clamped to two, with a one-line name centred in it.
@@ -35,25 +35,37 @@ import type { CategoryGridItem } from "@/types/category";
  * changed ONCE, deliberately, on request, for both layouts together — so the
  * grid's phone rendering differs from before by exactly this. See
  * server/openspec/changes/add-featured-categories-layout, tasks 3.1 and 6.3.
+ *
+ * ── Background: the merchant's card colour, else today's grey ────────────
+ *
+ * `var(--color-card, var(--color-gray-50))`: the theme's optional card colour
+ * when the merchant set one, and the tile's original light grey when not, so an
+ * unconfigured shop looks exactly as before. NO hover background: the tile's
+ * colour stays put under the cursor (removed on request — a second colour
+ * appearing on hover read as a glitch, and a fixed `hover:bg-gray-100` would
+ * also flash grey on a cream tile). See
+ * server/openspec/changes/add-card-background-theme-color.
  */
 export default function CategoryTile({ category }: { category: CategoryGridItem }) {
   return (
     <Link
       href={`/products?category=${encodeURIComponent(category.slug)}`}
-      className="flex flex-col items-center gap-2 rounded-xl bg-gray-50 p-4 text-center hover:bg-gray-100"
+      className="flex flex-col items-center gap-0 rounded-xl bg-(--color-card,var(--color-gray-50)) p-0 text-center"
     >
-      <div className="relative h-16 w-full overflow-hidden lg:w-16">
+      <div className="relative  h-24 w-full overflow-hidden lg:h-38 lg:w-38">
         <Image
           src={category.image!}
           alt={category.name}
           fill
-          // A 64px-tall box (64px square from lg up). It claimed 500x400,
-          // which fetched 640px and 1080px images for it.
-          sizes="(min-width: 1024px) 64px, 120px"
+          // A 96px-tall box on a phone (the tile's full width, ~85px at three
+          // across), 112px square from lg up, where a 7-across tile has ~166px
+          // of room. It once claimed 500x400, which fetched 640px and 1080px
+          // images for it.
+          sizes="(min-width: 1024px) 112px, 120px"
           className="object-contain"
         />
       </div>
-      <div className="flex min-h-10 items-center">
+      <div className="flex min-h-10 items-center ">
         <p className="line-clamp-2 text-sm font-semibold text-gray-900">{category.name}</p>
       </div>
     </Link>

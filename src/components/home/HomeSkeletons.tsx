@@ -35,7 +35,7 @@ export function HeroSplitThreeSkeleton() {
     <section aria-hidden className="container-px site-container py-4">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-stretch">
         <SkeletonBlock className="aspect-4/3 w-full rounded-sm lg:aspect-auto lg:min-w-0 lg:flex-1" />
-        <div className="flex w-full flex-col gap-4 lg:w-[43%] lg:flex-none">
+        <div className="hidden w-full flex-col gap-4 lg:flex lg:w-[43%] lg:flex-none">
           <div className="grid grid-cols-2 gap-4">
             <SkeletonBlock className="aspect-square w-full rounded-sm" />
             <SkeletonBlock className="aspect-square w-full rounded-sm" />
@@ -54,7 +54,7 @@ export function HeroSplitTallSkeleton() {
       <div className="flex flex-col gap-4 lg:flex-row lg:items-stretch">
         <SkeletonBlock className="aspect-4/3 w-full rounded-sm lg:aspect-auto lg:min-w-0 lg:flex-1" />
         {/* `flex` mirrors the layout, where it is what blockifies the tile's `<a>`. */}
-        <div className="flex w-full lg:w-1/3 lg:flex-none">
+        <div className="hidden w-full lg:flex lg:w-1/3 lg:flex-none">
           <SkeletonBlock className="aspect-19/24 w-full rounded-sm" />
         </div>
       </div>
@@ -77,7 +77,7 @@ export function HeroSliderStackSkeleton() {
     <section aria-hidden className="container-px site-container py-4">
       <div className="flex flex-col gap-4 lg:aspect-19/8">
         <SkeletonBlock className="aspect-4/3 w-full rounded-sm lg:aspect-auto lg:min-h-0 lg:flex-1" />
-        <div className="grid grid-cols-1 gap-4 lg:shrink-0 lg:grid-cols-3">
+        <div className="hidden grid-cols-1 gap-4 lg:grid lg:shrink-0 lg:grid-cols-3">
           <SkeletonBlock className="aspect-43/20 w-full rounded-sm" />
           <SkeletonBlock className="aspect-43/20 w-full rounded-sm" />
           <SkeletonBlock className="aspect-43/20 w-full rounded-sm" />
@@ -107,9 +107,9 @@ export function CategoryGridSkeleton() {
       <SkeletonBlock className="mb-8 h-7 w-56 max-w-full" />
       <div className="grid grid-cols-3 gap-4 sm:grid-cols-4 lg:grid-cols-7">
         {Array.from({ length: 7 }, (_, index) => (
-          <div key={index} className="flex flex-col items-center gap-2 rounded-xl bg-gray-50 p-4">
+          <div key={index} className="flex flex-col items-center gap-1.5 rounded-xl bg-(--color-card,var(--color-gray-50)) p-3">
             {/* The tile's fixed image band and two-line name block — see CategoryTile. */}
-            <SkeletonBlock className="h-16 w-full lg:w-16" />
+            <SkeletonBlock className="h-24 w-full lg:h-28 lg:w-28" />
             <div className="flex min-h-10 w-full items-center justify-center">
               <SkeletonBlock className="h-4 w-3/4" />
             </div>
@@ -145,10 +145,10 @@ export function CategorySliderSkeleton() {
         {Array.from({ length: 7 }, (_, index) => (
           <div
             key={index}
-            className="flex w-[calc((100%-2rem)/3)] shrink-0 flex-col items-center gap-2 rounded-xl bg-gray-50 p-4 sm:w-[calc((100%-3rem)/4)] lg:w-[calc((100%-6rem)/7)]"
+            className="flex w-[calc((100%-2rem)/3)] shrink-0 flex-col items-center gap-1.5 rounded-xl bg-(--color-card,var(--color-gray-50)) p-3 sm:w-[calc((100%-3rem)/4)] lg:w-[calc((100%-6rem)/7)]"
           >
             {/* The tile's fixed image band and two-line name block — see CategoryTile. */}
-            <SkeletonBlock className="h-16 w-full lg:w-16" />
+            <SkeletonBlock className="h-24 w-full lg:h-28 lg:w-28" />
             <div className="flex min-h-10 w-full items-center justify-center">
               <SkeletonBlock className="h-4 w-3/4" />
             </div>

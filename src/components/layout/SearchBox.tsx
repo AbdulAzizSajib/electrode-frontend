@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { useTypingPlaceholder } from "@/components/layout/useTypingPlaceholder";
 import { Loader2, Search } from "lucide-react";
 import clsx from "clsx";
 import { formatPrice } from "@/lib/format";
@@ -29,6 +30,19 @@ const DEBOUNCE_MS = 300;
  * capped, unfiltered projection, so a shopper looking for "everything Anker"
  * still gets the real listing by pressing Enter.
  */
+/*
+ * What the placeholder types out in turn. Each is something search really
+ * matches — product name, brand and SKU (`ProductService.searchProducts`) — so
+ * the hint never promises a search that comes back empty. Store-agnostic on
+ * purpose: one storefront serves shops in different trades. The FIRST is the
+ * one shown before the animation starts and whenever it is paused.
+ */
+const PLACEHOLDER_HINTS = [
+  "Search for products",
+  "Search by brand",
+  "Search by product code",
+] as const;
+
 export default function SearchBox({
   onNavigate,
   autoFocus = false,
@@ -41,6 +55,9 @@ export default function SearchBox({
 }) {
   const router = useRouter();
   const [query, setQuery] = useState("");
+  const [focused, setFocused] = useState(false);
+  // Held still while focused or holding text, so it never moves under typing.
+  const placeholder = useTypingPlaceholder(PLACEHOLDER_HINTS, focused || query !== "");
   const [debounced, setDebounced] = useState("");
   const [open, setOpen] = useState(false);
   // Which suggestion the arrow keys have moved to; -1 means "none, submit the
@@ -130,10 +147,14 @@ export default function SearchBox({
             setQuery(e.target.value);
             setOpen(true);
           }}
-          onFocus={() => setOpen(true)}
+          onFocus={() => {
+            setOpen(true);
+            setFocused(true);
+          }}
+          onBlur={() => setFocused(false)}
           onKeyDown={handleKeyDown}
           type="search"
-          placeholder="Search for products"
+          placeholder={placeholder}
           aria-label="Search products"
           autoFocus={autoFocus}
           className="w-full rounded-l border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-700 outline-none placeholder:text-gray-400 focus:border-brand"

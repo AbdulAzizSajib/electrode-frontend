@@ -20,23 +20,34 @@ export default async function BrandBar() {
   if (brands.length === 0) return null;
 
   /*
-   * `min-h-40` holds the section's full height — 32px padding above and below,
-   * around a row of 48px logos with 24px of its own on each side — before the
-   * marquee has mounted. The marquee only renders in the browser,
-   * so without it the section collapses in the server HTML and then pushes
-   * the rest of the page down once the logos appear.
+   * `min-h-30` (120px) holds the section's height before the marquee has
+   * mounted — 40px of top padding above a row of 64px tiles. The marquee only
+   * renders in the browser, so without it the section collapses in the server
+   * HTML and then pushes the rest of the page down once the logos appear.
+   * Raise it with the tile if the tile grows.
    */
   return (
     <section className=" container-px site-container min-h-30 py-0">
       <Marquee>
-        <div className="flex flex-wrap items-center justify-between gap-6 border-gray-100 pt-10 ">
+        <div className="flex flex-wrap items-center justify-between gap-6 pt-10">
           {brands.map((brand) => (
-            <div key={brand.id} className="flex h-12 w-32  items-center justify-center">
+            /*
+             * A TILE behind each logo, in the merchant's card colour (white
+             * until one is chosen, with the product card's light border), so
+             * the brand row reads as the same family as the category tiles.
+             * The logo is `object-contain` in the padded box, so a wide and a
+             * square logo occupy the same tile. See
+             * server/openspec/changes/add-card-background-theme-color.
+             */
+            <div
+              key={brand.id}
+              className="flex h-16 w-36 items-center justify-center rounded-xl bg-(--color-card,#ffffff) p-3"
+            >
               <Image
                 src={brand.logo}
                 alt={brand.name}
-                width={128}
-                height={48}
+                width={120}
+                height={40}
                 className="h-full w-full object-contain"
               />
             </div>

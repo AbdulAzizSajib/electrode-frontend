@@ -56,9 +56,12 @@ export default function HeroSlider({
   /** What share of the viewport the panel paints at, in THIS layout. */
   sizes?: string;
   /**
-   * Render `mobileImage` below `lg` for slides that have one. Off by default:
-   * the two layouts with a left-hand slider show it at 4:3 when stacked, which
-   * needs no separate crop.
+   * Render `mobileImage` below `lg` for slides that have one. Every hero
+   * layout passes it: below `lg` all four draw the slider at 4:3, and the
+   * desktop artwork (~1.56:1 in the split layouts) loses its sides in that box,
+   * so a merchant's mobile crop is always the better picture. The split
+   * layouts used to leave it off — the admin still offered the upload there,
+   * and it silently never appeared. Slides without one fall back to `image`.
    */
   useMobileArtwork?: boolean;
 }) {

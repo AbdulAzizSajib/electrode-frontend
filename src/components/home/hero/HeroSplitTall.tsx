@@ -52,7 +52,7 @@ export default function HeroSplitTall({ slides, promoTile, sizes }: HeroLayoutPr
                 : "relative aspect-4/3 w-full overflow-hidden rounded-sm bg-[#f2efe9] lg:aspect-19/8"
             }
           >
-            <HeroSlider slides={slides} sizes={sizes.slider} />
+            <HeroSlider slides={slides} sizes={sizes.slider} useMobileArtwork />
           </div>
         )}
 
@@ -68,8 +68,13 @@ export default function HeroSplitTall({ slides, promoTile, sizes }: HeroLayoutPr
            * beside it — which stretches to this column — is zero height too,
            * and the whole hero renders as nothing at all. Making the wrapper a
            * flex container blockifies the tile the same way the others do.
+           *
+           * Desktop-only (`hidden lg:flex`): below `lg` the hero is the slider
+           * alone, on request — a phone gets one story, not a promotion pushing
+           * the products down. The tile's image is lazy, so it is not
+           * downloaded while hidden.
            */
-          <div className="flex w-full lg:w-1/3 lg:flex-none">
+          <div className="hidden w-full lg:flex lg:w-1/3 lg:flex-none">
             <HeroTile
               banner={promoTile}
               ratio="aspect-19/24"

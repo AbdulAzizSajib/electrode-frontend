@@ -37,7 +37,7 @@ export function SkeletonPage({ children }: { children: React.ReactNode }) {
 /** A product card's footprint: the 7:6 image, two lines of name, the price and the button. */
 export function ProductCardSkeleton() {
   return (
-    <div className="flex flex-col rounded-lg border border-gray-200 bg-white p-4">
+    <div className="flex flex-col rounded-lg border border-gray-200 bg-(--color-card,#ffffff) p-4">
       <SkeletonBlock className="aspect-7/6 w-full rounded-md" />
       <SkeletonBlock className="mt-3 h-4 w-11/12" />
       <SkeletonBlock className="mt-2 h-4 w-2/3" />

@@ -298,11 +298,14 @@ export default function Footer({ settings }: { settings: StoreSettings }) {
                 under the cursor, which is the one thing a logo must not do. The
                 focus ring stays; that is an accessibility affordance, not decoration.
 
-                `text-base-content` rather than the footer's white, because the card
-                below puts a light plate under the mark — `currentColor` has to be
-                the ink that reads on THAT, not on the blue outside the ring.
+                `text-white`, FIXED, because the plate under the mark is fixed too
+                (`bg-zinc-900`). It was `text-base-content`, a daisyUI THEME colour
+                that follows the visitor's light/dark system setting: near-white in
+                dark mode, near-black in light mode — so on every light-mode PC the
+                letters went black on the black plate and vanished. `currentColor`
+                has to be the ink that reads on the plate, whatever the OS is set to.
               */
-              className={`card inline-flex items-center bg-zinc-900 px-2.5 py-1.5 text-base-content ${FOCUS_ON_BRAND}`}
+              className={`card relative inline-flex items-center overflow-hidden bg-zinc-900 px-2.5 py-1.5 text-white ${FOCUS_ON_BRAND}`}
             >
               {/*
                 An inline mark, not an <img>: its letterforms take `currentColor`,
@@ -311,6 +314,19 @@ export default function Footer({ settings }: { settings: StoreSettings }) {
                 accessible name, so the credit is announced once, as the agency.
               */}
               <AgencyLogo label={AGENCY_CREDIT.name} />
+              {/*
+                The shine: a soft light streak that crosses the plate every few
+                seconds (`animate-shine`, globals.css). An OVERLAY, never a change
+                to the mark — the logo's own colours stay exactly as they are, the
+                streak only passes over them, which is what keeps it a logo and
+                not a logo changing colour. `overflow-hidden` on the plate clips it
+                to the plate, so it never spills onto the aura ring outside.
+                Hidden for reduced motion; the ring is the only movement left there.
+              */}
+              <span
+                aria-hidden="true"
+                className="pointer-events-none absolute inset-y-0 left-0 w-1/3 -skew-x-12 animate-shine bg-linear-to-r from-transparent via-white/30 to-transparent motion-reduce:hidden"
+              />
             </a>
           </span>
         </p>

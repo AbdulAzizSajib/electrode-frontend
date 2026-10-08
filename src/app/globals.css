@@ -37,6 +37,15 @@
   --color-sale: #e02020;
 
   /*
+   * NO `--color-card` here, on purpose. The merchant's card colour is optional,
+   * and each card reads `var(--color-card, <its own default>)` — white for
+   * product cards, grey for category tiles. A value here would make those
+   * fallbacks unreachable and repaint every unconfigured shop's cards. It is
+   * written on <html> by `themeStyle()` only when set. See
+   * server/openspec/changes/add-card-background-theme-color.
+   */
+
+  /*
    * ---------------------------------------------------------------------
    * LANDING PAGE TOKENS — every colour a campaign page draws.
    *
@@ -162,6 +171,35 @@
   --animate-float: float 3s ease-in-out infinite;
 
   /*
+   * A light streak crossing the footer's agency logo: the sweep takes the first
+   * 30% (~1.2s), then it rests off the plate for the rest of the 4s loop — a
+   * glint now and then, not a constant flicker beside the ring that already
+   * moves. Animates `translate`, so the streak's own `skew` is left alone.
+   */
+  --animate-shine: shine 4s ease-in-out infinite;
+
+  /*
+   * The agency logo's intro (`AgencyLogo.tsx`), played when the footer
+   * scrolls into view and every 6s while it stays there. `both` fill on every step: each piece stays hidden
+   * through its own delay, then holds its final state. Timeline:
+   *   0–0.7s     T, O, P rise in, 150ms apart        (logo-letter)
+   *   0.55–1.5s  the green frame draws itself round  (logo-frame)
+   *   1.45–2.0s  IT SOLUTION, letter by letter       (logo-tagline)
+   */
+  --animate-logo-letter: logo-letter 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  --animate-logo-frame: logo-frame 950ms cubic-bezier(0.65, 0, 0.35, 1) 550ms both;
+  --animate-logo-tagline: logo-tagline 300ms ease-out both;
+  /*
+   * The O's swap (see O_RING in AgencyLogo.tsx). The round ring rises in the
+   * O's place — the same 420ms rise as logo-letter, from the O's 150ms delay —
+   * holds, and fades out from 600ms as the green stem climbs through the gap.
+   * The real O sits at opacity 0 and switches on at 600ms in one step, under a
+   * ring that is still fully opaque, so the switch itself is never seen.
+   */
+  --animate-logo-o-ring: logo-o-ring 650ms both;
+  --animate-logo-o-real: logo-o-real 600ms step-end both;
+
+  /*
    * The chat bubble's greeting, beside it: hidden for 6s, then grows out of the
    * icon, holds long enough to read (~2s) and shrinks back into it — on a loop. Hidden FIRST, so the
    * first appearance is 6s after load rather than competing with the page's own
@@ -176,6 +214,71 @@
   from {
     opacity: 0;
     transform: translateY(-0.375rem);
+  }
+}
+
+/* Distances are in the logo SVG's own units (viewBox 1259 × 565). */
+@keyframes logo-letter {
+  from {
+    opacity: 0;
+    translate: 0 140px;
+  }
+}
+
+/* 650ms from a 150ms delay: rise to 570ms (65%), hold to 600ms, fade by 800ms. */
+@keyframes logo-o-ring {
+  0% {
+    opacity: 0;
+    translate: 0 140px;
+    animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  65% {
+    opacity: 1;
+    translate: 0 0;
+  }
+  69% {
+    opacity: 1;
+    animation-timing-function: ease-in;
+  }
+  100% {
+    opacity: 0;
+    translate: 0 0;
+  }
+}
+
+@keyframes logo-o-real {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Uncovers the frame along its draw path: the mask's dash grows from nothing. */
+@keyframes logo-frame {
+  from {
+    stroke-dashoffset: 1;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes logo-tagline {
+  from {
+    opacity: 0;
+    translate: -0.35em 0;
+  }
+}
+
+@keyframes shine {
+  0% {
+    translate: -150% 0;
+  }
+  30%,
+  100% {
+    translate: 350% 0;
   }
 }
 
