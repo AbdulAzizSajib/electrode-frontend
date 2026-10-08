@@ -20,7 +20,7 @@ import type { CategoryGridItem } from "@/types/category";
  * left the contents landing at three different places, with a faint grey
  * background that did not show where any box ended. So both are pinned:
  *
- *  - the image sits in a box of FIXED HEIGHT (`h-20`, `lg:h-28`) and is
+ *  - the image sits in a box of FIXED HEIGHT (`h-16`) and is
  *    `object-contain`, so a tall picture and a wide one occupy the same band;
  *  - the name gets a block the height of TWO LINES (`min-h-10` at `text-sm`),
  *    clamped to two, with a one-line name centred in it.
@@ -40,16 +40,16 @@ export default function CategoryTile({ category }: { category: CategoryGridItem 
   return (
     <Link
       href={`/products?category=${encodeURIComponent(category.slug)}`}
-      className="flex flex-col items-center gap-3 rounded-xl bg-gray-50 p-5 text-center hover:bg-gray-100"
+      className="flex flex-col items-center gap-2 rounded-xl bg-gray-50 p-4 text-center hover:bg-gray-100"
     >
-      <div className="relative h-20 w-full overflow-hidden lg:h-20 lg:w-20">
+      <div className="relative h-16 w-full overflow-hidden lg:w-16">
         <Image
           src={category.image!}
           alt={category.name}
           fill
-          // An 80px-tall box (80px square from lg up). It claimed 500x400,
+          // A 64px-tall box (64px square from lg up). It claimed 500x400,
           // which fetched 640px and 1080px images for it.
-          sizes="(min-width: 1024px) 80px, 120px"
+          sizes="(min-width: 1024px) 64px, 120px"
           className="object-contain"
         />
       </div>

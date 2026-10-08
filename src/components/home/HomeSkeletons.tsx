@@ -107,9 +107,9 @@ export function CategoryGridSkeleton() {
       <SkeletonBlock className="mb-8 h-7 w-56 max-w-full" />
       <div className="grid grid-cols-3 gap-4 sm:grid-cols-4 lg:grid-cols-7">
         {Array.from({ length: 7 }, (_, index) => (
-          <div key={index} className="flex flex-col items-center gap-3 rounded-xl bg-gray-50 p-5">
+          <div key={index} className="flex flex-col items-center gap-2 rounded-xl bg-gray-50 p-4">
             {/* The tile's fixed image band and two-line name block — see CategoryTile. */}
-            <SkeletonBlock className="h-20 w-full lg:h-28 lg:w-28" />
+            <SkeletonBlock className="h-16 w-full lg:w-16" />
             <div className="flex min-h-10 w-full items-center justify-center">
               <SkeletonBlock className="h-4 w-3/4" />
             </div>
@@ -145,10 +145,10 @@ export function CategorySliderSkeleton() {
         {Array.from({ length: 7 }, (_, index) => (
           <div
             key={index}
-            className="flex w-[calc((100%-2rem)/3)] shrink-0 flex-col items-center gap-3 rounded-xl bg-gray-50 p-5 sm:w-[calc((100%-3rem)/4)] lg:w-[calc((100%-6rem)/7)]"
+            className="flex w-[calc((100%-2rem)/3)] shrink-0 flex-col items-center gap-2 rounded-xl bg-gray-50 p-4 sm:w-[calc((100%-3rem)/4)] lg:w-[calc((100%-6rem)/7)]"
           >
             {/* The tile's fixed image band and two-line name block — see CategoryTile. */}
-            <SkeletonBlock className="h-20 w-full lg:h-28 lg:w-28" />
+            <SkeletonBlock className="h-16 w-full lg:w-16" />
             <div className="flex min-h-10 w-full items-center justify-center">
               <SkeletonBlock className="h-4 w-3/4" />
             </div>
