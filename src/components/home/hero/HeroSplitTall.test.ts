@@ -29,11 +29,11 @@ describe("HeroSplitTall", () => {
   // a `file:` URL and `readFileSync` refuses it.
   it("blockifies the tile's <a> by making its wrapper a flex container", () => {
     const source = readFileSync("src/components/home/hero/HeroSplitTall.tsx", "utf8");
-    expect(promoWrapper(source)).toContain("flex");
+    expect(promoWrapper(source)).toContain("lg:flex");
   });
 
   it("gives the skeleton's wrapper the same rule", () => {
     const source = readFileSync("src/components/home/HomeSkeletons.tsx", "utf8");
-    expect(promoWrapper(source)).toContain("flex");
+    expect(promoWrapper(source)).toContain("lg:flex");
   });
 });

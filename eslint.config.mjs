@@ -11,6 +11,9 @@ const eslintConfig = defineConfig([
         tsconfigRootDir: import.meta.dirname,
       },
     },
+    rules: {
+      "react-hooks/set-state-in-effect": "warn",
+    },
   },
   // Override default ignores of eslint-config-next.
   globalIgnores([

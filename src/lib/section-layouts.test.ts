@@ -100,7 +100,7 @@ describe("defaults", () => {
  * learned a layout this build has not.
  */
 describe("product rows", () => {
-  const ROWS = ["BEST_SELLING", "FEATURED_PRODUCTS", "NEW_ARRIVALS"] as const;
+  const ROWS = ["BEST_SELLING", "FEATURED_PRODUCTS", "DEAL_OF_WEEK", "NEW_ARRIVALS"] as const;
 
   it.each(ROWS)("%s defaults to the grid it rendered before layouts existed", (key) => {
     expect(defaultLayout(key)).toBe("GRID");
@@ -131,11 +131,8 @@ describe("product rows", () => {
     expect(resolveSectionLayout(key, "FULL_SLIDER")).toBe("GRID");
   });
 
-  it("offers a choice on the three rows and not on the countdown row", () => {
+  it("offers a choice on all product rows", () => {
     for (const key of ROWS) expect(offersLayouts(key)).toBe(true);
-    // DEAL_OF_WEEK shares a grid with a countdown panel; a slider there is a
-    // different layout problem and the backend does not offer it either.
-    expect(offersLayouts("DEAL_OF_WEEK")).toBe(false);
   });
 });
 

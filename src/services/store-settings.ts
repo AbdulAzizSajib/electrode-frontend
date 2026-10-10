@@ -195,7 +195,14 @@ const FALLBACK_SETTINGS: StoreSettings = {
      * behaviour the store had before the feature existed, which is the correct
      * thing to fail back to.
      */
-    advancePayment: { enabled: false, mobileAccounts: [], bankAccounts: [] },
+    advancePayment: {
+      enabled: false,
+      calculationMode: "PERCENTAGE",
+      percentage: 10,
+      fixedAmount: 100,
+      mobileAccounts: [],
+      bankAccounts: [],
+    },
   },
   /*
    * Everything offered, which is the only safe direction to fail in. A settings

@@ -251,6 +251,8 @@ export interface BankAccount {
   routingNumber: string;
 }
 
+export type AdvanceCalculationMode = "PERCENTAGE" | "FIXED";
+
 /**
  * Whether this store takes money before it ships, and where it goes.
  *
@@ -262,6 +264,9 @@ export interface BankAccount {
  */
 export interface AdvancePaymentConfig {
   enabled: boolean;
+  calculationMode?: AdvanceCalculationMode;
+  percentage?: number;
+  fixedAmount?: number;
   mobileAccounts: MobileBankingAccount[];
   bankAccounts: BankAccount[];
 }

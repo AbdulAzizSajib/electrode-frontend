@@ -560,7 +560,7 @@ export default function AdvancePaymentSection({
           <ChoiceRow
             selected={claim.choice === "DELIVERY_CHARGE"}
             onSelect={() => onChange({ choice: "DELIVERY_CHARGE" })}
-            title="Cash on delivery (advance delivery charge)"
+            title="Cash on delivery (advance payment)"
             amount={splits?.DELIVERY_CHARGE.advanceAmount ?? null}
             quoting={quoting}
           />
@@ -609,15 +609,12 @@ export default function AdvancePaymentSection({
                 কিভাবে অর্ডার কনফার্ম করবেন?
               </p>
 
-              {/* A waived delivery charge leaves nothing to send in advance, and
-                  the delivery-charge choice becomes unplaceable — the server
-                  refuses a ৳0 advance because there is no transaction to check
-                  against. Said here rather than left as "অগ্রিম 0.00 Tk পাঠান". */}
+              {/* Zero advance payment requires no up-front transfer */}
               {!quoting && split !== null && split.advanceAmount <= 0 ? (
                 <p className="mt-1.5 text-center text-sm leading-relaxed text-lp-muted">
-                  এই অর্ডারে ডেলিভারি চার্জ ফ্রি, তাই অগ্রিম পাঠানোর কিছু নেই।
+                  এই অর্ডারে কোনো অগ্রিম পেমেন্টের প্রয়োজন নেই।
                   উপরে <span className="font-semibold">Full payment</span> বেছে
-                  নিন।
+                  নিন অথবা ক্যাশ অন ডেলিভারিতে অর্ডার করুন।
                 </p>
               ) : (
                 <p className="mt-1.5 text-center text-sm leading-relaxed text-lp-muted">
