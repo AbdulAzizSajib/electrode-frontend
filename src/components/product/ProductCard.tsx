@@ -75,7 +75,22 @@ function DetailsLinkAction() {
   );
 }
 
-export default function ProductCard({ product }: { product: Product }) {
+/** What a card's image declares when its grid does not say: six across a wide container. */
+const DEFAULT_IMAGE_SIZES = "(min-width: 1024px) 320px, (min-width: 640px) 33vw, 50vw";
+
+export default function ProductCard({
+  product,
+  sizes = DEFAULT_IMAGE_SIZES,
+}: {
+  product: Product;
+  /**
+   * The image `sizes`, for a grid that knows how wide its cards are drawn. The
+   * full-width product grids pass `productCardSizes(n)` from `lib/product-grid`
+   * so a four-across card is not sent an image cut for six; every other listing
+   * leaves it at the default.
+   */
+  sizes?: string;
+}) {
   const dispatch = useAppDispatch();
   const [addItem, { isLoading }] = useAddItemMutation();
   const discount = discountPercent(product.offerPrice, product.sellingPrice);
@@ -228,7 +243,7 @@ export default function ProductCard({ product }: { product: Product }) {
             width={500}
             height={500}
          
-            sizes="(min-width: 1024px) 320px, (min-width: 640px) 33vw, 50vw"
+            sizes={sizes}
             className={clsx(
               "h-full w-full object-contain  transition-transform duration-300",
            

@@ -1,6 +1,8 @@
 import { ProductCardSkeleton, SkeletonBlock } from "@/components/ui/Skeleton";
 import { PROMO_LAYOUTS, resolvePromoLayout } from "@/components/home/promo/layouts";
 import type { PromoBannerLayout } from "@/types/store-settings";
+import type { ProductRowSkeletonProps } from "@/components/home/products/types";
+import { PRODUCT_GRID_CLASS, PRODUCT_SLIDER_SKELETON_CARD_CLASS } from "@/lib/product-grid";
 
 /**
  * Placeholders for the homepage sections that load their own data.
@@ -191,16 +193,20 @@ export function MidBannersSkeleton({
   );
 }
 
-/** Mirrors `ProductSection`: the heading row, then six cards (2 / 3 / 6 across). */
-export function ProductSectionSkeleton() {
+/**
+ * Mirrors `ProductSection`: the heading row, then one large-screen row of cards —
+ * two / three / the merchant's count across, in the grid's own classes, so a
+ * card placeholder is the width of the card that replaces it.
+ */
+export function ProductSectionSkeleton({ columns }: ProductRowSkeletonProps) {
   return (
     <section aria-hidden className="container-px site-container py-8">
       <div className="mb-8 flex items-center justify-between gap-4">
         <SkeletonBlock className="h-7 w-64 max-w-[60%]" />
         <SkeletonBlock className="h-5 w-32" />
       </div>
-      <div className="grid grid-cols-2 gap-x-3 gap-y-4 sm:gap-x-5 sm:gap-y-8 sm:grid-cols-3 lg:grid-cols-6">
-        {Array.from({ length: 6 }, (_, index) => (
+      <div className={PRODUCT_GRID_CLASS[columns]}>
+        {Array.from({ length: columns }, (_, index) => (
           <ProductCardSkeleton key={index} />
         ))}
       </div>
@@ -214,14 +220,11 @@ export function ProductSectionSkeleton() {
  *
  * One row and not a wrapping grid, because a placeholder shaped unlike the
  * layout that replaces it moves everything below it on first paint. Card widths
- * are the slider's `slidesPerView` at the same breakpoints — two, three and six
- * across with the grid's 20px gap — so the placeholder is the height of the row
- * that replaces it.
- *
- * The `calc` is `(100% - (n - 1) x gap) / n` at each breakpoint: one 1.25rem
- * gap between two cards, two between three, five between six.
+ * are the slider's `slidesPerView` at the same breakpoints — two, three and the
+ * merchant's count across with the grid's 20px gap — so the placeholder is the
+ * height of the row that replaces it. The widths are in `lib/product-grid.ts`.
  */
-export function ProductSliderSkeleton() {
+export function ProductSliderSkeleton({ columns }: ProductRowSkeletonProps) {
   return (
     <section aria-hidden className="container-px site-container py-8">
       <div className="mb-8 flex items-center justify-between gap-4">
@@ -235,11 +238,8 @@ export function ProductSliderSkeleton() {
         </div>
       </div>
       <div className="flex gap-x-3 overflow-hidden sm:gap-x-5">
-        {Array.from({ length: 6 }, (_, index) => (
-          <div
-            key={index}
-            className="w-[calc((100%-0.75rem)/2)] shrink-0 sm:w-[calc((100%-2.5rem)/3)] lg:w-[calc((100%-6.25rem)/6)]"
-          >
+        {Array.from({ length: columns }, (_, index) => (
+          <div key={index} className={PRODUCT_SLIDER_SKELETON_CARD_CLASS[columns]}>
             <ProductCardSkeleton />
           </div>
         ))}

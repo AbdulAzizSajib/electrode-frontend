@@ -26,9 +26,7 @@ import {
 } from "@/components/home/HomeSkeletons";
 import { HERO_VARIANTS } from "@/components/home/hero/registry";
 import { resolveSectionLayout } from "@/lib/section-layouts";
-
-/** Products per merchandising row, matching the five-across deal layout. */
-const SECTION_SIZE = 12;
+import { homeRowSize } from "@/lib/product-grid";
 
 /**
  * The homepage inherits its title and description from the root layout, but not
@@ -196,6 +194,15 @@ export default async function Home() {
     return { layout, Skeleton: PRODUCT_ROW_LAYOUTS[layout].Skeleton };
   };
 
+  /*
+   * Cards across from `lg` up, and how many products that makes whole rows of —
+   * 12, 10, 12 at 6, 5, 4 across. Passed down rather than read from module
+   * scope: this page already holds the settings, and the skeletons below must
+   * be the same shape as the rows that replace them.
+   */
+  const columns = settings.catalogConfig.productGridColumns;
+  const rowSize = homeRowSize(columns);
+
   const bestSelling = productRow("BEST_SELLING");
   const featuredProducts = productRow("FEATURED_PRODUCTS");
   const newArrivals = productRow("NEW_ARRIVALS");
@@ -245,21 +252,23 @@ export default async function Home() {
       </Suspense>
     ),
     BEST_SELLING: (
-      <Suspense fallback={<bestSelling.Skeleton />}>
+      <Suspense fallback={<bestSelling.Skeleton columns={columns} />}>
         <ProductRow
           title="Best Selling Products"
-          query={{ limit: SECTION_SIZE, sortBy: "totalSold", sortOrder: "desc" }}
+          query={{ limit: rowSize, sortBy: "totalSold", sortOrder: "desc" }}
           tabs={categoryTabs}
           layout={bestSelling.layout}
+          columns={columns}
         />
       </Suspense>
     ),
     FEATURED_PRODUCTS: (
-      <Suspense fallback={<featuredProducts.Skeleton />}>
+      <Suspense fallback={<featuredProducts.Skeleton columns={columns} />}>
         <ProductRow
           title="Featured Products"
-          query={{ limit: SECTION_SIZE, isFeatured: true }}
+          query={{ limit: rowSize, isFeatured: true }}
           layout={featuredProducts.layout}
+          columns={columns}
         />
       </Suspense>
     ),
@@ -272,11 +281,12 @@ export default async function Home() {
       </Suspense>
     ),
     NEW_ARRIVALS: (
-      <Suspense fallback={<newArrivals.Skeleton />}>
+      <Suspense fallback={<newArrivals.Skeleton columns={columns} />}>
         <ProductRow
           title="New Arrivals"
-          query={{ limit: SECTION_SIZE, sortBy: "createdAt", sortOrder: "desc" }}
+          query={{ limit: rowSize, sortBy: "createdAt", sortOrder: "desc" }}
           layout={newArrivals.layout}
+          columns={columns}
         />
       </Suspense>
     ),

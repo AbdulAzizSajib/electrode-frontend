@@ -121,7 +121,26 @@ export default function Footer({ settings }: { settings: StoreSettings }) {
           */}
           <h4 className="text-2xl font-bold">
             <Link href="/" className={`inline-block hover:text-accent ${FOCUS_ON_BRAND}`}>
-              {brand.kind === "logo" ? (
+              {brand.kind === "logo" && brand.withWordmark ? (
+                /*
+                  Logo first, then the same `brandName` the text branch shows.
+                  The alt is empty (the resolver's decision), so the <h4>'s
+                  accessible name is the shop's name once, from the visible
+                  text. The image keeps its width; a long name wraps in the
+                  narrow brand column rather than pushing the logo out. See
+                  server/openspec/changes/add-brand-display-both, Decision 4.
+                */
+                <span className="inline-flex max-w-full items-center gap-2">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={cloudinaryUrl(brand.src, { height: brand.height * 2 })}
+                    alt={brand.alt}
+                    style={{ height: brand.height }}
+                    className="w-auto shrink-0 object-contain"
+                  />
+                  <span className="min-w-0">{brandName}</span>
+                </span>
+              ) : brand.kind === "logo" ? (
                 /*
                   Sized by the reserved height with the width left to the
                   artwork, exactly as in the header — see design.md Decision 3.

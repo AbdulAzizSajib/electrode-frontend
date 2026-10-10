@@ -106,6 +106,21 @@ export default function Header({
   const brand = resolveBrandSlot(settings, "header");
 
   /*
+   * The two-colour wordmark, defined once: the TEXT branch renders it alone and
+   * the BOTH branch renders it beside the logo, so the name next to the logo
+   * looks exactly like the name on its own. See
+   * server/openspec/changes/add-brand-display-both, design.md Decision 4.
+   */
+  const wordmark = (
+    <>
+      {settings.storeName}
+      {settings.siteNameAccent && (
+        <span className="text-accent ml-2">{settings.siteNameAccent}</span>
+      )}
+    </>
+  );
+
+  /*
    * Merchant-authored navigation, minus any entry leading to a feature this
    * shop no longer offers — that entry would be a menu item pointing at a page
    * that 404s. Read from the settings prop rather than `getCatalogFeatures()`:
@@ -385,10 +400,33 @@ export default function Header({
               href="/"
               className={clsx(
                 "whitespace-nowrap text-center text-3xl font-bold tracking-tight max-md:flex-1 sm:text-4xl md:shrink-0 md:text-left",
+                // Logo and name together: let the link shrink below its content
+                // so the name can truncate instead of pushing the account and
+                // menu buttons off a 320px row. Absent in TEXT and LOGO, whose
+                // markup is unchanged.
+                brand.kind === "logo" && brand.withWordmark && "min-w-0",
                 FOCUS_ON_BRAND,
               )}
             >
-              {brand.kind === "logo" ? (
+              {brand.kind === "logo" && brand.withWordmark ? (
+                /*
+                  Logo first, then the same wordmark the TEXT branch renders. The
+                  image keeps its full width (`shrink-0`) and the name gives way,
+                  ending in an ellipsis on a narrow phone. The image's alt is
+                  empty — the resolver decides that — so the name is announced
+                  once, by the visible text.
+                */
+                <span className="inline-flex max-w-full items-center gap-2 align-middle">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={cloudinaryUrl(brand.src, { height: brand.height * 2 })}
+                    alt={brand.alt}
+                    style={{ height: brand.height }}
+                    className="w-auto shrink-0 object-contain"
+                  />
+                  <span className="min-w-0 truncate">{wordmark}</span>
+                </span>
+              ) : brand.kind === "logo" ? (
                 /*
                   A plain <img>, not next/image: the height is the merchant's
                   and the width follows the artwork, so there are no intrinsic
@@ -409,12 +447,7 @@ export default function Header({
                   className="max-w-full w-auto object-contain max-md:mx-auto"
                 />
               ) : (
-                <>
-                  {settings.storeName}
-                  {settings.siteNameAccent && (
-                    <span className="text-accent ml-2">{settings.siteNameAccent}</span>
-                  )}
-                </>
+                wordmark
               )}
             </Link>
 

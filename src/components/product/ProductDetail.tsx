@@ -42,6 +42,7 @@ import WishlistButton from "@/components/product/WishlistButton";
 import CompareButton from "@/components/product/CompareButton";
 import StarRating from "@/components/ui/StarRating";
 import { getCatalogFeatures } from "@/lib/catalog-features";
+import { PRODUCT_GRID_CLASS, productCardSizes, relatedCount } from "@/lib/product-grid";
 
 /** The tab strip is a literal list, not data — adding a panel means widening this. */
 type ProductTab = "description" | "shipping" | "reviews";
@@ -105,7 +106,13 @@ export default function ProductDetail({
   const dispatch = useAppDispatch();
   const [addItem, { isLoading }] = useAddItemMutation();
 
-  const { showWishlist, showCompare, openCartOnAdd } = getCatalogFeatures();
+  const { showWishlist, showCompare, openCartOnAdd, productGridColumns } = getCatalogFeatures();
+  /*
+   * One full large-screen row of related products. The page fetches six, in
+   * parallel with the settings read, and this shows the first row's worth.
+   */
+  const relatedRow = related.slice(0, relatedCount(productGridColumns));
+  const relatedSizes = productCardSizes(productGridColumns);
 
   const images: ProductImage[] =
     product.images.length > 0
@@ -899,7 +906,7 @@ export default function ProductDetail({
         </div>
       </div>
 
-      {related.length > 0 && (
+      {relatedRow.length > 0 && (
         // A landmark with its own name, so this is reachable as a region and
         // not read as a continuation of the tab panel above it.
         <section aria-labelledby="related-heading" className="mt-16">
@@ -914,9 +921,9 @@ export default function ProductDetail({
             <span aria-hidden="true" className="h-5 w-1.5 shrink-0 rounded-full bg-brand sm:h-6" />
             <span>You may also like</span>
           </h2>
-          <div className="grid grid-cols-2 gap-x-3 gap-y-4 sm:gap-x-5 sm:gap-y-8 sm:grid-cols-3 lg:grid-cols-6">
-            {related.map((p) => (
-              <ProductCard key={p.id} product={p} />
+          <div className={PRODUCT_GRID_CLASS[productGridColumns]}>
+            {relatedRow.map((p) => (
+              <ProductCard key={p.id} product={p} sizes={relatedSizes} />
             ))}
           </div>
         </section>

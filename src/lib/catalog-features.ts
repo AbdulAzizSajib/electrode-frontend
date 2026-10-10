@@ -48,6 +48,8 @@ const FALLBACK_FEATURES: CatalogConfig = {
    * switched on is the failure, not hiding it.
    */
   cardQuantityControl: false,
+  // The six-across grid the shop had before this was a setting.
+  productGridColumns: 6,
 };
 
 let catalogFeatures: CatalogConfig = FALLBACK_FEATURES;

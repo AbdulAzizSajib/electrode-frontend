@@ -134,7 +134,26 @@ describe("getStoreSettings", () => {
       showQuickView: true,
       openCartOnAdd: true,
       cardQuantityControl: false,
+      productGridColumns: 6,
     });
+  });
+
+  it("renders six across when the API sends a column count it cannot draw", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(envelope({ catalogConfig: { productGridColumns: "5" } })),
+    );
+
+    expect((await getStoreSettings()).catalogConfig.productGridColumns).toBe(6);
+  });
+
+  it("keeps a column count it can draw", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(envelope({ catalogConfig: { productGridColumns: 4 } })),
+    );
+
+    expect((await getStoreSettings()).catalogConfig.productGridColumns).toBe(4);
   });
 
   it("preserves an intentionally empty list rather than treating it as missing", async () => {

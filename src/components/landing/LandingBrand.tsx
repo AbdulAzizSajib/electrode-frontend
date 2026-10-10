@@ -32,6 +32,40 @@ import { cloudinaryUrl } from "@/lib/cloudinary-url";
 export default function LandingBrand({ settings }: { settings: BrandSettings }) {
   const brand = resolveBrandSlot(settings, "header");
 
+  /*
+   * The wordmark, defined once: shown alone in TEXT mode and beside the logo in
+   * BOTH, so the two look the same. See
+   * server/openspec/changes/add-brand-display-both, design.md Decision 4.
+   */
+  const wordmark = (
+    <>
+      {settings.storeName}
+      {settings.siteNameAccent && (
+        <span className="ml-2 text-lp-accent">{settings.siteNameAccent}</span>
+      )}
+    </>
+  );
+
+  if (brand.kind === "logo" && brand.withWordmark) {
+    /*
+     * Logo then name, centred as a pair. Still a <p> and still not a link, for
+     * the reasons below; the image's alt is empty because the visible name
+     * already says whose shop this is.
+     */
+    return (
+      <p className="flex items-center justify-center gap-3 text-2xl font-bold tracking-tight text-lp-text sm:text-3xl">
+        {/* eslint-disable-next-line @next/next/no-img-element -- merchant-supplied host, not in next.config's allow-list */}
+        <img
+          src={cloudinaryUrl(brand.src, { height: brand.height * 2 })}
+          alt={brand.alt}
+          style={{ height: brand.height }}
+          className="w-auto shrink-0 object-contain"
+        />
+        <span className="min-w-0">{wordmark}</span>
+      </p>
+    );
+  }
+
   if (brand.kind === "logo") {
     return (
       /*
@@ -58,11 +92,6 @@ export default function LandingBrand({ settings }: { settings: BrandSettings }) 
    * the ad was bought to deliver.
    */
   return (
-    <p className="text-2xl font-bold tracking-tight text-lp-text sm:text-3xl">
-      {settings.storeName}
-      {settings.siteNameAccent && (
-        <span className="ml-2 text-lp-accent">{settings.siteNameAccent}</span>
-      )}
-    </p>
+    <p className="text-2xl font-bold tracking-tight text-lp-text sm:text-3xl">{wordmark}</p>
   );
 }

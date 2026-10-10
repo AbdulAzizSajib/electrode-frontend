@@ -1,5 +1,6 @@
 import { cache } from "react";
 import { apiFetch } from "@/lib/api-client";
+import { resolveGridColumns } from "@/lib/product-grid";
 import type { StoreSettings } from "@/types/store-settings";
 
 /**
@@ -211,6 +212,8 @@ const FALLBACK_SETTINGS: StoreSettings = {
     openCartOnAdd: true,
     // Off, like the backend's default: the card a shop has always shown.
     cardQuantityControl: false,
+    // Six, like the backend's default: the grid every shop had before it was a setting.
+    productGridColumns: 6,
   },
   /*
    * Every section enabled, in the order the homepage renders them — mirrors the
@@ -533,6 +536,13 @@ async function fetchStoreSettings(): Promise<StoreSettings> {
       catalogConfig: {
         ...FALLBACK_SETTINGS.catalogConfig,
         ...(data.catalogConfig ?? {}),
+        /*
+         * The one key the spread cannot make safe on its own. A flag that comes
+         * back wrong is merely the wrong flag; a column count with no literal
+         * class behind it is a grid with no `lg:` columns at all. Anything that
+         * is not 4, 5 or 6 renders the six-across grid the shop always had.
+         */
+        productGridColumns: resolveGridColumns(data.catalogConfig?.productGridColumns),
       },
       /*
        * Taken WHOLE, unlike every block around it — and only when it really is a

@@ -17,10 +17,10 @@ export type SiteMode = "WEBSITE" | "LANDING_PAGE";
  * THE MODE DECIDES, not whether a logo happens to be uploaded. A slot set to
  * `"TEXT"` renders the wordmark even with artwork on file, which is what lets a
  * shop show its logo on the brand-colour header and its wordmark on the dark
- * footer without deleting either image. Mirrors the backend's
- * `BrandDisplayMode`.
+ * footer without deleting either image. `"BOTH"` shows the logo with the
+ * wordmark beside it. Mirrors the backend's `BrandDisplayMode`.
  */
-export type BrandDisplayMode = "TEXT" | "LOGO";
+export type BrandDisplayMode = "TEXT" | "LOGO" | "BOTH";
 
 /** Enough of the live campaign page to route the root at it. */
 export interface ActiveLandingPage {
@@ -181,7 +181,11 @@ export interface DeliveryOption {
   days: number;
 }
 
+export type DeliveryFeeMode = "AUTOMATIC" | "MANUAL";
+
 export interface DeliverySettings {
+  /** Delivery fee calculation mode: AUTOMATIC (derived from location) or MANUAL (chosen by customer). */
+  feeMode?: DeliveryFeeMode;
   /**
    * Off, the checkout offers the delivery areas alone and shows no
    * delivery-or-collection step, even if pickup options are configured.
@@ -322,7 +326,21 @@ export interface CatalogConfig {
    * Decision 5c.
    */
   cardQuantityControl: boolean;
+  /**
+   * How many product cards a full-width product grid — the homepage product
+   * rows and a product page's related products — shows across from `lg` up.
+   * Below `lg` those grids stay two and three across whatever this says.
+   *
+   * Always one of `PRODUCT_GRID_COLUMNS` by the time a component reads it:
+   * `services/store-settings.ts` coerces anything else to 6, because each count
+   * needs a literal Tailwind class and an unknown one would have none. See
+   * `lib/product-grid.ts` and server/openspec/changes/add-product-grid-columns-setting.
+   */
+  productGridColumns: ProductGridColumns;
 }
+
+/** The column counts a merchant may choose — mirrors the backend's `PRODUCT_GRID_COLUMNS`. */
+export type ProductGridColumns = 4 | 5 | 6;
 
 /**
  * Every section the homepage can be composed from.

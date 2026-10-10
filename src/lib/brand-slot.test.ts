@@ -177,6 +177,67 @@ describe("resolveBrandSlot — accessible name and height", () => {
   });
 });
 
+describe("resolveBrandSlot — logo and wordmark together (BOTH)", () => {
+  it("renders the header's artwork with the wordmark beside it", () => {
+    const resolved = resolveBrandSlot(
+      settings({ headerBrandMode: "BOTH", logoUrl: HEADER_ART, footerLogoUrl: FOOTER_ART }),
+      "header",
+    );
+
+    expect(resolved).toEqual({
+      kind: "logo",
+      src: HEADER_ART,
+      height: 40,
+      alt: "",
+      withWordmark: true,
+    });
+  });
+
+  it("borrows the header's artwork in the footer when the footer has none", () => {
+    const resolved = resolveBrandSlot(
+      settings({ footerBrandMode: "BOTH", logoUrl: HEADER_ART, footerLogoUrl: null }),
+      "footer",
+    );
+
+    expect(resolved).toMatchObject({ kind: "logo", src: HEADER_ART, withWordmark: true });
+  });
+
+  it("degrades to the wordmark alone when there is no artwork anywhere", () => {
+    // Never an empty or broken image beside the name.
+    expect(resolveBrandSlot(settings({ headerBrandMode: "BOTH" }), "header")).toEqual({
+      kind: "text",
+    });
+    expect(resolveBrandSlot(settings({ footerBrandMode: "BOTH" }), "footer")).toEqual({
+      kind: "text",
+    });
+  });
+
+  it("empties the alt only when the wordmark is beside the logo", () => {
+    // The name is announced once per slot: by the visible wordmark in BOTH, by
+    // the image's alt in LOGO.
+    const both = resolveBrandSlot(settings({ headerBrandMode: "BOTH", logoUrl: HEADER_ART }), "header");
+    const logo = resolveBrandSlot(settings({ headerBrandMode: "LOGO", logoUrl: HEADER_ART }), "header");
+
+    expect(both).toMatchObject({ alt: "", withWordmark: true });
+    expect(logo).toMatchObject({ alt: "Gadgets Mart", withWordmark: false });
+  });
+
+  it("leaves LOGO resolving exactly as before, with no wordmark", () => {
+    const resolved = resolveBrandSlot(
+      settings({ footerBrandMode: "LOGO", logoUrl: HEADER_ART, footerLogoUrl: FOOTER_ART }),
+      "footer",
+    );
+
+    expect(resolved).toEqual({
+      kind: "logo",
+      src: FOOTER_ART,
+      height: 36,
+      alt: "Gadgets Mart",
+      withWordmark: false,
+    });
+  });
+});
+
 describe("brandName", () => {
   it("joins the store name and its accent half", () => {
     expect(brandName({ storeName: "Gadgets", siteNameAccent: "Mart" })).toBe("Gadgets Mart");

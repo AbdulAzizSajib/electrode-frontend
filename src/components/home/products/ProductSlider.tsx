@@ -9,6 +9,7 @@ import "swiper/css";
 
 import ProductCard from "@/components/product/ProductCard";
 import type { ProductRowLayoutProps } from "@/components/home/products/types";
+import { productCardSizes } from "@/lib/product-grid";
 
 /**
  * A homepage row of products in one horizontal row that the shopper scrolls
@@ -21,9 +22,10 @@ import type { ProductRowLayoutProps } from "@/components/home/products/types";
  *
  * ── The numbers below MUST MATCH the grid ────────────────────────────────
  *
- * `ProductSection` is `grid-cols-2 gap-x-3 sm:gap-x-5 sm:grid-cols-3 lg:grid-cols-6`:
- * two, three and six cards across at Tailwind's `sm` (640px) and `lg` (1024px),
- * 12px apart horizontally on a phone and 20px from `sm` up. `slidesPerView` and `spaceBetween` are those same
+ * `ProductSection` is `PRODUCT_GRID_CLASS[columns]` from `lib/product-grid.ts`:
+ * two, three and the merchant's `columns` (4, 5 or 6) cards across at Tailwind's
+ * `sm` (640px) and `lg` (1024px), 12px apart horizontally on a phone and 20px
+ * from `sm` up. `slidesPerView` and `spaceBetween` are those same
  * figures, so a card is the SAME WIDTH in both layouts at every viewport and
  * switching reads as a rearrangement, not as a different section.
  *
@@ -56,8 +58,11 @@ import type { ProductRowLayoutProps } from "@/components/home/products/types";
  * Decision 3.
  */
 
-/** Cards across, per breakpoint — the grid's `grid-cols-2 sm:grid-cols-3 lg:grid-cols-6`. */
-const COLUMNS = { base: 2, sm: 3, lg: 6 } as const;
+/**
+ * Cards across below `lg` — the grid's `grid-cols-2 sm:grid-cols-3`. From `lg` up
+ * it is the merchant's `columns` prop, which is the grid's `lg:` count too.
+ */
+const COLUMNS = { base: 2, sm: 3 } as const;
 /** The grid's `gap-x-3 sm:gap-x-5`, in pixels. NOT the categories' 16 — the two grids differ. */
 const GAP = { base: 12, sm: 20 } as const;
 /** Tailwind's `sm` and `lg` breakpoints, in pixels. */
@@ -70,7 +75,9 @@ export default function ProductSlider({
   title,
   products,
   viewAllHref = "/products",
+  columns,
 }: ProductRowLayoutProps) {
+  const sizes = productCardSizes(columns);
   const [swiper, setSwiper] = useState<SwiperInstance | null>(null);
   /*
    * Which ends the row is sitting at. Both true when every card already fits,
@@ -138,7 +145,7 @@ export default function ProductSlider({
         spaceBetween={GAP.base}
         breakpoints={{
           [BREAKPOINT.sm]: { slidesPerView: COLUMNS.sm, spaceBetween: GAP.sm },
-          [BREAKPOINT.lg]: { slidesPerView: COLUMNS.lg, spaceBetween: GAP.sm },
+          [BREAKPOINT.lg]: { slidesPerView: columns, spaceBetween: GAP.sm },
         }}
         onSwiper={(instance) => {
           setSwiper(instance);
@@ -170,7 +177,7 @@ export default function ProductSlider({
            * and its markup must not change.
            */
           <SwiperSlide key={product.id} className="!flex !h-auto [&>div]:flex-1">
-            <ProductCard product={product} />
+            <ProductCard product={product} sizes={sizes} />
           </SwiperSlide>
         ))}
       </Swiper>

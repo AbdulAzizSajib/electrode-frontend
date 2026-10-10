@@ -2,7 +2,10 @@ import type { ComponentType } from "react";
 import { ProductSectionSkeleton, ProductSliderSkeleton } from "@/components/home/HomeSkeletons";
 import ProductSection from "@/components/home/ProductSection";
 import ProductSlider from "@/components/home/products/ProductSlider";
-import type { ProductRowLayoutProps } from "@/components/home/products/types";
+import type {
+  ProductRowLayoutProps,
+  ProductRowSkeletonProps,
+} from "@/components/home/products/types";
 import type { ProductRowLayout } from "@/types/store-settings";
 
 /**
@@ -40,11 +43,11 @@ import type { ProductRowLayout } from "@/types/store-settings";
  */
 export interface ProductRowLayoutEntry {
   Component: ComponentType<ProductRowLayoutProps>;
-  Skeleton: ComponentType;
+  Skeleton: ComponentType<ProductRowSkeletonProps>;
 }
 
 export const PRODUCT_ROW_LAYOUTS: Record<ProductRowLayout, ProductRowLayoutEntry> = {
-  /** The wrapping grid — two, three, six across. What the rows have always been. */
+  /** The wrapping grid — two, three, then the merchant's count across. What the rows have always been. */
   GRID: {
     Component: ProductSection,
     Skeleton: ProductSectionSkeleton,

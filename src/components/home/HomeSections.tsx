@@ -4,7 +4,7 @@ import { getTestimonials } from "@/services/testimonials";
 import { getRecentBlogPosts } from "@/services/blog";
 import type { ProductQuery } from "@/types/product";
 import { PRODUCT_ROW_LAYOUTS } from "@/components/home/products/registry";
-import type { ProductRowLayout } from "@/types/store-settings";
+import type { ProductGridColumns, ProductRowLayout } from "@/types/store-settings";
 import DealOfWeek from "@/components/home/DealOfWeek";
 import Testimonials from "@/components/home/Testimonials";
 import BlogSection from "@/components/home/BlogSection";
@@ -46,17 +46,19 @@ export async function ProductRow({
   query,
   tabs,
   layout = "GRID",
+  columns,
 }: {
   title: string;
   query: ProductQuery;
   tabs?: string[];
   layout?: ProductRowLayout;
+  columns: ProductGridColumns;
 }) {
   const { products } = await getProducts(query);
   if (products.length === 0) return null;
 
   const { Component } = PRODUCT_ROW_LAYOUTS[layout];
-  return <Component title={title} products={products} tabs={tabs} />;
+  return <Component title={title} products={products} tabs={tabs} columns={columns} />;
 }
 
 /**

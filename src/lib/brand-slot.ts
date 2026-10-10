@@ -30,23 +30,36 @@ import type { StoreSettings } from "@/types/store-settings";
  *     This is the behaviour the admin panel has described since the logo fields
  *     were added and that nothing ever implemented.
  *
- *  3. **Anything unresolved falls back to the wordmark.** A slot in logo mode
- *     with no image anywhere renders text. The brand block is on every page of
- *     the site, so an empty one is not a broken component — it is a shop with no
- *     name on it, which is strictly worse than the text the logo replaced.
+ *  3. **Anything unresolved falls back to the wordmark.** A slot in `LOGO` or
+ *     `BOTH` mode with no image anywhere renders text alone. The brand block is
+ *     on every page of the site, so an empty one is not a broken component — it
+ *     is a shop with no name on it, which is strictly worse than the text the
+ *     logo replaced.
+ *
+ * `BOTH` is a logo slot with the wordmark beside it: it resolves its image by
+ * rules 2 and 3 exactly as `LOGO` does, and comes back as `kind: "logo"` with
+ * `withWordmark: true` rather than as a third kind. Every consumer branches
+ * `brand.kind === "logo" ? … : …`, and a ternary on an open union does not fail
+ * to compile on a new member — a `"both"` kind would silently fall into the
+ * text branch of any consumer not updated. This way such a consumer still
+ * shows the logo and only the name beside it is missing.
  *
  * See server/openspec/changes/add-header-footer-brand-display, design.md Decision 4,
- * and the `storefront-branding` spec. The server's
+ * server/openspec/changes/add-brand-display-both, design.md Decision 3, and the
+ * `storefront-branding` spec. The server's
  * `scripts/verify-brand-display.ts` asserts this same matrix against the
  * backend; if one changes, the other must.
  */
 
 export type BrandSlot = "header" | "footer";
 
-/** The wordmark, or an image and the box to reserve for it. */
+/**
+ * The wordmark, or an image and the box to reserve for it — with the wordmark
+ * beside it when `withWordmark` is true.
+ */
 export type ResolvedBrand =
   | { kind: "text" }
-  | { kind: "logo"; src: string; height: number; alt: string };
+  | { kind: "logo"; src: string; height: number; alt: string; withWordmark: boolean };
 
 /**
  * Only what the resolution actually reads.
@@ -86,7 +99,10 @@ export function resolveBrandSlot(
   const mode = slot === "header" ? settings.headerBrandMode : settings.footerBrandMode;
 
   // Rule 1: the mode decides, and it is checked before any artwork is looked at.
-  if (mode !== "LOGO") return { kind: "text" };
+  // Anything that is not a logo mode is text, including a value this build
+  // does not know.
+  if (mode !== "LOGO" && mode !== "BOTH") return { kind: "text" };
+  const withWordmark = mode === "BOTH";
 
   /*
    * Rule 2: the header uses its own image; the footer prefers its own and
@@ -110,10 +126,18 @@ export function resolveBrandSlot(
     src,
     height: slot === "header" ? settings.headerLogoHeight : settings.footerLogoHeight,
     /*
-     * Always the wordmark, so the shop is announced identically whether a slot
-     * is in logo or text mode — and so a logo that fails to load still says who
-     * the shop is instead of leaving an unlabelled link.
+     * The wordmark when the logo stands alone, so the shop is announced
+     * identically whether a slot is in logo or text mode — and so a logo that
+     * fails to load still says who the shop is instead of leaving an unlabelled
+     * link.
+     *
+     * Empty when the wordmark is beside it: the visible name already announces
+     * the shop, and a labelled image would make a screen reader say it twice.
+     * Decided here rather than in each component because "the name is
+     * announced once" is a rule about the slot; left to three components, it
+     * would be remembered in two.
      */
-    alt: brandName(settings),
+    alt: withWordmark ? "" : brandName(settings),
+    withWordmark,
   };
 }

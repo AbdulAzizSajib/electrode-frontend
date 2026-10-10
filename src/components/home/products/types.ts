@@ -1,4 +1,5 @@
 import type { Product } from "@/types/product";
+import type { ProductGridColumns } from "@/types/store-settings";
 
 /**
  * What every product-row layout receives.
@@ -20,4 +21,11 @@ export interface ProductRowLayoutProps {
   products: Product[];
   tabs?: string[];
   viewAllHref?: string;
+  /** Cards across from `lg` up — the merchant's `catalogConfig.productGridColumns`. */
+  columns: ProductGridColumns;
+}
+
+/** What a product row's loading placeholder needs to be the shape of the row it stands in for. */
+export interface ProductRowSkeletonProps {
+  columns: ProductGridColumns;
 }

@@ -241,17 +241,22 @@ export default function CheckoutForm({
     updateGuest("city", next?.area ?? "");
   };
 
+  const isAutoDelivery = (checkout.delivery.feeMode ?? "AUTOMATIC") === "AUTOMATIC";
+
   /*
    * The option the destination makes this, or the reason it makes none.
    *
+   * In MANUAL mode, the shopper picks their preferred delivery option directly
+   * from the available options, so destination resolution is bypassed.
+   *
+   * In AUTOMATIC mode:
    * Collection is handed a null destination deliberately: a pickup point is
    * somewhere the shopper goes, not somewhere an address resolves to, and which
    * one they collect from stays their own choice.
    */
-  const destinationResolution = resolveDeliveryOption(
-    collecting ? null : destination,
-    deliveryOptions,
-  );
+  const destinationResolution = isAutoDelivery
+    ? resolveDeliveryOption(collecting ? null : destination, deliveryOptions)
+    : { resolved: false as const, reason: "NO_DESTINATION" as const };
   const derivedOption = destinationResolution.resolved
     ? destinationResolution.option
     : null;
@@ -271,26 +276,22 @@ export default function CheckoutForm({
     : destinationResolution.reason;
 
   /*
+   * In AUTOMATIC mode:
    * THE OPTION CARDS ARE THE WAY OUT, NOT THE FIRST QUESTION.
+   * While the shopper still has a picker in front of them and simply has not used
+   * it yet, there is nothing to show: the summary says the charge follows from
+   * their area, and it does.
    *
-   * They used to appear the moment checkout loaded, before a district had been
-   * chosen — a full price list offering a choice the address was about to
-   * overrule, on a page whose whole point is that nobody has to know which
-   * bucket they live in. So while the shopper still has a picker in front of
-   * them and simply has not used it yet, there is nothing to show: the summary
-   * says the charge follows from their area, and it does.
-   *
-   * "Still has a picker" is the whole of the condition, and it is doing real
-   * work. A shopper COLLECTING has no destination to give and must still choose
-   * a pickup point. A merchant who does not collect a city leaves a guest with
-   * nothing to answer with at all. In both, an unanswered destination is
-   * permanent, and hiding the cards would leave a store unable to take an
-   * order — which is the one thing D5 exists to prevent.
+   * In MANUAL mode:
+   * The shopper chooses directly from the cards, so awaitingDestination is false.
    */
   const awaitingDestination =
-    refusalReason === "NO_DESTINATION" && !collecting && (isSignedIn || shows("city"));
+    isAutoDelivery &&
+    refusalReason === "NO_DESTINATION" &&
+    !collecting &&
+    (isSignedIn || shows("city"));
 
-  /** The shopper is asked to choose only when the destination could not. */
+  /** The shopper is asked to choose only when the destination could not (or in MANUAL mode). */
   const asksForOption = !derivedOption && !awaitingDestination;
 
   /**
@@ -298,7 +299,7 @@ export default function CheckoutForm({
    * they simply have not answered yet — telling someone their area could not be
    * worked out before they have named one is an error message for nothing.
    */
-  const optionRefusal = refusalReason ? refusalMessage(refusalReason) : null;
+  const optionRefusal = isAutoDelivery && refusalReason ? refusalMessage(refusalReason) : null;
 
   /*
    * Whether this store takes money before it ships.
@@ -1842,7 +1843,7 @@ export default function CheckoutForm({
                     formatPrice(shippingCharge)
                   )
                 ) : (
-                  "Enter your address to view delivery fee"
+                  isAutoDelivery ? "Enter your address to view delivery fee" : "Select a delivery option"
                 )}
               </span>
             </div>

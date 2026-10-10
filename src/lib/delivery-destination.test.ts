@@ -14,14 +14,14 @@ import {
 
 /** The live store's own two options, keys included — see the map's comment. */
 const INSIDE: DeliveryOption = {
-  key: "option-2",
+  key: "option-1",
   label: "Inside Dhaka ( ঢাকার ভিতরে )",
   kind: "DELIVERY",
   price: 80,
   days: 3,
 };
 const OUTSIDE: DeliveryOption = {
-  key: "outside-dhaka",
+  key: "option-2",
   label: "Outside Dhaka ( ঢাকার বাহিরে )",
   kind: "DELIVERY",
   price: 120,
